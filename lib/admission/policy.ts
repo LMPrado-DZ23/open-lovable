@@ -56,3 +56,27 @@ export function verifyAdmissionFiles(input:unknown,directory:string):string[]{
  }
  return issues;
 }
+
+/** Compare installed package identity to the version, source and integrity in the committed lockfile. */
+export function verifyNpmLock(input:unknown,sourceDirectory:string,lock:unknown):string[]{
+ const parsed=admissionManifestSchema.safeParse(input);if(!parsed.success)return ['Invalid artifact manifest'];
+ const manifest=parsed.data;if(manifest.sourceKind!=='npm')return [];
+ const expected='node_modules/'+manifest.packageName;
+ if(sourceDirectory!==expected&&!sourceDirectory.endsWith('/'+expected))return ['Package source directory does not match its admitted name'];
+ const packages=(lock as {packages?:Record<string,{version?:string;integrity?:string;resolved?:string}>})?.packages;
+ const row=packages?.[sourceDirectory];
+ return row&&row.version===manifest.revision&&row.integrity===manifest.integrity&&row.resolved===manifest.sourceURL?[]:['Package lock identity changed or is missing'];
+}
+
+/** Canonical JSON evidence remains stable across LF/CRLF checkout conversion, not content changes. */
+export function reviewEvidenceDigest(value:unknown):string{return createHash('sha256').update(canonical(value)).digest('hex');}
+/** A declaration of a digest is insufficient: the protected review artifact must actually match it. */
+export function verifyReviewEvidence(input:unknown,root:string):string[]{
+ try{
+  const value=input as {evidencePath?:string;evidenceDigest?:string;evidenceFormat?:string};
+  if(value?.evidenceFormat!=='canonical-json-v1'||typeof value.evidencePath!=='string'||!/^docs\/admission\/[a-zA-Z0-9._-]+\.json$/.test(value.evidencePath))return ['Missing or invalid review evidence reference'];
+  const path=resolve(root,value.evidencePath);assertSafeDataAncestors(path);const stat=lstatSync(path);
+  if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1024*1024)return ['Invalid review evidence file'];
+  return reviewEvidenceDigest(JSON.parse(readFileSync(path,'utf8')))===value.evidenceDigest?[]:['Review evidence content changed'];
+ }catch{return ['Review evidence missing or unreadable'];}
+}

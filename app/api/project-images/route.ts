@@ -1,3 +1,4 @@
+import {SqliteProjectRepository} from '@/lib/persistence/sqlite';
 import {z} from 'zod';
 import {authorizeOperatorRequest} from '@/lib/security/operator-access';
 import {readJsonObject,ClientInputError} from '@/lib/security/input-validation';
@@ -21,7 +22,8 @@ export async function GET(request:Request){
  const denied=await authorizeOperatorRequest(request);if(denied)return denied;
  try{
   const query=new URL(request.url).searchParams,projectID=query.get('projectID')||'';
-  const images=new ReferenceImageStore(projectStore()),owner=operatorID();
+  const store=projectStore(),images=new ReferenceImageStore(store),owner=operatorID(),repository=new SqliteProjectRepository(store);
+  await repository.read({...repository.individualContext(owner),projectId:projectID});
   const imageID=query.get('imageID');
   if(!imageID)return Response.json({images:images.list(owner,projectID)},{headers:{'Cache-Control':'no-store'}});
   const image=images.get(owner,projectID,imageID);
@@ -35,7 +37,8 @@ export async function POST(request:Request){
   const body=schema.parse(await readJsonObject(request,8*1024*1024,false));
   // Binary data has a separate decoder; metadata still passes the textual credential check.
   if(body.action==='upload')assertNoSecrets({name:body.name,role:body.role,projectID:body.projectID});
-  const images=new ReferenceImageStore(projectStore()),owner=operatorID();
+  const store=projectStore(),images=new ReferenceImageStore(store),owner=operatorID(),repository=new SqliteProjectRepository(store);
+  await repository.requireWrite({...repository.individualContext(owner),projectId:body.projectID});
   if(body.action==='upload')return Response.json({image:await images.add(owner,body.projectID,body.name,body.role,body.data)},{status:201,headers:{'Cache-Control':'no-store'}});
   images.archive(owner,body.projectID,body.imageID);
   return Response.json({success:true},{headers:{'Cache-Control':'no-store'}});

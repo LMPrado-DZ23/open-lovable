@@ -79,3 +79,25 @@
 - Corrected conflicting SECURITY status and moved browser-context setup into server-cleanup protection.
 - Evidence: docs/evidence/p03-review.json; 115 code/API tests + 8 verifier tests and 22 browser scenarios in the current check. No new provider call, dependency or data migration.
 - P04 next: real workspace-scoped repositories; preserve existing individual flows and distinguish hosted adapter validation from hosted product completion.
+
+## P04 - workspace persistence implementation
+
+- Baseline 34e65ea; new isolated branch; existing product paths remain supported.
+- Ruling: expose only implemented repository operations (read/list/create/save/revisions/restore). Draft/patch/approval contracts are added when P17/P23 are implemented; no stub methods.
+- SQLite keeps canonical rows; migration 4 adds workspace and membership boundaries without rewriting migrations 1-3. Legacy owners map deterministically and revoked memberships are never silently restored.
+- PostgreSQL adapter uses the same behavioral contract, bounded transactions and parameter binding. Test database must be disposable and distinct from production.
+- Docker Desktop start timed out; no installation, license acceptance or settings change attempted. PostgreSQL validation will use an isolated CI service if no local daemon is available.
+- First RED: shared repository contract; pending implementations are not marked complete.
+
+- P04 local shared repository/API/migration tests passed. PostgreSQL adapter, explicit migrator/importer and real-service CI tests are implemented; PostgreSQL validation still requires the new CI job, not the unavailable local Docker daemon.
+- Ruling: npm sources are pinned by exact package version + registry SRI + selected file hashes rather than fabricated Git SHAs. Fourteen new driver/type dependencies were inspected without lifecycle scripts, with MIT/ISC notices retained; prior lock entries remain unchanged. Source repository metadata was read using authorized GitHub actions; a broader shell metadata request had been refused and was not executed.
+- Import preserves existing data, refuses a nonempty target and does not activate a hosted backend. Remaining auth/jobs/connectors are not falsely represented as PostgreSQL-ready.
+
+- P04 first full local verification: 130 code/API tests, 8 baseline checks and 22 E2E; lint/types/build/admission/audit passed. Evidence docs/evidence/p04-local.json. PostgreSQL real-service tests are prepared, not yet executed; publication is an incremental draft awaiting that gate.
+
+- PR5 review confirmed the import-column bug already reproduced by real PostgreSQL: sha256 rejected by an over-restrictive identifier regex. Added a local regression against every declared schema column and kept rejection of SQL metacharacters.
+- Corrected an unnecessary SQLite write lock during context reads (two-connection regression), and tied admission decisions to actual canonical review artifacts across LF/CRLF.
+- Review follow-up: require npm tarball path to match package/version; expose sanitized domain precondition errors in operator CLI; test runtime roles now have unique per-run identifiers/secrets and cleanup only the role created by the test. Repeated PostgreSQL suite on the same disposable server is a CI gate.
+
+- P04 review verification: 136 root code/API tests + 8 baseline tests and 22 E2E passed. Real PostgreSQL initial run passed 7/8 and exposed the column-name bug; fixed with local RED/GREEN while keeping the actual import test. Full PostgreSQL retry is required on the follow-up SHA.
+- Evidence: docs/evidence/p04-review.json. No live credentials, source cutover, merge or production change.
