@@ -57,3 +57,8 @@ e2b-template-*
 repomix-output.txt
 bun.lockb
 .env*.local
+
+# Local verification artifacts
+.audit/
+playwright-report/
+test-results/

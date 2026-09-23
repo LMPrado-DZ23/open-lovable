@@ -1,3 +1,5 @@
+import { ClientInputError, readJsonObject } from '@/lib/security/input-validation';
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 import type { ConversationState } from '@/types/conversation';
 
@@ -6,7 +8,9 @@ declare global {
 }
 
 // GET: Retrieve current conversation state
-export async function GET() {
+export async function GET(request: Request) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
     if (!global.conversationState) {
       return NextResponse.json({
@@ -25,14 +29,16 @@ export async function GET() {
     return NextResponse.json({
       success: false,
       error: (error as Error).message
-    }, { status: 500 });
+    }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }
 
 // POST: Reset or update conversation state
 export async function POST(request: NextRequest) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
-    const { action, data } = await request.json();
+    const { action, data } = await readJsonObject(request);
     
     switch (action) {
       case 'reset':
@@ -135,12 +141,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: false,
       error: (error as Error).message
-    }, { status: 500 });
+    }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }
 
 // DELETE: Clear conversation state
-export async function DELETE() {
+export async function DELETE(request: Request) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
     global.conversationState = null;
     
@@ -155,6 +163,6 @@ export async function DELETE() {
     return NextResponse.json({
       success: false,
       error: (error as Error).message
-    }, { status: 500 });
+    }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }
