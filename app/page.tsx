@@ -270,6 +270,7 @@ export default function HomePage() {
                 Powered by Firecrawl.
               </Link>
               <Link href="/settings/ai" className="ml-[12px] text-[13px] underline underline-offset-4">Conexões de IA</Link>
+              <Link href="/projects" className="ml-[12px] text-[13px] underline underline-offset-4">Projetos salvos</Link>
             </div>
           </div>
 

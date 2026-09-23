@@ -1,3 +1,4 @@
+import { effectiveProvider, providerIDs } from '@/lib/settings/store';
 import { appConfig } from '@/config/app.config';
 import { createProviderFetch, validateProviderURL } from './provider-transport';
 
@@ -21,32 +22,35 @@ export function validModelID(id: unknown): id is string {
   return typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_./:+-]{0,199}$/.test(id);
 }
 export function getGatewayConfig(): {baseURL:string; apiKey?:string; models?:string[]} | null {
-  const raw = process.env.OPEN_LOVABLE_GATEWAY_URL?.trim();
-  if (!raw) return null;
-  const url = validateProviderURL(raw, true);
-  const apiKey = process.env.OPEN_LOVABLE_GATEWAY_API_KEY?.trim() || undefined;
-  if (!['localhost','127.0.0.1','[::1]'].includes(url.hostname) && !apiKey) throw new ProviderConfigError('A remote gateway requires a server-side API key');
-  let models: string[] | undefined;
-  if (process.env.OPEN_LOVABLE_GATEWAY_MODELS) {
-    let rawModels: unknown;
-    try {rawModels=JSON.parse(process.env.OPEN_LOVABLE_GATEWAY_MODELS);} catch {throw new ProviderConfigError('OPEN_LOVABLE_GATEWAY_MODELS must be a JSON array of model IDs');}
-    if (!Array.isArray(rawModels) || !rawModels.length || rawModels.length > 500 || !rawModels.every(validModelID)) throw new ProviderConfigError('Invalid configured gateway models');
-    models=[...new Set(rawModels as string[])];
-  }
-  return {baseURL:url.href.replace(/\/$/,''), apiKey, models};
+  const saved=effectiveProvider('gateway');
+  if(!saved.enabled || !saved.baseURL)return null;
+  const url=validateProviderURL(saved.baseURL,true);
+  const apiKey=saved.apiKey;
+  if(!['localhost','127.0.0.1','[::1]'].includes(url.hostname)&&!apiKey)throw new ProviderConfigError('A remote gateway requires a server-side API key');
+  return {baseURL:url.href.replace(/\/$/,''),apiKey,models:saved.models?.length?saved.models:undefined};
 }
 
 export function applicationModels(): ModelOption[] {
-  return appConfig.ai.availableModels.map(id => {
-    const configured = (appConfig.ai.modelApiConfig as Record<string,{provider:string;model:string}>)[id];
-    const provider = configured?.provider ?? id.split('/')[0];
-    if (!(provider in KEY_ENV)) throw new ProviderConfigError('Application model has an unsupported provider');
+  const options:ModelOption[]=appConfig.ai.availableModels.map(id => {
+    const configured=(appConfig.ai.modelApiConfig as Record<string,{provider:string;model:string}>)[id];
+    const provider=configured?.provider??id.split('/')[0];
+    if(!(provider in KEY_ENV))throw new ProviderConfigError('Application model has an unsupported provider');
     const actualProvider=provider as Exclude<ProviderID,'gateway'>;
-    return {id, label:appConfig.ai.modelDisplayNames[id] ?? id, provider:actualProvider,
-      upstreamId:configured?.model ?? id.slice(id.indexOf('/')+1),
-      configured:Boolean(process.env[KEY_ENV[actualProvider]]?.trim() || process.env.AI_GATEWAY_API_KEY?.trim()),
-      source:'application', capabilities:['text','coding'], capabilityStatus:'declared'};
+    const saved=effectiveProvider(actualProvider);
+    return {id,label:appConfig.ai.modelDisplayNames[id]??id,provider:actualProvider,
+      upstreamId:configured?.model??id.slice(id.indexOf('/')+1),
+      configured:Boolean((saved.enabled&&saved.apiKey)||process.env.AI_GATEWAY_API_KEY?.trim()),
+      source:'application',capabilities:['text','coding'],capabilityStatus:'declared'};
   });
+  for(const provider of providerIDs.filter(id=>id!=='gateway')) {
+    const saved=effectiveProvider(provider);
+    for(const upstreamId of saved.models||[]) {
+      const id=provider+'/'+upstreamId;
+      if(!options.some(option=>option.id===id)) options.push({id,label:upstreamId,upstreamId,provider,
+        configured:Boolean(saved.enabled&&saved.apiKey),source:'operator',capabilities:[],capabilityStatus:'unknown'});
+    }
+  }
+  return options;
 }
 
 export async function loadModelCatalog(signal?: AbortSignal): Promise<ModelCatalog> {
@@ -58,7 +62,7 @@ export async function loadModelCatalog(signal?: AbortSignal): Promise<ModelCatal
   try {
     let ids=config.models;
     if (!ids) {
-      const guardedFetch=createProviderFetch(config.baseURL,{allowLoopback:true,timeoutMs:5000,maxBytes:1024*1024});
+      const guardedFetch=createProviderFetch(config.baseURL,{allowLoopback:true,timeoutMs:5000,maxDurationMs:5000,maxBytes:1024*1024});
       const response=await guardedFetch(`${config.baseURL}/models`,{signal,headers:config.apiKey ? {Authorization:`Bearer ${config.apiKey}`} : {}});
       if (!response.ok) {await response.body?.cancel(); throw new ProviderConfigError('Gateway catalog request failed');}
       const data=await response.json();

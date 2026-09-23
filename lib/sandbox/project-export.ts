@@ -1,3 +1,4 @@
+import { isBase64 } from '@/lib/security/base64';
 import { assertNoSecrets } from '@/lib/security/secret-content';
 import { zipSync } from 'fflate';
 
@@ -67,7 +68,7 @@ export function zipExportManifest(raw: string): { bytes: Uint8Array; excludedCou
   const entries: Record<string, Uint8Array> = Object.create(null);
   let total = 0;
   for (const file of manifest.files) {
-    if (!permittedPath(file.path) || Object.hasOwn(entries,file.path) || typeof file.base64 !== 'string' || !/^(?:[a-z0-9+/]{4})*(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?$/i.test(file.base64)) throw new Error('Unsafe export entry');
+    if (!permittedPath(file.path) || Object.hasOwn(entries,file.path) || typeof file.base64 !== 'string' || !isBase64(file.base64)) throw new Error('Unsafe export entry');
     const bytes = Buffer.from(file.base64,'base64');
     total += bytes.length;
     if (bytes.length > MAX_FILE || total > MAX_TOTAL) throw new Error('Export exceeds size limit');

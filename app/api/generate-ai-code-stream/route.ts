@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
   if (accessDenied) return accessDenied;
   try {
     const { prompt, model = appConfig.ai.defaultModel, context, isEdit = false } = await readJsonObject(request);
-    if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 32768) throw new ClientInputError('Prompt must be a nonempty string within 32768 characters');
+    if (typeof prompt !== 'string' || !prompt.trim() || Buffer.byteLength(prompt,'utf8') > 1024*1024) throw new ClientInputError('Prompt and scraped reference content must be nonempty and within 1 MiB');
     const resolvedModel = await getProviderForModel(model, request.signal);
     
     logger.log('[generate-ai-code-stream] Received request:');

@@ -1,3 +1,4 @@
+import { effectiveProvider } from '@/lib/settings/store';
 import { createGroq } from '@ai-sdk/groq';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -10,7 +11,9 @@ export async function getProviderForModel(modelId: string, signal?: AbortSignal)
   if (!validModelID(modelId)) throw new ProviderConfigError('Invalid model identifier',400);
   let option: ModelOption | undefined;
   if (modelId.startsWith('gateway/')) {
-    option=(await loadModelCatalog(signal)).models.find(model => model.id===modelId);
+    const catalog=await loadModelCatalog(signal);
+    if(catalog.gateway.status==='unavailable')throw new ProviderConfigError(catalog.gateway.error||'Provider catalog unavailable',503);
+    option=catalog.models.find(model => model.id===modelId);
   } else option=applicationModels().find(model => model.id===modelId);
   if (!option) throw new ProviderConfigError('Model is not in the configured provider catalog',400);
   if (!option.configured) throw new ProviderConfigError('Model provider credentials are not configured');
@@ -30,22 +33,23 @@ export async function getProviderForModel(modelId: string, signal?: AbortSignal)
     const upstream=option.provider==='groq' ? option.upstreamId : option.id;
     return {model:client.chat(upstream),actualModel:upstream,option};
   }
+  const settings=effectiveProvider(option.provider);
   switch(option.provider) {
     case 'openai': {
-      const baseURL=process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-      return {model:createOpenAI({apiKey:process.env.OPENAI_API_KEY,baseURL,fetch:createProviderFetch(baseURL,{allowLoopback:Boolean(process.env.OPENAI_BASE_URL)})})(actualModel),actualModel,option};
+      const baseURL=settings.baseURL || 'https://api.openai.com/v1';
+      return {model:createOpenAI({apiKey:settings.apiKey,baseURL,fetch:createProviderFetch(baseURL,{allowLoopback:Boolean(settings.baseURL)})})(actualModel),actualModel,option};
     }
     case 'anthropic': {
-      const baseURL=process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1';
-      return {model:createAnthropic({apiKey:process.env.ANTHROPIC_API_KEY,baseURL,fetch:createProviderFetch(baseURL,{allowLoopback:Boolean(process.env.ANTHROPIC_BASE_URL)})})(actualModel),actualModel,option};
+      const baseURL=settings.baseURL || 'https://api.anthropic.com/v1';
+      return {model:createAnthropic({apiKey:settings.apiKey,baseURL,fetch:createProviderFetch(baseURL,{allowLoopback:Boolean(settings.baseURL)})})(actualModel),actualModel,option};
     }
     case 'google': {
-      const baseURL=process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta';
-      return {model:createGoogleGenerativeAI({apiKey:process.env.GEMINI_API_KEY,baseURL,fetch:createProviderFetch(baseURL,{allowLoopback:Boolean(process.env.GEMINI_BASE_URL)})})(actualModel),actualModel,option};
+      const baseURL=settings.baseURL || 'https://generativelanguage.googleapis.com/v1beta';
+      return {model:createGoogleGenerativeAI({apiKey:settings.apiKey,baseURL,fetch:createProviderFetch(baseURL,{allowLoopback:Boolean(settings.baseURL)})})(actualModel),actualModel,option};
     }
     case 'groq': {
-      const baseURL=process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1';
-      return {model:createGroq({apiKey:process.env.GROQ_API_KEY,baseURL,fetch:createProviderFetch(baseURL,{allowLoopback:Boolean(process.env.GROQ_BASE_URL)})})(actualModel),actualModel,option};
+      const baseURL=settings.baseURL || 'https://api.groq.com/openai/v1';
+      return {model:createGroq({apiKey:settings.apiKey,baseURL,fetch:createProviderFetch(baseURL,{allowLoopback:Boolean(settings.baseURL)})})(actualModel),actualModel,option};
     }
   }
 }

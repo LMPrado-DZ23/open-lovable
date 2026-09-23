@@ -167,3 +167,22 @@ test('disabled or missing model configuration never causes a network fallback',a
   await assert.rejects(()=>getProviderForModel('openai/gpt-5'),/credentials/);
   assert.equal(calls,0);
 });
+
+
+test('active provider streaming is not cut off by a total-duration idle budget',async t=>{
+ const url=await fixture(t,(_req,res)=>{
+  res.writeHead(200,{'Content-Type':'text/plain'});res.write('start');
+  let count=0;const timer=setInterval(()=>{res.write('x');if(++count===8){clearInterval(timer);res.end('end');}},20);
+  res.on('close',()=>clearInterval(timer));
+ });
+ const fetcher=createProviderFetch(url,{allowLoopback:true,timeoutMs:65});
+ const response=await fetcher(`${url}/stream`);
+ assert.equal(await response.text(),'start'+'x'.repeat(8)+'end');
+});
+
+
+test('bounded scraped context larger than 32 KiB reaches the selected model without truncation',async t=>{
+ let received=0;await fixture(t,(req,res)=>{let raw='';req.on('data',chunk=>raw+=chunk);req.on('end',()=>{received=JSON.stringify(JSON.parse(raw).messages).length;sendText(res,'<file path="src/App.jsx">export default function App(){return <h1>Ready</h1>}</file>');});});
+ const response=await generate(new NextRequest('http://127.0.0.1/api/generate-ai-code-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'gateway/org/coder:latest',prompt:'Reference site content: '+ 'descriptive website copy '.repeat(2000)})}));
+ assert.equal(response.status,200);assert.match(await response.text(),/complete/);assert.ok(received>32768);
+});

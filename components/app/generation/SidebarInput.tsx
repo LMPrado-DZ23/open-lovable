@@ -94,7 +94,7 @@ export default function SidebarInput({ onSubmit, disabled = false, model, onMode
             {/* Model Selector */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">AI Model</label>
-              <AIModelSelect value={selectedModel} onValueChange={setSelectedModel}
+              <AIModelSelect disabled={disabled} value={selectedModel} onValueChange={setSelectedModel}
                             className="min-w-0 w-full lg:w-auto max-w-full px-[12px] py-[10px] text-[12px] text-gray-700 bg-white rounded border border-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-500" />
             </div>
 

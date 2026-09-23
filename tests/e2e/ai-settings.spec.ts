@@ -12,7 +12,7 @@ for(const [name,width,height] of [['desktop',1440,1000],['tablet',820,1180],['mo
     await model.selectOption('gateway/fixture/coder');
     const probe=page.getByRole('button',{name:'Testar texto e streaming'});
     await expect(probe).toBeDisabled();
-    await page.getByRole('checkbox').check();
+    await page.getByRole('checkbox',{name:/^Entendo que este teste pode consumir tokens/}).check();
     await expect(probe).toBeEnabled();
     // Metadata and UI only here; no inference call until the separate explicit probe test.
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
@@ -26,7 +26,7 @@ test('browser probe reaches a real local HTTP/SSE contract fixture after explici
   const model=page.getByLabel('Modelo para o teste');
   await expect(model.locator('option[value="gateway/fixture/coder"]')).toHaveCount(1);
   await model.selectOption('gateway/fixture/coder');
-  await page.getByRole('checkbox').check();
+  await page.getByRole('checkbox',{name:/^Entendo que este teste pode consumir tokens/}).check();
   await page.getByRole('button',{name:'Testar texto e streaming'}).click();
   await expect(page.getByRole('status')).toContainText('Texto e streaming responderam ao teste.');
   await expect(page.getByRole('status')).toContainText('fixture/coder');

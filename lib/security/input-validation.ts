@@ -4,7 +4,7 @@ export class ClientInputError extends Error {
   constructor(message: string) { super(message); this.name = 'ClientInputError'; }
 }
 
-export async function readJsonObject(request: Request, maxBytes = 2 * 1024 * 1024): Promise<Record<string, any>> {
+export async function readJsonObject(request: Request, maxBytes = 2 * 1024 * 1024, scanSecrets = true): Promise<Record<string, any>> {
   const reader = request.body?.getReader();
   if (!reader) throw new ClientInputError('A JSON request body is required');
   const chunks: Uint8Array[] = [];
@@ -27,7 +27,7 @@ export async function readJsonObject(request: Request, maxBytes = 2 * 1024 * 102
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
     const data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Not an object');
-    assertNoSecrets(data);
+    if (scanSecrets) assertNoSecrets(data);
     return data;
   } catch (error) {
     if (error instanceof SecretContentError) throw new ClientInputError(error.message);

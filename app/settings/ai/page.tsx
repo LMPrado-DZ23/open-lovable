@@ -1,4 +1,5 @@
 "use client";
+import ProviderSettingsForm from '@/components/ProviderSettingsForm';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { appConfig } from '@/config/app.config';
@@ -39,6 +40,7 @@ export default function AISettingsPage() {
         <p className="text-[15px] leading-relaxed text-[#65655e]">Escolha o modelo que executa seu trabalho. Credencial configurada e catálogo disponível não significam geração validada: confirme com um teste explícito.</p>
       </div>
       {error && <p role="alert" className="mb-[20px] rounded-md border border-red-200 bg-red-50 p-[16px] text-[14px]">{error}</p>}
+      <ProviderSettingsForm onSaved={()=>void reload()}/>
       <div className="grid items-start gap-[24px] md:grid-cols-2">
         <section className="rounded-lg border border-[#deded9] bg-white p-[24px]" aria-labelledby="gateway-heading">
           <h2 id="gateway-heading" className="mb-[14px] text-[19px] font-semibold">Ollama / Classe A+</h2>
@@ -52,7 +54,7 @@ export default function AISettingsPage() {
           <div className="mt-[24px] border-t border-[#ededE8] pt-[16px] text-[12px] leading-relaxed text-[#686862]">
             <p className="mb-[8px] font-medium">Configuração no ambiente do servidor</p>
             <code className="block break-all">OPEN_LOVABLE_GATEWAY_URL</code><code className="block break-all">OPEN_LOVABLE_GATEWAY_API_KEY</code><code className="block break-all">OPEN_LOVABLE_GATEWAY_MODELS</code>
-            <p className="mt-[12px]">Esta tela não grava chaves. Consulte docs/classe-a-plus-integration.md. Um endpoint local pode encaminhar modelos para a nuvem; a interface não o rotula como inferência privada.</p>
+            <p className="mt-[12px]">Use o formulario acima para salvar uma conexao cifrada, ou configure as variaveis no servidor. Consulte docs/classe-a-plus-integration.md. Um endpoint local pode encaminhar modelos para a nuvem; a interface não o rotula como inferência privada.</p>
           </div>
         </section>
         <section className="rounded-lg border border-[#deded9] bg-white p-[24px]" aria-labelledby="test-heading">

@@ -4,6 +4,14 @@ Chat with AI to build React apps instantly. An example app made by the [Firecraw
 
 <img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmZtaHFleGRsMTNlaWNydGdianI4NGQ4dHhyZjB0d2VkcjRyeXBucCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZFVLWMa6dVskQX0qu1/giphy.gif" alt="Open Lovable Demo" width="100%"/>
 
+## Projetos salvos e conexões de IA
+
+A área `/projects` acrescenta projetos persistentes em SQLite, importação ZIP, edição de código, propostas de IA revisáveis, prévia React e restauração de versões. `/settings/ai` permite cadastrar e editar conexões com chaves cifradas no servidor. O construtor cloud anterior continua disponível separadamente.
+
+Para experimentar as alterações deste PR, use a branch `fix/security-foundation-20260922`; a `main` não recebe mudanças automaticamente. Leia [o guia de projetos persistentes](docs/durable-projects.md), incluindo os limites de preview, exportação e backup. Esta é uma instalação de operador único, não uma plataforma multiusuário homologada.
+
+A área persistente não exige Firecrawl/E2B/Vercel para importar, editar, compilar e exportar arquivos. Para gerar com IA, configure um provedor real. As instruções cloud abaixo continuam aplicáveis ao fluxo anterior por URL.
+
 ## Setup
 
 1. **Clone & Install**
@@ -87,7 +95,7 @@ npm run test:e2e
 
 The tests do not consume AI/scraping/sandbox credits. Browser smoke uses a separate,
 loopback-only server and test-only credentials. Live integrations must be verified
-separately. This is not a multi-tenant release: operator tabs still share runtime state.
+separately. This is not a multi-tenant release: the legacy cloud builder still shares runtime state. Durable project APIs keep independent files, conversations, versions and proposals per project.
 The implementation plan is in `docs/security-foundation-plan.md`.
 
 ## Selective Classe A+ integration
@@ -96,4 +104,4 @@ The optional model gateway, shared model selectors and `/settings/ai` diagnostic
 
 See [configuration and boundaries](docs/classe-a-plus-integration.md) and [source attribution](THIRD_PARTY_NOTICES.md). API keys remain server-side. Credential-shaped content in ordinary source files is checked before outbound AI and export. A successful model probe does not certify generated-app correctness.
 
-This is still a single-operator preview. Durable project revisions, tenant isolation and a full mission runtime remain separate work.
+Durable project revisions and encrypted connection settings are now implemented in `/projects` and `/settings/ai`. Multi-user tenancy, a full mission runtime, arbitrary backend execution and live-provider qualification remain separate work. No production deployment is implied by a passing build.

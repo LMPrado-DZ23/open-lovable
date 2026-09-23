@@ -341,7 +341,7 @@ env['FORCE_COLOR'] = '0'
 
 process = subprocess.Popen(
     ['npm', 'run', 'dev'],
-    stdout=open('/tmp/vite.log', 'ab', buffering=0),
+    stdout=open('/tmp/vite.log', 'wb', buffering=0),
     stderr=subprocess.STDOUT,
     env=env
 )
@@ -387,7 +387,7 @@ env['FORCE_COLOR'] = '0'
 
 process = subprocess.Popen(
     ['npm', 'run', 'dev'],
-    stdout=open('/tmp/vite.log', 'ab', buffering=0),
+    stdout=open('/tmp/vite.log', 'wb', buffering=0),
     stderr=subprocess.STDOUT,
     env=env
 )

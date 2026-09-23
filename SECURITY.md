@@ -1,7 +1,7 @@
 # Security and deployment scope
 
 This branch hardens the existing **single-operator** builder. It is not a multi-user SaaS release.
-Global sandbox and conversation state remain shared by the operator's browser sessions.
+The legacy cloud builder's global sandbox and conversation state remain shared by the operator's browser sessions. The separate durable `/projects` workflow does not use those globals.
 Do not share a deployment or its credentials among mutually untrusted users.
 
 ## Access configuration
@@ -20,20 +20,20 @@ This release does not include distributed rate limiting or fine-grained user aut
 
 ## Generated code
 
-Generated code and commands are untrusted and must run only inside the E2B/Vercel sandbox.
+Generated code and commands are untrusted. The legacy command flow must run only inside E2B/Vercel. The durable preview compiles virtual files without running project scripts on the host, then runs generated JavaScript in a restricted iframe; this is not a hardened multi-user VM boundary.
 Do not mount host directories or inject control-plane credentials into generated projects.
 Registry package-name validation prevents argument/code interpolation; it does not prove
 that npm packages or their lifecycle scripts are trustworthy. Supply-chain review remains required.
 Path validation is lexical and does not establish full filesystem isolation against all
 symlink races. Provider sandbox isolation remains an independent required boundary.
 
-API JSON bodies are bounded to 2 MiB. File changes reject incomplete XML file blocks,
+Legacy API JSON bodies are bounded to 2 MiB. The durable project API allows 18 MiB JSON for encoded uploads, then enforces 8 MiB decoded snapshots and per-file limits. Middleware has a 20 MiB transport ceiling so it does not silently truncate a valid project upload. File changes reject incomplete XML file blocks,
 unsafe paths, credential paths, more than 200 files and files larger than 1 MiB.
-There is no transactional multi-file rollback or protection against concurrent operator tabs yet.
+The legacy sandbox workflow has no transactional multi-file rollback. The durable workflow stores whole-file snapshots transactionally, checks revision versions and requires explicit proposal approval; a conflict does not overwrite the saved version.
 
 ## Export limits and secrets
 
-ZIP export is bounded to 500 files, 2 MiB per file and 8 MiB total before compression.
+Legacy ZIP export is bounded to 500 files, 2 MiB per file and 8 MiB total before compression. Durable project imports/exports have a 300-file snapshot limit (1 MiB text, 2 MiB asset, 8 MiB total).
 Common environment/credential filenames, private-key extensions, build output and symbolic
 links are excluded. Binary files are preserved. The legacy data-URL response remains supported;
 Accept: application/zip selects a binary response. Both are bounded in-memory exports, not streaming.
@@ -50,10 +50,18 @@ SDK-boundary unit tests are not live E2B/Vercel integration tests.
 
 ## Remaining release blockers
 
-- Project/user/tenant isolation and durable project storage.
-- Per-project authorization, jobs, revisions, rollback and concurrency handling.
+- Full user/tenant isolation: HTTP identity is still a single operator. Durable data methods check owner/project, but this is not multi-user authentication.
+- Distributed jobs, durable autonomous workers, automatic legacy-to-project migration and cloud sandbox revision transactions.
 - Live AI, Firecrawl, E2B and Vercel end-to-end checks with explicitly authorized credentials.
 - Distributed throttling, full log redaction and a complete security review of legacy routes.
 - Visual/functional review of generated applications, not only the builder interface.
 
 Never advertise this branch as fully secure, production-certified or multi-tenant ready.
+
+## Durable data and credentials
+
+Data is stored outside the checkout in `OPEN_LOVABLE_DATA_DIR` (default: the server user home `.open-lovable`). Database migrations are versioned and additive. Directory validation rejects nested checkout paths and linked ancestors before creating data. Source content and exported credentials are checked heuristically, not certified secret-free.
+
+Connection values in SQLite are encrypted with AES-256-GCM and owner/provider/version authenticated data. Keep `credentials.key` or the separately configured `OPEN_LOVABLE_MASTER_KEY` private and backed up. Missing/corrupt keys fail closed; the application does not erase stored configuration. Operating-system ACLs and encrypted backups remain deployment responsibilities.
+
+See `docs/durable-projects.md` for backup/recovery and the exact scope of the React preview. Imported source is data, never permission to run scripts, install packages, publish, or access the host.

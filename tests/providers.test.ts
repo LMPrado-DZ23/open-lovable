@@ -1,3 +1,4 @@
+import {appConfig} from '../config/app.config';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { E2BProvider } from '../lib/sandbox/providers/e2b-provider';
@@ -45,4 +46,12 @@ test('Vercel must propagate output-read failures instead of fabricating empty ou
 test('package injection is rejected before an SDK operation', async () => {
   const provider = new LocalE2B({ runCode: async () => { throw new Error('SDK_CALLED'); } });
   await assert.rejects(provider.installPackages(["react'); print('bad"]), /Only npm registry/);
+});
+
+
+test('restarting Vite replaces the current diagnostic log instead of preserving old errors',async()=>{
+ const previous=appConfig.e2b.viteStartupDelay;appConfig.e2b.viteStartupDelay=0;
+ let script='';const provider=new LocalE2B({runCode:async(code:string)=>{script=code;return {logs:{stdout:[],stderr:[]}};}});
+ try{await provider.restartViteServer();assert.match(script,/stdout=open\('\/tmp\/vite\.log', 'wb'/);}
+ finally{appConfig.e2b.viteStartupDelay=previous;}
 });

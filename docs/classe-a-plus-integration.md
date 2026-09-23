@@ -26,7 +26,7 @@ The optional allowlist is a JSON array, for example `["my-model:latest","provide
 
 Open `/settings/ai` from the home-page connection link. Review configuration state and choose a model. Explicitly accept token consumption before testing text and streaming. A failed test never chooses another provider. No test is performed automatically and a listing is not a capability/health certification.
 
-This screen is diagnostic: it does not persist or edit API keys. Configure credentials through the server environment. Gateway models appear in the home page, editor and sidebar selectors. URL state preserves a gateway selection instead of replacing it with a built-in default.
+This screen includes an encrypted connection editor and diagnostic probes. Server environment configuration takes priority over saved settings. Keys are never returned by the read API; leaving the password input blank preserves an existing key unless the explicit clear-key option is selected. Gateway models appear in the home page, editor and sidebar selectors. URL state preserves a gateway selection instead of replacing it with a built-in default.
 
 The gateway uses OpenAI Chat Completions, including SSE. Generation, edit analysis and optional completion share one resolver. Structured JSON support used in edit analysis is model-dependent; a text/streaming probe does not certify tools, vision, structured output or deployment.
 
@@ -43,7 +43,7 @@ The gateway uses OpenAI Chat Completions, including SSE. Generation, edit analys
 
 ## What is not imported
 
-Persistent project revisions, tenant/session isolation, resumable missions, document ingestion, MCP tools, Company OS and desktop control are not implemented by this increment. The existing single-operator runtime still has global sandbox state. Do not share this instance with untrusted users.
+The follow-up durable project workflow now adds saved revisions, proposal acceptance, cancellation and text reference documents; see `durable-projects.md`. Multi-user tenancy, distributed resumable missions, PDF/DOCX ingestion, MCP tools, Company OS and desktop control are not implemented. The legacy cloud builder still uses global sandbox state. Do not share this instance with untrusted users.
 
 ## Validation
 

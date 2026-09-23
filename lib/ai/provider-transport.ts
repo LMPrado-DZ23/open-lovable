@@ -52,9 +52,9 @@ const loopbackLookup: LookupFunction = (_hostname, options, callback) => {
   else callback(null, '127.0.0.1', 4);
 };
 
-export function createProviderFetch(baseURL: string, options: {allowLoopback?: boolean; timeoutMs?: number; maxBytes?: number} = {}): typeof fetch {
+export function createProviderFetch(baseURL: string, options: {allowLoopback?: boolean; timeoutMs?: number; maxDurationMs?: number; maxBytes?: number} = {}): typeof fetch {
   const base = validateProviderURL(baseURL, options.allowLoopback);
-  const timeoutMs = options.timeoutMs ?? 120000;
+  const timeoutMs = options.timeoutMs ?? 180000;
   const maxBytes = options.maxBytes ?? 16 * 1024 * 1024;
   return async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
@@ -69,17 +69,28 @@ export function createProviderFetch(baseURL: string, options: {allowLoopback?: b
     }
     const local = LOOPBACK.has(base.hostname);
     const dispatcher = new Agent({connect: {timeout:10000, lookup:local ? loopbackLookup : publicLookup}});
-    const signals = [AbortSignal.timeout(timeoutMs)];
+    // The idle budget resets on each chunk. A separate hard ceiling still bounds the whole call.
+    const idle = new AbortController();
+    let idleTimer:ReturnType<typeof setTimeout>|undefined;
+    const touch = () => {
+      clearTimeout(idleTimer);
+      idleTimer=setTimeout(()=>idle.abort(new Error('Provider idle timeout')),timeoutMs);
+      idleTimer.unref();
+    };
+    touch();
+    const signals = [idle.signal,AbortSignal.timeout(options.maxDurationMs ?? 900000)];
     if (init?.signal) signals.push(init.signal);
     try {
       const upstream = await httpFetch(url, {
         method:init?.method ?? 'GET', headers: new Headers(init?.headers), body: init?.body as string | undefined,
         signal:AbortSignal.any(signals), redirect:'error', dispatcher,
       });
+      touch();
       const headers = new Headers(Array.from(upstream.headers.entries()));
       headers.delete('content-encoding');
       headers.delete('content-length');
       if (!upstream.body) {
+        clearTimeout(idleTimer);
         await dispatcher.close();
         return new Response(null,{status:upstream.status,headers});
       }
@@ -89,23 +100,27 @@ export function createProviderFetch(baseURL: string, options: {allowLoopback?: b
         async pull(controller) {
           try {
             const next = await reader.read();
-            if (next.done) {controller.close(); await dispatcher.close(); return;}
+            if (next.done) {clearTimeout(idleTimer);controller.close(); await dispatcher.close(); return;}
+            touch();
             bytes += next.value.byteLength;
             if (bytes > maxBytes) throw new Error('Provider response exceeds byte limit');
             controller.enqueue(next.value);
           } catch {
+            clearTimeout(idleTimer);
             controller.error(new Error('Provider stream failed or exceeded its limits'));
             await reader.cancel().catch(() => undefined);
             await dispatcher.destroy();
           }
         },
         async cancel(reason) {
+          clearTimeout(idleTimer);
           await reader.cancel(reason).catch(() => undefined);
           await dispatcher.destroy();
         },
       });
       return new Response(body, {status:upstream.status,statusText:upstream.statusText,headers});
     } catch (error) {
+      clearTimeout(idleTimer);
       await dispatcher.destroy();
       if (error instanceof Error && error.name === 'AbortError') throw error;
       throw new Error('Provider connection failed. Check server URL, credentials, TLS and network policy.');
