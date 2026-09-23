@@ -105,3 +105,9 @@ The optional model gateway, shared model selectors and `/settings/ai` diagnostic
 See [configuration and boundaries](docs/classe-a-plus-integration.md) and [source attribution](THIRD_PARTY_NOTICES.md). API keys remain server-side. Credential-shaped content in ordinary source files is checked before outbound AI and export. A successful model probe does not certify generated-app correctness.
 
 Durable project revisions and encrypted connection settings are now implemented in `/projects` and `/settings/ai`. Multi-user tenancy, a full mission runtime, arbitrary backend execution and live-provider qualification remain separate work. No production deployment is implied by a passing build.
+
+## Visual references and Plan mode
+
+The durable workspace now accepts PNG/JPEG/WebP references and sends explicitly selected images as actual multimodal input to the chosen provider. Plan mode stores a plan without modifying application files. Both use the existing project isolation, run idempotency and revision approvals.
+
+Read [visual-reference usage and limits](docs/visual-references.md) and the [independent functional parity map](docs/lovable-functional-parity.md). These changes do not claim full Lovable parity or real-provider visual quality certification.

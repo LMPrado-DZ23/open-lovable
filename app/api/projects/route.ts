@@ -16,7 +16,7 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('save'),id,version,snapshot:z.unknown(),label:z.string().min(1).max(200)}).strict(),
  z.object({action:z.literal('import'),id,version,archive:z.string().max(16*1024*1024)}).strict(),
  z.object({action:z.literal('restore'),id,version,revisionID:id}).strict(),
- z.object({action:z.literal('generate'),id,version,requestKey:z.string().min(8).max(128),prompt:z.string().min(1).max(32768),model:z.string().min(1).max(240)}).strict(),
+ z.object({action:z.literal('generate'),id,version,requestKey:z.string().min(8).max(128),prompt:z.string().min(1).max(32768),model:z.string().min(1).max(240),mode:z.enum(['build','plan']).optional(),imageIDs:z.array(id).max(4).optional(),confirmVision:z.boolean().optional()}).strict(),
  z.object({action:z.literal('cancel'),id,runID:id}).strict(),
  z.object({action:z.literal('accept'),id,version,runID:id}).strict(),
  z.object({action:z.literal('preview'),id,runID:id.optional(),channel:z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/)}).strict(),
@@ -65,7 +65,8 @@ export async function POST(request:Request){
    }
    case 'restore':return json({project:store.restoreRevision(owner,body.id,body.version,body.revisionID)});
    case 'generate':{
-    const run=store.beginRun(owner,body.id,body.requestKey,body.prompt,body.model,body.version);
+    if(body.imageIDs?.length&&body.confirmVision!==true)throw new ProjectError('Confirm that the selected model accepts images. No text-only fallback is allowed.');
+    const run=store.beginRun(owner,body.id,body.requestKey,body.prompt,body.model,body.version,{mode:body.mode,imageIDs:body.imageIDs});
     if(!store.claimRun(owner,body.id,run.id))return json({run});
     return streamProjectRun(store,owner,run,request.signal);
    }

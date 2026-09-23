@@ -43,4 +43,14 @@ CREATE TABLE execution_claims (
  run_id TEXT PRIMARY KEY REFERENCES runs(id), created_at TEXT NOT NULL
 ) STRICT;
 CREATE INDEX events_by_run ON run_events(run_id,sequence);
+`},{version:3,sql:`
+ALTER TABLE runs ADD COLUMN inputs TEXT NOT NULL DEFAULT '{"mode":"build","images":[]}';
+CREATE TABLE project_images (
+ id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), name TEXT NOT NULL,
+ role TEXT NOT NULL CHECK(role IN ('target','current')), mime TEXT NOT NULL,
+ width INTEGER NOT NULL, height INTEGER NOT NULL, bytes INTEGER NOT NULL,
+ sha256 TEXT NOT NULL, data TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0,1)),
+ created_at TEXT NOT NULL
+) STRICT;
+CREATE INDEX images_by_project ON project_images(project_id,archived);
 `}];

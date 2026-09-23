@@ -13,7 +13,10 @@ export interface Project {
  id:string; owner:string; name:string; model:string; version:number; snapshot:ProjectSnapshot; created_at:string; updated_at:string;
 }
 export type RunState='RUNNING'|'AWAITING_APPROVAL'|'SUCCEEDED'|'FAILED'|'CANCELLED'|'INTERRUPTED';
+export interface RunInputs {mode:'build'|'plan';images:Array<{id:string;sha256:string}>;}
+export interface RunOptions {mode?:'build'|'plan';imageIDs?:string[];}
 export interface ProjectRun {
+ inputs:RunInputs;
  id:string; project_id:string; request_key:string; prompt:string; model:string; base_version:number;
  state:RunState; candidate:ProjectSnapshot|null; explanation:string; error:string; lease_until:number; created_at:string; updated_at:string;
 }
@@ -134,22 +137,32 @@ export class ProjectStore {
   return this.saveSnapshot(owner,id,expectedVersion,this.revision(owner,id,revisionID),'Restored revision '+revisionID);
  }
  /** Idempotency keys bind to exact input. Only one active run per project, enforced by SQLite. */
- beginRun(owner:string,id:string,requestKey:string,prompt:string,model:string,baseVersion:number):ProjectRun {
+ beginRun(owner:string,id:string,requestKey:string,prompt:string,model:string,baseVersion:number,options:RunOptions={}):ProjectRun {
   if(typeof requestKey!=='string'||!/^[a-z0-9_-]{8,128}$/i.test(requestKey)) throw new ProjectError('Invalid idempotency key');
   if(typeof prompt!=='string'||!prompt.trim()||prompt.length>32768||typeof model!=='string'||model.length>240) throw new ProjectError('Invalid generation request');
   assertNoSecrets(prompt);
+  const mode=options.mode??'build';const imageIDs=options.imageIDs??[];
+  if(!['build','plan'].includes(mode)||!Array.isArray(imageIDs)||imageIDs.length>4||imageIDs.some(id=>typeof id!=='string'||!UUID.test(id))||new Set(imageIDs).size!==imageIDs.length)throw new ProjectError('Invalid mode or image selection (up to four unique images)');
   return this.transaction(()=>{
    const p=this.getProject(owner,id);
    const existing=this.db.prepare('SELECT * FROM runs WHERE project_id=? AND request_key=?').get(id,requestKey);
    if(existing) {
-    if(existing.prompt!==prompt||existing.model!==model||existing.base_version!==baseVersion) throw new ProjectError('Idempotency key conflict',409);
-    return this.decodeRun(existing);
+    const previous=this.decodeRun(existing);
+    if(existing.prompt!==prompt||existing.model!==model||existing.base_version!==baseVersion||previous.inputs.mode!==mode||JSON.stringify(previous.inputs.images.map(image=>image.id))!==JSON.stringify(imageIDs)) throw new ProjectError('Idempotency key conflict',409);
+    return previous;
    }
+   const selected=imageIDs.map(imageID=>{
+    const row=this.db.prepare('SELECT id,sha256,bytes FROM project_images WHERE id=? AND project_id=? AND archived=0').get(imageID,id);
+    if(!row)throw new ProjectError('Selected image not found or archived',404);return row;
+   });
+   if(selected.reduce((sum,row)=>sum+Number(row.bytes),0)>6*1024*1024)throw new ProjectError('Selected images exceed the 6 MiB model input budget',413);
+   const inputs:RunInputs={mode,images:selected.map(row=>({id:row.id as string,sha256:row.sha256 as string}))};
    this.expireRuns(id);
    if(this.db.prepare("SELECT id FROM runs WHERE project_id=? AND state IN ('RUNNING','AWAITING_APPROVAL')").get(id)) throw new ProjectError('A generation or proposal is already in progress',409);
    if(p.version!==baseVersion) throw new ProjectError('Revision conflict',409);
    const runID=randomUUID(),time=now();
    this.db.prepare('INSERT INTO runs(id,project_id,request_key,prompt,model,base_version,state,lease_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?, ?,?,?)').run(runID,id,requestKey,prompt,model,baseVersion,'RUNNING',Date.now()+120000,time,time);
+   this.db.prepare('UPDATE runs SET inputs=? WHERE id=?').run(JSON.stringify(inputs),runID);
    this.db.prepare('INSERT INTO messages VALUES(?,?,?,?,?,?)').run(randomUUID(),id,runID,'user',prompt,time);
    return this.getRun(owner,id,runID);
   });
@@ -166,7 +179,7 @@ export class ProjectStore {
   this.getRun(owner,id,runID);
   return this.db.prepare('SELECT sequence,type,payload,created_at FROM run_events WHERE run_id=? ORDER BY sequence LIMIT 1000').all(runID).map(row=>({...row,payload:JSON.parse(row.payload as string)})) as any;
  }
- private decodeRun(row:Record<string,unknown>):ProjectRun {return {...row,candidate:row.candidate?JSON.parse(row.candidate as string):null} as ProjectRun;}
+ private decodeRun(row:Record<string,unknown>):ProjectRun {return {...row,inputs:row.inputs?JSON.parse(row.inputs as string):{mode:'build',images:[]},candidate:row.candidate?JSON.parse(row.candidate as string):null} as ProjectRun;}
  getRun(owner:string,projectID:string,runID:string):ProjectRun {
   this.getProject(owner,projectID);
   const row=this.db.prepare('SELECT * FROM runs WHERE id=? AND project_id=?').get(runID,projectID);
@@ -188,9 +201,23 @@ export class ProjectStore {
   const validated=validateSnapshot(snapshot);
   return this.transaction(()=>{
    const run=this.getRun(owner,id,runID);
+   if(run.inputs.mode==='plan')throw new ProjectError('Plan mode cannot stage code',409);
    if(run.state!=='RUNNING') throw new ProjectError('Run state is not running; cancelled output cannot be applied',409);
    if(this.getProject(owner,id).version!==run.base_version) throw new ProjectError('Revision conflict',409);
    this.db.prepare("UPDATE runs SET state='AWAITING_APPROVAL',candidate=?,explanation=?,updated_at=? WHERE id=?").run(JSON.stringify(validated),redactSecretText(explanation).slice(0,16000),now(),runID);
+   return this.getRun(owner,id,runID);
+  });
+ }
+ /** Plans persist as conversation evidence, never as application-file revisions. */
+ completePlan(owner:string,id:string,runID:string,text:string):ProjectRun {
+  if(typeof text!=='string'||!text.trim()||text.length>32000)throw new ProjectError('Plan must be nonempty and within 32,000 characters');
+  assertNoSecrets(text);
+  return this.transaction(()=>{
+   const run=this.getRun(owner,id,runID);
+   if(run.inputs.mode!=='plan'||run.state!=='RUNNING')throw new ProjectError('Run is not an active plan',409);
+   if(this.getProject(owner,id).version!==run.base_version)throw new ProjectError('Project changed during planning. Request a new plan.',409);
+   this.db.prepare("UPDATE runs SET state='SUCCEEDED',explanation=?,candidate=NULL,updated_at=? WHERE id=?").run(text,now(),runID);
+   this.db.prepare('INSERT INTO messages VALUES(?,?,?,?,?,?)').run(randomUUID(),id,runID,'assistant',text,now());
    return this.getRun(owner,id,runID);
   });
  }
