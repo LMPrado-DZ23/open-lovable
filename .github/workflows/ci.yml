@@ -50,4 +50,4 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx --no-install tsx --import ./tests/setup.mjs --test tests/data-paths.test.ts tests/credential-audience.test.ts tests/media-boundaries.test.ts tests/admission.test.ts
+      - run: npx --no-install tsx --import ./tests/setup.mjs --test tests/data-paths.test.ts tests/credential-audience.test.ts tests/media-boundaries.test.ts tests/backup-roundtrip.test.ts tests/recovery-cli.test.ts tests/admission.test.ts
