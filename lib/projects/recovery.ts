@@ -62,7 +62,7 @@ function createNewTarget(path:string):string{
  return canonicalTarget;
 }
 /** Read-only structural inventory; the source is never opened through migrating ProjectStore. */
-function inventory(path:string,key:Buffer,maxBytes=LIMIT,check:()=>void=()=>{}):{schemaVersion:number;tables:RecoveryManifest['tables']}{
+export function inspectRecoverySnapshot(path:string,key:Buffer,maxBytes=LIMIT,check:()=>void=()=>{}):{schemaVersion:number;tables:RecoveryManifest['tables']}{
  check();regularFile(path,maxBytes);const db=new DatabaseSync(path,{readOnly:true});
  try{
   check();const schemaVersion=Number(db.prepare('PRAGMA user_version').get()?.user_version);
@@ -111,7 +111,7 @@ export async function createRecoveryBundle(store:Pick<ProjectStore,'db'>,masterK
   if(!Number.isSafeInteger(pageSize)||!Number.isSafeInteger(pages)||pageSize*pages>budget.maxBytes)throw new ProjectError('Recovery size limit exceeded',413);
   target=createNewTarget(destination);const plain=join(target,'snapshot.sqlite3'),encrypted=join(target,'database.enc');
   await backup(store.db,plain,{rate:100,progress:({totalPages})=>{budget.check();if(totalPages*pageSize>budget.maxBytes)throw new ProjectError('Recovery size limit exceeded',413);}});
-  budget.check();const state=inventory(plain,key,budget.maxBytes,budget.check),databaseDigest=await fileDigest(plain,budget.maxBytes,budget.signal),nonce=randomBytes(12);
+  budget.check();const state=inspectRecoverySnapshot(plain,key,budget.maxBytes,budget.check),databaseDigest=await fileDigest(plain,budget.maxBytes,budget.signal),nonce=randomBytes(12);
   encryptionKey=Buffer.from(hkdfSync('sha256',key,nonce,'OpenLovable-Recovery-data-v1',32));
   const cipher=createCipheriv('aes-256-gcm',encryptionKey,nonce,{authTagLength:16});cipher.setAAD(aad);
   await pipeline(createReadStream(plain),cipher,createWriteStream(encrypted,{flags:'wx',mode:0o600,flush:true}),{signal:budget.signal});
@@ -138,7 +138,7 @@ async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:stri
   const decipher=createDecipheriv('aes-256-gcm',encryptionKey,Buffer.from(manifest.nonce,'hex'),{authTagLength:16});decipher.setAAD(aad);decipher.setAuthTag(Buffer.from(manifest.tag,'hex'));
   await pipeline(createReadStream(encrypted),decipher,createWriteStream(plain,{flags:'wx',mode:0o600,flush:true}),{signal:budget.signal});
   if(await fileDigest(plain,budget.maxBytes,budget.signal)!==manifest.databaseDigest)throw new ProjectError('Restored database checksum mismatch',503);
-  const actual=inventory(plain,key,budget.maxBytes,budget.check);
+  const actual=inspectRecoverySnapshot(plain,key,budget.maxBytes,budget.check);
   if(actual.schemaVersion!==manifest.schemaVersion||canonical(actual.tables)!==canonical(manifest.tables))throw new ProjectError('Restored database inventory mismatch',503);
   budget.check();if(materializeKey)writeFileSync(join(target,'credentials.key'),key,{flag:'wx',mode:0o600,flush:true});
   return {...actual,databaseDigest:manifest.databaseDigest};

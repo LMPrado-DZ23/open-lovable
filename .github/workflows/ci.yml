@@ -50,4 +50,37 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx --no-install tsx --import ./tests/setup.mjs --test tests/data-paths.test.ts tests/credential-audience.test.ts tests/media-boundaries.test.ts tests/backup-roundtrip.test.ts tests/recovery-cli.test.ts tests/admission.test.ts
+      - run: npx --no-install tsx --import ./tests/setup.mjs --test tests/data-paths.test.ts tests/credential-audience.test.ts tests/media-boundaries.test.ts tests/backup-roundtrip.test.ts tests/recovery-cli.test.ts tests/repository.test.ts tests/migration-workspaces.test.ts tests/admission.test.ts
+
+  postgres-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-password-not-production
+          POSTGRES_DB: ol_test_p04
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ol_test_p04"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      OPEN_LOVABLE_TEST_DATABASE_DISPOSABLE: '1'
+      OPEN_LOVABLE_TEST_POSTGRES_URL: postgres://postgres:disposable-ci-password-not-production@127.0.0.1:5432/ol_test_p04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check:admission
+      - run: npm run test:postgres

@@ -1,4 +1,117 @@
 {
   "schemaVersion": 1,
-  "approvals": []
+  "approvals": [
+    {
+      "manifestDigest": "d3e0044f440d9b548a2d7e8798e08faa9a2303d32bf49c1b38b89da9c5c0d64f",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "cbf6c1d15f862ec2085f749cb69db64823f31ea2296a0488f9f6e9ac2d2ee324",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "5c26da7881298878ab81dcef0a4e2fae59f9cbca9f032baced611bda721be9ca",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "a27a5f2e27bc94b740885630bcdbdd6687110428245f759fa3203523e761affd",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "365d0f39ecfcf93d98320036b8a80aeafef48110ef113dd9f5c0873824f0a45e",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "503038d6220e5d37964cf9840f56a7e538ceed972812354ea386184295c55627",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "4f0692feefcb0a89b87fbb9eacf4a866ddc299176807b32a47afa35587d242a8",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "b00f562e4b8f63c3f182b4bf3c513560afebd8792755c74d81493ec7524b0855",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "a5164e409e635412e662e08611bf304aa46794335de98b861d6f09fe2b32cef1",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "e8ea022a744daa2406518e2e12b8683b6c564a83316d85caa40aa8dc1b723821",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "cf1f837b654797e7cbc8bcc73ecd875c7a260d928ec7d671e675a4eb61d6de5c",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "50d02f55c7cee864fd0cf344dc0b2b268a65e1225dc2f39e9a6dd13aea9a49bf",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "04e0296786071f9bb88baea56d01d1eb19decfcba40353abb993e4e5b45e6d7e",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "67b1d329cde74d1a718574aa60073c6d2afc374211b85c5f1bda6ccf21626a3a",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "6b98dbb93b5959df87f8385004fe252fe2afb713555f6cb16807d28f738c44cc",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "15ee097a2808e338b8c9147e661f90b54ded63a5a000263b47841316cd9738fb",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "38f274658f1197e4dd4fff4a89c18e9625fbc6edd508368759558679e4f97b9c",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "7bceb93b701c2c09aa5b5e8878b3ff7006101ecd40ec6a40164da8725efaa7dc",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "90758324b85e89bf21526135d39b21df82dbc6ebe0351be954b1a4230ebbb252",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "a6a32ebaccc1e9c4be10a450a5e9495b15c317c6edc59d940222815e8a0a8469",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "cfb0be7706c7f60085c30e138746fc070fa19638606d0a5f29b1aceec9ded07f",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "3168c962823205807a2a32c89da00f0b95cae1672f444b0497749303cb66e7e1",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "1441c9e59d1727f70c0ce7b3aed8b7b1d37f9caa3882d9cfdf2d1a034e251fee",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "bcd19e7f1b7c4d1030b5a62ed60f9fa4c41cd2c14a7b6dd57cb6161d761c75f8",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "d85e3d79d9a1aacb89596f05ade05cbcf9a6b443af9d1b0ab0510fd01f77cca7",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "112c550b33f63aa9e7cc4d061ce7f652c11006e1397ab73786fb633b42b5e2b0",
+      "restrictedPathsReviewed": []
+    },
+    {
+      "manifestDigest": "aa709158ad2e81332f30f3a2e18536f0ccb9c551304cefa965ea36e36466d3b5",
+      "reviewer": "ChatGPT engineering implementation review",
+      "decision": "allowed",
+      "expiresAt": "2026-12-22T00:00:00Z",
+      "evidenceDigest": "8c0fbed2fc8e14f16b42457abc762be51e6ba2e0696c3b849ba8acde717aec6b",
+      "restrictedPathsReviewed": []
+    }
+  ]
 }

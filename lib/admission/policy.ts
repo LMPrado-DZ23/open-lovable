@@ -56,3 +56,14 @@ export function verifyAdmissionFiles(input:unknown,directory:string):string[]{
  }
  return issues;
 }
+
+/** Compare installed package identity to the version, source and integrity in the committed lockfile. */
+export function verifyNpmLock(input:unknown,sourceDirectory:string,lock:unknown):string[]{
+ const parsed=admissionManifestSchema.safeParse(input);if(!parsed.success)return ['Invalid artifact manifest'];
+ const manifest=parsed.data;if(manifest.sourceKind!=='npm')return [];
+ const expected='node_modules/'+manifest.packageName;
+ if(sourceDirectory!==expected&&!sourceDirectory.endsWith('/'+expected))return ['Package source directory does not match its admitted name'];
+ const packages=(lock as {packages?:Record<string,{version?:string;integrity?:string;resolved?:string}>})?.packages;
+ const row=packages?.[sourceDirectory];
+ return row&&row.version===manifest.revision&&row.integrity===manifest.integrity&&row.resolved===manifest.sourceURL?[]:['Package lock identity changed or is missing'];
+}

@@ -1,12 +1,13 @@
 import {readFileSync} from 'node:fs';
 import {resolve,relative,isAbsolute,sep} from 'node:path';
-import {evaluateAdmission,verifyAdmissionFiles} from '../lib/admission/policy';
+import {evaluateAdmission,verifyAdmissionFiles,verifyNpmLock} from '../lib/admission/policy';
 
 try{
  const root=process.cwd();
  const registry=JSON.parse(readFileSync(resolve(root,'docs/admission/approvals.json'),'utf8'));
  const submissions=JSON.parse(readFileSync(resolve(root,'docs/admission/candidates.json'),'utf8'));
  if(registry.schemaVersion!==1||!Array.isArray(registry.approvals)||submissions.schemaVersion!==1||!Array.isArray(submissions.candidates))throw new Error('Invalid admission registry');
+ const lock=JSON.parse(readFileSync(resolve(root,'package-lock.json'),'utf8'));
  const reports=[];
  for(const item of submissions.candidates){
   const decision=evaluateAdmission(item.manifest,registry.approvals);let artifacts:string[]=[];
@@ -15,6 +16,7 @@ try{
    const absolute=resolve(root,item.sourceDirectory),rel=relative(root,absolute);
    artifacts=!rel||rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel)?['Source directory escaped repository']:verifyAdmissionFiles(item.manifest,absolute);
   }
+  artifacts.push(...verifyNpmLock(item.manifest,item.sourceDirectory,lock));
   reports.push({id:item.manifest?.id||'invalid',status:decision.status,issues:[...decision.reasons,...artifacts]});
  }
  const passed=reports.every(report=>report.status==='allowed'&&report.issues.length===0);

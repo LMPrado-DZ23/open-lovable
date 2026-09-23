@@ -1,3 +1,4 @@
+import {backfillLegacyWorkspaces,ensureIndividualWorkspace} from '../persistence/workspaces';
 import {assertSafeDataAncestors} from '@/lib/security/data-paths';
 import { isBase64 } from '@/lib/security/base64';
 import { DatabaseSync } from 'node:sqlite';
@@ -75,7 +76,7 @@ export class ProjectStore {
    // A second process may have migrated while this connection waited for the write lock.
    const current=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
    if(current>=migration.version)return;
-   this.db.exec(migration.sql);this.db.exec(`PRAGMA user_version=${migration.version}`);
+   this.db.exec(migration.sql);if(migration.version===4)backfillLegacyWorkspaces(this.db);this.db.exec(`PRAGMA user_version=${migration.version}`);
   });}
   catch(error) {this.db.close();throw error;}
  }
@@ -104,7 +105,8 @@ export class ProjectStore {
   const id=randomUUID(),time=now(),snapshot=JSON.stringify({files:{},assets:{}});
   this.transaction(()=>{
    if(Number(this.db.prepare('SELECT count(*) AS n FROM projects WHERE owner=?').get(owner)?.n)>=100) throw new ProjectError('Project limit reached; export a backup before requesting more storage');
-   this.db.prepare('INSERT INTO projects VALUES(?,?,?,?,?,?,?,?)').run(id,owner,name,model,1,snapshot,time,time);
+   const workspace=ensureIndividualWorkspace(this.db,owner);
+   this.db.prepare('INSERT INTO projects(id,owner,name,model,version,snapshot,created_at,updated_at,workspace_id) VALUES(?,?,?,?,?,?,?,?,?)').run(id,owner,name,model,1,snapshot,time,time,workspace.id);
    this.db.prepare('INSERT INTO revisions VALUES(?,?,?,?,?,?,?)').run(randomUUID(),id,1,'Project created',snapshot,digest(snapshot),time);
   });
   return this.getProject(owner,id);

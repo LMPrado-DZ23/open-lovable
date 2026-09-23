@@ -53,4 +53,22 @@ CREATE TABLE project_images (
  created_at TEXT NOT NULL
 ) STRICT;
 CREATE INDEX images_by_project ON project_images(project_id,archived);
+`},{version:4,sql:`
+CREATE TABLE workspaces (
+ id TEXT PRIMARY KEY, legacy_owner TEXT UNIQUE, name TEXT NOT NULL, created_at TEXT NOT NULL
+) STRICT;
+CREATE TABLE workspace_members (
+ workspace_id TEXT NOT NULL REFERENCES workspaces(id), actor_id TEXT NOT NULL,
+ role TEXT NOT NULL CHECK(role IN ('owner','admin','editor','viewer','billing')),
+ active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
+ PRIMARY KEY(workspace_id,actor_id)
+) STRICT;
+CREATE INDEX memberships_actor ON workspace_members(actor_id,active);
+ALTER TABLE projects ADD COLUMN workspace_id TEXT REFERENCES workspaces(id);
+CREATE INDEX projects_workspace ON projects(workspace_id,updated_at);
+CREATE TRIGGER projects_require_workspace BEFORE INSERT ON projects WHEN NEW.workspace_id IS NULL
+ BEGIN SELECT RAISE(ABORT,'Workspace is required'); END;
+CREATE TRIGGER projects_keep_workspace BEFORE UPDATE OF workspace_id ON projects
+ WHEN OLD.workspace_id IS NOT NULL AND (NEW.workspace_id IS NULL OR NEW.workspace_id<>OLD.workspace_id)
+ BEGIN SELECT RAISE(ABORT,'Workspace reassignment is not allowed'); END;
 `}];

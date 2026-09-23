@@ -79,3 +79,18 @@
 - Corrected conflicting SECURITY status and moved browser-context setup into server-cleanup protection.
 - Evidence: docs/evidence/p03-review.json; 115 code/API tests + 8 verifier tests and 22 browser scenarios in the current check. No new provider call, dependency or data migration.
 - P04 next: real workspace-scoped repositories; preserve existing individual flows and distinguish hosted adapter validation from hosted product completion.
+
+## P04 - workspace persistence implementation
+
+- Baseline 34e65ea; new isolated branch; existing product paths remain supported.
+- Ruling: expose only implemented repository operations (read/list/create/save/revisions/restore). Draft/patch/approval contracts are added when P17/P23 are implemented; no stub methods.
+- SQLite keeps canonical rows; migration 4 adds workspace and membership boundaries without rewriting migrations 1-3. Legacy owners map deterministically and revoked memberships are never silently restored.
+- PostgreSQL adapter uses the same behavioral contract, bounded transactions and parameter binding. Test database must be disposable and distinct from production.
+- Docker Desktop start timed out; no installation, license acceptance or settings change attempted. PostgreSQL validation will use an isolated CI service if no local daemon is available.
+- First RED: shared repository contract; pending implementations are not marked complete.
+
+- P04 local shared repository/API/migration tests passed. PostgreSQL adapter, explicit migrator/importer and real-service CI tests are implemented; PostgreSQL validation still requires the new CI job, not the unavailable local Docker daemon.
+- Ruling: npm sources are pinned by exact package version + registry SRI + selected file hashes rather than fabricated Git SHAs. Fourteen new driver/type dependencies were inspected without lifecycle scripts, with MIT/ISC notices retained; prior lock entries remain unchanged. Source repository metadata was read using authorized GitHub actions; a broader shell metadata request had been refused and was not executed.
+- Import preserves existing data, refuses a nonempty target and does not activate a hosted backend. Remaining auth/jobs/connectors are not falsely represented as PostgreSQL-ready.
+
+- P04 first full local verification: 130 code/API tests, 8 baseline checks and 22 E2E; lint/types/build/admission/audit passed. Evidence docs/evidence/p04-local.json. PostgreSQL real-service tests are prepared, not yet executed; publication is an incremental draft awaiting that gate.

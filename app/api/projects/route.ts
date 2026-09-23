@@ -1,3 +1,4 @@
+import {SqliteProjectRepository} from '@/lib/persistence/sqlite';
 import { z } from 'zod';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { readJsonObject, ClientInputError } from '@/lib/security/input-validation';
@@ -34,8 +35,10 @@ export async function GET(request:Request){
  const denied=await authorizeOperatorRequest(request);if(denied)return denied;
  try{
   const params=new URL(request.url).searchParams;const store=projectStore(),owner=operatorID(),projectID=params.get('id');
-  if(!projectID)return json({projects:store.listProjects(owner)});
-  const project=store.getProject(owner,projectID);
+  const repository=new SqliteProjectRepository(store),workspace=repository.individualContext(owner);
+  if(!projectID)return json({projects:await repository.list(workspace)});
+  const context={...workspace,projectId:projectID};
+  const project=await repository.read(context);
   if(params.get('action')==='preview'){
    const channel=params.get('channel')||'';if(!/^[a-zA-Z0-9_-]{1,128}$/.test(channel))throw new ProjectError('Invalid preview channel');
    const runID=params.get('runID');const snapshot=runID?store.getRun(owner,projectID,runID).candidate:project.snapshot;
@@ -48,7 +51,7 @@ export async function GET(request:Request){
    const bytes=exportProjectZip(project.snapshot);
    return new Response(new Uint8Array(bytes),{headers:{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="project-${project.id}.zip"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
   }
-  return json({project,revisions:store.revisions(owner,projectID),runs:store.runs(owner,projectID),messages:store.messages(owner,projectID),documents:store.documents(owner,projectID)});
+  return json({project,revisions:await repository.revisions(context),runs:store.runs(owner,projectID),messages:store.messages(owner,projectID),documents:store.documents(owner,projectID)});
  }catch(error){return failure(error);}
 }
 /** Mutations validate bounded input and delegate to transactional, ownership-checked stores. */
@@ -56,14 +59,17 @@ export async function POST(request:Request){
  const denied=await authorizeOperatorRequest(request);if(denied)return denied;
  try{
   const body=schema.parse(await readJsonObject(request,18*1024*1024));const store=projectStore(),owner=operatorID();
+  const repository=new SqliteProjectRepository(store),workspace=repository.individualContext(owner);
+  const context=(projectId:string)=>({...workspace,projectId});
+  if('id' in body){if(body.action==='preview')await repository.read(context(body.id));else await repository.requireWrite(context(body.id));}
   switch(body.action){
-   case 'create':return json({project:store.createProject(owner,body.name,body.model)},201);
-   case 'save':return json({project:store.saveSnapshot(owner,body.id,body.version,body.snapshot,body.label)});
+   case 'create':return json({project:await repository.create(workspace,body.name,body.model)},201);
+   case 'save':return json({project:await repository.save(context(body.id),body.version,body.snapshot,body.label)});
    case 'import':{
     store.getProject(owner,body.id);const imported=importProjectZip(body.archive);
-    return json({project:store.saveSnapshot(owner,body.id,body.version,imported.snapshot,'Imported ZIP'),excluded:imported.excluded});
+    return json({project:await repository.save(context(body.id),body.version,imported.snapshot,'Imported ZIP'),excluded:imported.excluded});
    }
-   case 'restore':return json({project:store.restoreRevision(owner,body.id,body.version,body.revisionID)});
+   case 'restore':return json({project:await repository.restore(context(body.id),body.version,body.revisionID)});
    case 'generate':{
     if(body.imageIDs?.length&&body.confirmVision!==true)throw new ProjectError('Confirm that the selected model accepts images. No text-only fallback is allowed.');
     const run=store.beginRun(owner,body.id,body.requestKey,body.prompt,body.model,body.version,{mode:body.mode,imageIDs:body.imageIDs});
@@ -74,6 +80,7 @@ export async function POST(request:Request){
    case 'accept':{
     const run=store.getRun(owner,body.id,body.runID);if(!run.candidate)throw new ProjectError('No candidate is awaiting approval',409);
     await compileProject(run.candidate);
+    await repository.requireWrite(context(body.id));
     return json({project:store.acceptRun(owner,body.id,body.runID,body.version)});
    }
    case 'preview':{
