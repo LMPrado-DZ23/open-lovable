@@ -131,3 +131,9 @@
 - Real PostgreSQL v1-to-v2 upgrade/import and the pinned upstream Auth protocol tests remain pending until their CI results are read. The local Auth HTTP fixture does not certify Supabase cloud or SMTP.
 - Remaining operational warning: cancelled incoming requests reach a Next.js 15.5.26 uncaughtException log. Monitor traced node:_http_server; servers remained responsive. No blanket exception swallowing, middleware disabling, or silent claim of clean logs.
 - Next functional dependency: versioned API/audit and worker execution (P07/P08), followed by queue/HITL (P09/P10). Hosted-domain wiring and public release remain open.
+
+## P05 resume - real Auth environment
+
+- The prior response failures did not lose f16516a or PR #6. Worktree and remote branch inspected clean.
+- CI 35933981080: PostgreSQL and application suites passed; real upstream Auth failed before login because its unqualified identities lookup used public instead of auth. PostgreSQL log showed relation identities does not exist although the upstream migrations created auth tables.
+- Correct the disposable database role search_path for this database only. Do not replace upstream Auth with mocks or weaken password/OTP assertions. The existing two real Auth tests remain the gate on the new commit.
