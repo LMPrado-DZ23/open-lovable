@@ -2,7 +2,7 @@
 
 Baseline: `69bd93bae7a9c97ef989eb70aabe6797fb3dac89`.
 Branch: `fix/security-foundation-20260922`.
-Local verification: `2026-09-22T23:11:18.3361109-03:00`; Windows, Node `v24.16.0`.
+Local verification: `2026-09-22T23:21:20.0331222-03:00`; Windows, Node `v24.16.0`.
 
 ## Results
 
@@ -41,7 +41,7 @@ was added. The anonymous check now uses native fetch without credential inherita
 The URL field, submit-action geometry, style selection, additional instructions,
 model selector and brand-extension switch were exercised without submitting scraping
 or generation requests. Desktop and mobile screenshots were inspected manually.
-Tablet geometry and interaction were also verified by Playwright.
+Tablet screenshots were also inspected manually after the final breakpoint correction.
 
 ![Desktop](verification/desktop.png)
 ![Tablet](verification/tablet.png)
@@ -73,6 +73,14 @@ and credentials are not committed.
 | Log | SHA-256 |
 |---|---|
 | `ci-clean.log` | `2911d14cce9936cc438509ceeabb9a5a5163abe5f8abc2410074c3c94b6cde89` |
-| `verified-check.log` | `240c7825465fd245c8bf6ca5d22d5b5d69a0680d00aea8a5d386bd451bcb8bdf` |
-| `verified-e2e.log` | `48902f8452df8fd706f71f7123a9820315cf6edd972e3ee932567460003af88c` |
+| `verified-check.log` | `5dea213a4c19b347ae5f2dbc79b3eb3fcea61022eaeab180dd8c9545b91f6839` |
+| `verified-e2e.log` | `3da6aa0e93c1bd06884f969609e7f7b7a109529b52e97a6d60eca0e507854d87` |
 | `verified-audit.log` | `49eb9d9f4c88ee0a75d4c33954a6f1c3a1394b12ba4dd0e20d376fe54ffc91d5` |
+
+## Tablet follow-up
+
+Manual inspection found clipped labels in the narrow tablet form. The label-boundary
+regression failed before the fix. Inner responsive breakpoints now follow the outer
+container's `lg` transition rather than the viewport's `sm` transition. The same
+24 unit/API/integration tests and five browser tests passed after the correction.
+The updated tablet screenshot was inspected and confirms the labels and controls fit.

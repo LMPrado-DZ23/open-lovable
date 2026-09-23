@@ -27,6 +27,17 @@ for(const [name,width,height] of [['desktop',1440,900],['tablet',820,1180],['mob
     await expect(page.getByPlaceholder("Describe the new functionality you want to build using this brand's styles...")).toBeVisible();
     await toggle.click();
     await expect(minimalist).toBeVisible();
+    for (const name of ['Glassmorphism', 'Neumorphism', 'Minimalist']) {
+      const button = page.getByRole('button', { name, exact: true });
+      const labelFits = await button.evaluate(element => {
+        const label = element.querySelector('span');
+        if (!label) return false;
+        const buttonBounds = element.getBoundingClientRect();
+        const labelBounds = label.getBoundingClientRect();
+        return labelBounds.left >= buttonBounds.left - 1 && labelBounds.right <= buttonBounds.right + 1;
+      });
+      expect(labelFits, `${name} must fit inside its button`).toBe(true);
+    }
     // Editing the form only: no paid scraping, AI generation or sandbox creation.
     await page.screenshot({path:testInfo.outputPath(`${name}.png`),fullPage:true});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2)).toBe(true);

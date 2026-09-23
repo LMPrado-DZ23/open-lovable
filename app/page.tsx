@@ -295,7 +295,7 @@ export default function HomePage() {
                   }}
                 >
 
-                <div className="p-16 sm:p-[28px] grid grid-cols-[20px_minmax(0,1fr)] sm:flex gap-12 items-center w-full relative bg-white rounded-20">
+                <div className="p-16 lg:p-[28px] grid grid-cols-[20px_minmax(0,1fr)] lg:flex gap-12 items-center w-full relative bg-white rounded-20">
                   {/* Show different UI when search results are displayed */}
                   {hasSearched && searchResults.length > 0 && !isFadingOut ? (
                     <>
@@ -413,7 +413,7 @@ export default function HomePage() {
                             handleSubmit();
                           }
                         }}
-                        className={`col-span-2 sm:col-auto [&>button]:w-full sm:[&>button]:w-auto ${isSearching ? 'pointer-events-none' : ''}`}
+                        className={`col-span-2 lg:col-auto [&>button]:w-full lg:[&>button]:w-auto ${isSearching ? 'pointer-events-none' : ''}`}
                       >
                         <HeroInputSubmitButton 
                           dirty={url.length > 0} 
@@ -429,7 +429,7 @@ export default function HomePage() {
                 <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
                   isValidUrl ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
                 }`}>
-                  <div className="px-16 sm:px-[28px] pt-0 pb-[28px]">
+                  <div className="px-16 lg:px-[28px] pt-0 pb-[28px]">
                     <div className="border-t border-gray-100 bg-white">
                       {/* Extend Brand Styles Toggle */}
                       <div className={`transition-all duration-300 transform ${
@@ -495,7 +495,7 @@ export default function HomePage() {
                         <div className={`mb-2 transition-all duration-300 transform ${
                           isValidUrl ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
                         }`} style={{ transitionDelay: '100ms' }}>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
                             {styles.map((style, index) => (
                               <button
                                 key={style.id}
@@ -527,7 +527,7 @@ export default function HomePage() {
                       )}
 
                       {/* Model Selector Dropdown and Additional Instructions */}
-                      <div className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-8 mt-8 pb-4 transition-all duration-300 transform ${
+                      <div className={`flex flex-col lg:flex-row items-stretch lg:items-center gap-8 mt-8 pb-4 transition-all duration-300 transform ${
                         isValidUrl ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
                       }`} style={{ transitionDelay: '400ms' }}>
                         {/* Model Dropdown */}
@@ -535,7 +535,7 @@ export default function HomePage() {
                           aria-label="AI model"
                           value={selectedModel}
                           onChange={(e) => setSelectedModel(e.target.value)}
-                          className={`w-full sm:w-auto min-w-0 px-8 py-8 text-xs font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 ${extendBrandStyles ? 'flex-1' : ''}`}
+                          className={`w-full lg:w-auto min-w-0 px-8 py-8 text-xs font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 ${extendBrandStyles ? 'flex-1' : ''}`}
                         >
                           {models.map((model) => (
                             <option key={model.id} value={model.id}>
@@ -549,7 +549,7 @@ export default function HomePage() {
                           <input
                             type="text"
                             aria-label="Additional instructions"
-                            className="min-w-0 w-full sm:w-auto flex-1 px-8 py-8 text-xs font-medium text-gray-700 bg-gray-50 rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder:text-gray-400"
+                            className="min-w-0 w-full lg:w-auto flex-1 px-8 py-8 text-xs font-medium text-gray-700 bg-gray-50 rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder:text-gray-400"
                             placeholder="Additional instructions (optional)"
                             onChange={(e) => sessionStorage.setItem('additionalInstructions', e.target.value)}
                           />

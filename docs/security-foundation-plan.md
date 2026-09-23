@@ -57,3 +57,8 @@ across untrusted users. A password is not a multitenancy implementation.
   Public origins now require operator credentials even in development.
 - Explicit package versions could be incorrectly skipped when any version was already present.
   Explicit versions/tags now go through npm resolution; failed installation completion remains a failure.
+
+- Final tablet screenshot inspection found that the form remained narrow until `lg`,
+  while its inner controls switched to horizontal layouts at `sm`. A new label-boundary
+  assertion reproduced the clipping. Inner breakpoints now align with the existing
+  container's `lg` transition; labels remain visible without hiding overflow.
