@@ -45,8 +45,17 @@ export class CredentialStore {
   this.store.transaction(()=>{
    const previous=this.read(owner,provider);
    if((previous?.version||0)!==expectedVersion)throw new ProjectError('Configuration version conflict. Reload before saving.',409);
-   const apiKey=input.clearKey ? undefined : input.apiKey?.trim()||previous?.apiKey;
-   const next:ProviderConfiguration={enabled:input.enabled===true,baseURL:baseURL||previous?.baseURL||providerEnvironment[provider].defaultURL,apiKey,models:input.models??previous?.models};
+   const destination=baseURL||previous?.baseURL||providerEnvironment[provider].defaultURL;
+   const priorDestination=previous?.baseURL||providerEnvironment[provider].defaultURL;
+   const enteredKey=input.apiKey?.trim();
+   // A blank field preserves a secret only for the same canonical origin and base path.
+   const audience=(value:string|undefined)=>value?validateProviderURL(value,true).href.replace(/\/+$/,''):'';
+   if(previous?.apiKey && !input.clearKey && !enteredKey && audience(destination)!==audience(priorDestination)) {
+    throw new ProjectError('Endpoint changed. Re-enter the API key for this destination or explicitly clear the stored key. The previous connection was preserved.',409);
+   }
+   const apiKey=input.clearKey ? undefined : enteredKey||previous?.apiKey;
+   if(apiKey&&!destination)throw new ProjectError('An endpoint is required before binding a credential.');
+   const next:ProviderConfiguration={enabled:input.enabled===true,baseURL:destination?validateProviderURL(destination,true).href.replace(/\/+$/,''):undefined,apiKey,models:input.models??previous?.models};
    const version=expectedVersion+1;
    const nonce=randomBytes(12);const cipher=createCipheriv('aes-256-gcm',this.key,nonce);
    cipher.setAAD(Buffer.from(`${owner}:${provider}:${version}`));

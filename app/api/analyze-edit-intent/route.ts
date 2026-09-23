@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const { prompt, manifest, model = appConfig.ai.defaultModel } = await readJsonObject(request);
     
     logger.log('[analyze-edit-intent] Request received');
-    logger.log('[analyze-edit-intent] Prompt:', prompt);
+    logger.log('[analyze-edit-intent] Prompt characters:', typeof prompt==='string'?prompt.length:0);
     logger.log('[analyze-edit-intent] Model:', model);
     logger.log('[analyze-edit-intent] Manifest files count:', manifest?.files ? Object.keys(manifest.files).length : 0);
     
@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    logger.log('[analyze-edit-intent] Analyzing prompt:', prompt);
-    logger.log('[analyze-edit-intent] File summary preview:', fileSummary.split('\n').slice(0, 5).join('\n'));
+    logger.log('[analyze-edit-intent] Analyzing bounded prompt');
+    logger.log('[analyze-edit-intent] File summary characters:', fileSummary.length);
     
     const resolvedModel = await getProviderForModel(model, request.signal);
     logger.log('[analyze-edit-intent] Using AI model:', model);

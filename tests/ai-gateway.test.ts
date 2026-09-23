@@ -172,10 +172,10 @@ test('disabled or missing model configuration never causes a network fallback',a
 test('active provider streaming is not cut off by a total-duration idle budget',async t=>{
  const url=await fixture(t,(_req,res)=>{
   res.writeHead(200,{'Content-Type':'text/plain'});res.write('start');
-  let count=0;const timer=setInterval(()=>{res.write('x');if(++count===8){clearInterval(timer);res.end('end');}},20);
+  let count=0;const timer=setInterval(()=>{res.write('x');if(++count===8){clearInterval(timer);res.end('end');}},200);
   res.on('close',()=>clearInterval(timer));
  });
- const fetcher=createProviderFetch(url,{allowLoopback:true,timeoutMs:65});
+ const fetcher=createProviderFetch(url,{allowLoopback:true,timeoutMs:750});
  const response=await fetcher(`${url}/stream`);
  assert.equal(await response.text(),'start'+'x'.repeat(8)+'end');
 });
@@ -185,4 +185,25 @@ test('bounded scraped context larger than 32 KiB reaches the selected model with
  let received=0;await fixture(t,(req,res)=>{let raw='';req.on('data',chunk=>raw+=chunk);req.on('end',()=>{received=JSON.stringify(JSON.parse(raw).messages).length;sendText(res,'<file path="src/App.jsx">export default function App(){return <h1>Ready</h1>}</file>');});});
  const response=await generate(new NextRequest('http://127.0.0.1/api/generate-ai-code-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'gateway/org/coder:latest',prompt:'Reference site content: '+ 'descriptive website copy '.repeat(2000)})}));
  assert.equal(response.status,200);assert.match(await response.text(),/complete/);assert.ok(received>32768);
+});
+
+
+test('P02 generation logs metadata rather than the submitted source prompt',async t=>{
+ const marker='PRIVATE_BUSINESS_REQUIREMENT_NOT_FOR_LOGS_82743';
+ const observed:unknown[][]=[];t.mock.method(console,'log',(...args:unknown[])=>{observed.push(args);});
+ await fixture(t,(req,res)=>{req.resume();req.on('end',()=>sendText(res,'<file path="src/App.jsx">export default function App(){return <h1>Ready</h1>}</file>'));});
+ const result=await generate(new NextRequest('http://127.0.0.1/api/generate-ai-code-stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'gateway/org/coder:latest',prompt:marker})}));
+ assert.equal(result.status,200);await result.text();assert.equal(JSON.stringify(observed).includes(marker),false);
+});
+
+test('P02 an idle provider and an overlong active response still fail within explicit budgets',async t=>{
+ const url=await fixture(t,(req,res)=>{
+  res.writeHead(200,{'Content-Type':'text/plain'});res.write('start');
+  if(req.url?.endsWith('/idle'))return;
+  const timer=setInterval(()=>res.write('x'),50);res.on('close',()=>clearInterval(timer));
+ });
+ const idle=createProviderFetch(url,{allowLoopback:true,timeoutMs:150,maxDurationMs:3000});
+ const stalled=await idle(`${url}/idle`);await assert.rejects(()=>stalled.text(),/stream|limit/i);
+ const hard=createProviderFetch(url,{allowLoopback:true,timeoutMs:750,maxDurationMs:350});
+ const active=await hard(`${url}/active`);await assert.rejects(()=>active.text(),/stream|limit/i);
 });

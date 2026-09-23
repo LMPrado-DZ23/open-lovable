@@ -111,3 +111,10 @@ Durable project revisions and encrypted connection settings are now implemented 
 The durable workspace now accepts PNG/JPEG/WebP references and sends explicitly selected images as actual multimodal input to the chosen provider. Plan mode stores a plan without modifying application files. Both use the existing project isolation, run idempotency and revision approvals.
 
 Read [visual-reference usage and limits](docs/visual-references.md) and the [independent functional parity map](docs/lovable-functional-parity.md). These changes do not claim full Lovable parity or real-provider visual quality certification.
+
+
+### F00 stabilization increment
+
+Connection edits no longer silently retain a saved key when the endpoint changes. Re-enter the key for the new destination or explicitly clear it. Raster uploads and provider image parts are validated separately from textual secret checks.
+
+See `docs/evidence/f00-scope.md` for the exact delivery scope and the still-open recovery work; `docs/admission/README.md` documents optional third-party code admission. These changes do not make the application multi-tenant or production-certified.

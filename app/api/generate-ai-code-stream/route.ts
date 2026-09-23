@@ -69,10 +69,10 @@ export async function POST(request: NextRequest) {
     const resolvedModel = await getProviderForModel(model, request.signal);
     
     logger.log('[generate-ai-code-stream] Received request:');
-    logger.log('[generate-ai-code-stream] - prompt:', prompt);
+    logger.log('[generate-ai-code-stream] - prompt characters:', typeof prompt==='string'?prompt.length:0);
     logger.log('[generate-ai-code-stream] - isEdit:', isEdit);
     logger.log('[generate-ai-code-stream] - context.sandboxId:', context?.sandboxId);
-    logger.log('[generate-ai-code-stream] - context.currentFiles:', context?.currentFiles ? Object.keys(context.currentFiles) : 'none');
+    logger.log('[generate-ai-code-stream] - context supplied:', Boolean(context?.currentFiles));
     logger.log('[generate-ai-code-stream] - currentFiles count:', context?.currentFiles ? Object.keys(context.currentFiles).length : 0);
     
     // Initialize conversation state if not exists
@@ -112,14 +112,6 @@ export async function POST(request: NextRequest) {
     // Clean up old edits
     if (global.conversationState.context.edits.length > 10) {
       global.conversationState.context.edits = global.conversationState.context.edits.slice(-8);
-    }
-    
-    // Debug: Show a sample of actual file content
-    if (context?.currentFiles && Object.keys(context.currentFiles).length > 0) {
-      const firstFile = Object.entries(context.currentFiles)[0];
-      logger.log('[generate-ai-code-stream] - sample file:', firstFile[0]);
-      logger.log('[generate-ai-code-stream] - sample content preview:',
-        typeof firstFile[1] === 'string' ? firstFile[1].substring(0, 100) + '...' : 'not a string');
     }
     
     if (!prompt) {
@@ -183,7 +175,7 @@ export async function POST(request: NextRequest) {
               
               if (intentResponse.ok) {
                 const { searchPlan } = await intentResponse.json();
-                logger.log('[generate-ai-code-stream] Search plan received:', searchPlan);
+                logger.log('[generate-ai-code-stream] Search plan received:', {editType:searchPlan.editType});
                 
                 await sendProgress({ 
                   type: 'status', 
@@ -217,7 +209,7 @@ export async function POST(request: NextRequest) {
                       message: `✅ Found code in ${target.filePath.split('/').pop()} at line ${target.lineNumber}`
                     });
                     
-                    logger.log('[generate-ai-code-stream] Target selected:', target);
+                    logger.log('[generate-ai-code-stream] Target selected:', {line:target.lineNumber});
                     
                     // Create surgical edit context with exact location
                     // normalizedPath would be: target.filePath.replace('/home/user/app/', '');
@@ -328,7 +320,7 @@ User request: "${prompt}"`;
                       
                       if (intentResponse.ok) {
                         const { searchPlan } = await intentResponse.json();
-                        logger.log('[generate-ai-code-stream] Search plan received (after fetch):', searchPlan);
+                        logger.log('[generate-ai-code-stream] Search plan received (after fetch):', {editType:searchPlan.editType});
                         
                         // For now, fall back to keyword search since we don't have file contents for search execution
                         // This path happens when no manifest was initially available
@@ -1002,7 +994,7 @@ MORPH FAST APPLY MODE (EDIT-ONLY):
                         
                         if (intentResponse.ok) {
                           const { searchPlan } = await intentResponse.json();
-                          logger.log('[generate-ai-code-stream] Search plan received:', searchPlan);
+                          logger.log('[generate-ai-code-stream] Search plan received:', {editType:searchPlan.editType});
                           
                           // Create edit context from AI analysis
                           // Note: We can't execute search here without file contents, so fall back to keyword method
@@ -1362,7 +1354,7 @@ It's better to have 3 complete files than 10 incomplete files.`
           const searchText = tagBuffer + text;
           
           // Log streaming chunks to console
-          process.stdout.write(text);
+          // Source is delivered only through the authorized response, never to server stdout.
           
           // Check if we're entering or leaving a tag
           const hasOpenTag = /<(file|package|packages|explanation|command|structure|template)\b/.test(text);
@@ -1786,7 +1778,7 @@ Provide the complete file content without any truncation. Include all necessary 
           // Update last updated timestamp
           global.conversationState.lastUpdated = Date.now();
           
-          logger.log('[generate-ai-code-stream] Updated conversation history with edit:', editRecord);
+          logger.log('[generate-ai-code-stream] Conversation edit recorded');
         }
         
       } catch (error) {

@@ -16,10 +16,10 @@ test('provider keys are encrypted, metadata is redacted and owner-scoped',async 
  assert.equal(JSON.stringify(vault.metadata('alice')).includes(key),false);
  assert.equal(JSON.stringify(db.db.prepare('SELECT * FROM provider_settings').all()).includes(key),false);
 });
-test('editing a connection keeps its key unless explicitly cleared; stale writes fail',async t=>{
+test('editing within the same audience keeps its key unless explicitly cleared; stale writes fail',async t=>{
  const {vault}=await credentials(t);
  vault.save('alice','gateway',0,{enabled:true,baseURL:'http://127.0.0.1:11434/v1',apiKey:'fixture-private-key'});
- vault.save('alice','gateway',1,{enabled:true,baseURL:'http://127.0.0.1:11435/v1',apiKey:''});
+ vault.save('alice','gateway',1,{enabled:true,baseURL:'http://127.0.0.1:11434/v1/',apiKey:''});
  assert.equal(vault.read('alice','gateway').apiKey,'fixture-private-key');
  assert.throws(()=>vault.save('alice','gateway',1,{enabled:false}),/conflict/i);
  vault.save('alice','gateway',2,{enabled:false,clearKey:true});

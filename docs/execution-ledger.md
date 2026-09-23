@@ -19,3 +19,39 @@
 - Reteste final: 80 testes existentes + 8 de infraestrutura; 20 E2E; lint/types/build/audit/verificador passaram; docs/evidence/p00-tooling-verification.json.
 
 - Ambiente: allowlist corrigida para preservar SystemDrive; arquivos de cache gerados isolados sem exclusao e fora do Git. Novo E2E e teste do verificador passaram; sem recorrencia.
+
+## Execucao F00 - P01/P02/P50/P03 (retomada)
+
+- Base conferida: fc9b915; worktree isolado existente, branch fix/f00-security-recovery-20260923.
+- Ordem: testes de regressao -> credenciais -> midia/paths/logging -> admissao -> recuperacao; sem migrations historicas editadas.
+- P01/P02 compartilham transporte: audiencia validada antes da rede; somente partes de imagens decodificadas podem ser tratadas como binario.
+- Ruling: reentrada explicita de chave ou remocao permite novo endpoint; campo vazio nunca concede mudanca de audiencia.
+- Ruling: nenhuma dependencia nova ou codigo externo sera incorporado neste lote; P50 prepara o gate, nao concede admissao automatica.
+- P03 depende do teste de chaves/paths; teste de restore usa apenas base sintetica e destino novo.
+- P00 CI conferido no historico; resultados do novo SHA exigem nova verificacao. Sem merge/deploy/recursos pagos.
+- Proximas tarefas em andamento: P01 e P02. Demais pacotes continuam abertos.
+
+## F00 - estado antes da verificacao de entrega
+
+- P01: guard de audiencia implementado; 12 testes de credenciais passaram. Mudanca de host/porta/protocolo/base path exige reentrada de chave ou limpeza explicita. Mesmo destino normalizado preserva a chave. CAS/transacao preservados.
+- P02: regressao de raster reproduzida e corrigida na API e no transporte de inferencia; somente bytes raster decodificados sao separados da verificacao textual. Links remotos de imagens nao sao aceitos. Dados visiveis nos pixels nao sao detectados como segredos.
+- P02: removida escrita de codigo gerado em stdout e payload de prompt nos logs dos fluxos tratados; nao e auditoria completa de todos os logs legados.
+- P02: aliases Darwin admitidos somente para pares exatos root-owned; teste local de politica passou; homologacao macOS depende da nova CI. Schema futuro agora e recusado antes de mudar journal_mode.
+- P50: politica de admissao e verificacao de bytes/licenca implementadas; registro tem 59 referencias nao admitidas. NENHUMA dependencia nova foi incorporada ou licenciada nesta rodada.
+- Suites focais P01/P02/P50: 47 testes passaram em .audit/f00/green-slice.json. Lint passou depois de renomear uma variavel de teste reservada. Verificacao de entrega completa ainda pendente.
+- P03: prototipo e testes de recuperacao preservados LOCALMENTE. Ensaio feliz restaurou dados sinteticos, mas caso de chave de backup diferente da chave das conexoes FALHOU. Operacao de correcao foi bloqueada pela ferramenta e nao executou. Nao repetir por outro mecanismo.
+- Decisao de entrega: publicar apenas P01/P02 e infraestrutura P50, em commit testado separado. Lib/CLI/testes do prototipo P03 NAO integram essa entrega e permanecem no worktree original de F00, sem exclusao. P03 continua aberto; isso nao encerra F00 nem a meta geral.
+- Arquivos P03 locais: lib/projects/recovery.ts; scripts/recovery.ts; tests/backup-roundtrip.test.ts; tests/recovery-cli.test.ts. O manifest npm local ainda inclui o script experimental; o commit publico nao o inclui.
+- Bloqueio adicional: gravação de um teste de revogacao em andamento foi recusada e nao executou. Nao ha claim de cancelamento de clientes SDK ja iniciados.
+- O primeiro ensaio de captura de stdout do teste interferiu com o runner e foi encerrado; substituido por captura de subprocesso, que reproduziu e validou a correcao. Nenhum teste existente foi removido.
+- Browser plugin not available; verificacao usa o Playwright ja configurado. Fluxo: /settings/ai -> mudar endpoint -> recusar segredo implicito -> salvar com chave explicita -> metadata sem segredo.
+- Base fc9b915 e alteracoes anteriores preservadas. Nenhuma migration historica, segredo real, recurso pago, main ou producao alterados.
+
+## F00 - verificacao da entrega separada
+
+- Arvore Git d2545025bf96a5865842aecd65da563fb846ad41 extraida em open-lovable-f00-validation-20260923; instalacao limpa com npm ci --ignore-scripts.
+- Verificacoes: 100 testes de codigo/API/integracao + 8 de infraestrutura; 21 E2E; lint; types; build; check:admission; security:audit: todos exit 0. Logs/digests em docs/evidence/f00-verification.json.
+- Git archive converteu line endings no Windows: digests do blob e dos bytes testados registrados separadamente, com igualdade de texto normalizado. Nao foi admitida nenhuma diferenca de codigo.
+- Capturas desktop/mobile de configuracoes inspecionadas; campos e nova orientacao de endpoint visiveis, sem tela vazia/overlay. Provedores eram fixtures HTTP/SSE, nao servicos reais.
+- P03 segue em desenvolvimento separado, com falha reproduzida. A arvore de entrega nao inclui seu modulo, CLI nem novos testes; o trabalho local os preserva. Nenhum teste existente do baseline foi removido.
+- CI Windows/macOS/Linux do novo commit e revisao independente devem ser conferidos separadamente antes de aceitar a entrega. F00 nao encerrado.
