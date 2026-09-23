@@ -75,7 +75,7 @@ Inline PNG/JPEG/WebP parts are decoded and bounded separately from textual conte
 
 On macOS, exact root-owned system aliases /var, /tmp and /etc may be recognized under a narrow ownership/target policy. Arbitrary links and Windows junctions stay blocked. Unsupported future database schemas are rejected before switching persistent journal mode.
 
-The experimental P03 recovery prototype is not part of this delivery and must not be used as a production backup system. Follow the existing consistent-backup procedure; a restoration must be verified with the original credential master key.
+The superseded P03 prototype is replaced by the operator-only recovery workflow documented below. Validate a backup and an isolated restore with the original key before relying on it; production cutover, off-host retention and disaster-recovery targets require separate approval and verification.
 
 
 ## Verified individual recovery

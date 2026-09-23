@@ -72,3 +72,10 @@
 - Browser restoration exercised a separate authenticated loopback server and preserved the original synthetic database; screenshot inspected.
 - P03 does not imply F00 review acceptance or hosted/full-product completion. No live recovery, key copying between projects, dependency addition, merge or deployment.
 - Next code phase after reviewed recovery: P04 contracts and persistence. Docker daemon unavailable in read-only probe; no service changed.
+
+## P03 review follow-up
+
+- Review issue 4086900020 reproduced: synchronous work starved timeout timers. A monotonic check now rejects expiration even without event-loop progress; focused RED/GREEN and full gates passed.
+- Corrected conflicting SECURITY status and moved browser-context setup into server-cleanup protection.
+- Evidence: docs/evidence/p03-review.json; 115 code/API tests + 8 verifier tests and 22 browser scenarios in the current check. No new provider call, dependency or data migration.
+- P04 next: real workspace-scoped repositories; preserve existing individual flows and distinguish hosted adapter validation from hosted product completion.

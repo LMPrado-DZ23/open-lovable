@@ -48,3 +48,5 @@ npm run recovery -- restore --bundle <backup-directory> --destination <new-data-
 Automated coverage includes restored code/history/documents/images, all stored connections, wrong-key rejection, a non-migrating CLI, schema/content corruption, limits/cancellation, path boundaries, ciphertext/manifest tampering and refusal to overwrite. A browser test starts a separately restored loopback server, opens the recovered application, exercises its counter, saves a new revision and confirms the original source database remains unchanged. These are synthetic test data, not a backup or restore of the operator's real projects.
 
 Primary API references consulted: Node.js node:sqlite backup and readOnly connection documentation; Node.js node:crypto AES-GCM and HKDF documentation. No third-party code or new dependencies were copied for this implementation.
+
+Deadline checks use a monotonic clock at synchronous inventory boundaries. A single SQLite/OS call cannot be preempted; caller cancellation triggered by event-loop callbacks is observed after control returns to that loop. This is cooperative cancellation, not an instantaneous wall-clock kill guarantee.

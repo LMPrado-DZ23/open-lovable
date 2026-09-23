@@ -1,3 +1,4 @@
+import {performance} from 'node:perf_hooks';
 import {backup,DatabaseSync} from 'node:sqlite';
 import {createCipheriv,createDecipheriv,createHash,createHmac,hkdfSync,randomBytes,timingSafeEqual} from 'node:crypto';
 import {createReadStream,createWriteStream,lstatSync,mkdirSync,mkdtempSync,readFileSync,realpathSync,rmSync,unlinkSync,writeFileSync} from 'node:fs';
@@ -13,11 +14,13 @@ import {readProviderConfiguration} from '../settings/store';
 
 const LIMIT=512*1024*1024;
 export interface RecoveryOptions {maxBytes?:number;timeoutMs?:number;signal?:AbortSignal;}
-function operationBudget(options:RecoveryOptions={}){
+/** Enforces a monotonic deadline even when synchronous SQLite work delays event-loop timers. */
+export function createRecoveryBudget(options:RecoveryOptions={}){
  const maxBytes=options.maxBytes??LIMIT,timeoutMs=options.timeoutMs??120000;
  if(!Number.isSafeInteger(maxBytes)||maxBytes<4096||maxBytes>LIMIT||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>300000)throw new ProjectError('Invalid recovery size or time budget');
  const signals=[AbortSignal.timeout(timeoutMs)];if(options.signal)signals.push(options.signal);
- const signal=AbortSignal.any(signals);const check=()=>signal.throwIfAborted();check();
+ const signal=AbortSignal.any(signals),deadline=performance.now()+timeoutMs;
+ const check=()=>{signal.throwIfAborted();if(performance.now()>=deadline)throw new DOMException('Recovery time budget exceeded','TimeoutError');};check();
  return {maxBytes,signal,check};
 }
 const digestSchema=z.string().regex(/^[a-f0-9]{64}$/);
@@ -65,7 +68,7 @@ function inventory(path:string,key:Buffer,maxBytes=LIMIT,check:()=>void=()=>{}):
   check();const schemaVersion=Number(db.prepare('PRAGMA user_version').get()?.user_version);
   if(schemaVersion<1||schemaVersion>migrations.length)throw new ProjectError('Backup schema is newer or unsupported by this application',503);
   if(db.prepare('PRAGMA quick_check').get()?.quick_check!=='ok'||db.prepare('PRAGMA foreign_key_check').all().length)throw new ProjectError('Backup database integrity check failed',503);
-  const expected=new DatabaseSync(':memory:');
+  check();const expected=new DatabaseSync(':memory:');
   try {
    for(const migration of migrations.filter(item=>item.version<=schemaVersion))expected.exec(migration.sql);
    const sql="SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name";
@@ -95,13 +98,13 @@ function inventory(path:string,key:Buffer,maxBytes=LIMIT,check:()=>void=()=>{}):
    for(const record of db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).iterate()){check();rows++;hash.update(canonical(record)+'\n');}
    tables[name]={rows,digest:hash.digest('hex')};
   }
-  return {schemaVersion,tables};
+  check();return {schemaVersion,tables};
  }finally{db.close();}
 }
 
 /** Create a consistent SQLite snapshot and encrypt it. Master key is deliberately not bundled. */
 export async function createRecoveryBundle(store:Pick<ProjectStore,'db'>,masterKey:Uint8Array,destination:string,options:RecoveryOptions={}):Promise<RecoveryManifest>{
- const budget=operationBudget(options);const key=keyBytes(masterKey);let target:string|undefined;let encryptionKey:Buffer|undefined;
+ const budget=createRecoveryBudget(options);const key=keyBytes(masterKey);let target:string|undefined;let encryptionKey:Buffer|undefined;
  try{
   budget.check();const pageSize=Number(store.db.prepare('PRAGMA page_size').get()?.page_size);
   const pages=Number(store.db.prepare('PRAGMA page_count').get()?.page_count);
@@ -123,7 +126,7 @@ export async function createRecoveryBundle(store:Pick<ProjectStore,'db'>,masterK
 
 /** Restore only into a new private directory after authentication, digests and schema checks. */
 async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:string,materializeKey:boolean,options:RecoveryOptions={}):Promise<{schemaVersion:number;databaseDigest:string;tables:RecoveryManifest['tables']}>{
- const budget=operationBudget(options);const key=keyBytes(masterKey);let target:string|undefined;let encryptionKey:Buffer|undefined;
+ const budget=createRecoveryBudget(options);const key=keyBytes(masterKey);let target:string|undefined;let encryptionKey:Buffer|undefined;
  try{
   budget.check();const source=resolve(bundle),manifestPath=join(source,'manifest.json'),encrypted=join(source,'database.enc');regularFile(manifestPath,1024*1024);
   const manifest=manifestSchema.parse(JSON.parse(readFileSync(manifestPath,'utf8')));const {mac,...payload}=manifest;

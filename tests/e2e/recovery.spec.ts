@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect,type BrowserContext} from '@playwright/test';
 import {spawn,spawnSync} from 'node:child_process';
 import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
@@ -23,9 +23,10 @@ test('P03 a separately restored server reopens and edits the application without
  const server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port',String(port)],{env,stdio:['ignore','pipe','pipe']});
  const logs:string[]=[];server.stdout.on('data',data=>logs.push(String(data)));server.stderr.on('data',data=>logs.push(String(data)));
  const exited=new Promise<void>((resolve,reject)=>{server.once('exit',()=>resolve());server.once('error',reject);});
- const context=await browser.newContext({baseURL:origin,httpCredentials:{username:'admin',password,origin,send:'always'}});
+ let context:BrowserContext|undefined;
  try {
-  await expect.poll(async()=>{try{return (await context.request.get('/projects',{timeout:1000})).status();}catch{return 0;}},{timeout:20000}).toBe(200);
+  context=await browser.newContext({baseURL:origin,httpCredentials:{username:'admin',password,origin,send:'always'}});
+  await expect.poll(async()=>{try{return (await context!.request.get('/projects',{timeout:1000})).status();}catch{return 0;}},{timeout:20000}).toBe(200);
   const page=await context.newPage(),errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto('/projects/'+project.id);await expect(page.getByRole('heading',{name:'Recovered application',exact:true})).toBeVisible();
   await expect(page.getByTestId('project-version')).toHaveText('Revisão 2');
@@ -42,7 +43,7 @@ test('P03 a separately restored server reopens and edits the application without
   expect(readFileSync(join(root,'source','state.sqlite3')).equals(original)).toBe(true);expect(errors).toEqual([]);
   await page.screenshot({path:info.outputPath('recovered-project.png'),fullPage:true});
  }finally{
-  await context.close();if(server.exitCode===null)server.kill();
+  try{await context?.close();}finally{if(server.exitCode===null)server.kill();}
   const watchdog=setTimeout(()=>server.kill('SIGKILL'),5000);try{await exited;}finally{clearTimeout(watchdog);}
   await info.attach('restored-server.log',{body:Buffer.from(logs.join('')),contentType:'text/plain'});
   rmSync(root,{recursive:true,force:true});
