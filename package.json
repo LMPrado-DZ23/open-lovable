@@ -12,11 +12,13 @@
     "test:code": "tsx --import ./tests/setup.mjs --test tests/providers.test.ts tests/validation.test.ts tests/export.test.ts",
     "test:all": "npm test",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --import ./tests/setup.mjs --test tests/*.test.ts",
+    "test": "tsx --import ./tests/setup.mjs --test tests/*.test.ts && npm run test:roadmap",
     "test:integration": "tsx --import ./tests/setup.mjs --test tests/integration.test.ts",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
-    "security:audit": "npm audit --audit-level=low"
+    "security:audit": "npm audit --audit-level=low",
+    "test:roadmap": "node --test tests/roadmap/*.test.mjs",
+    "verify:baseline": "node scripts/verification/baseline.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.1",
