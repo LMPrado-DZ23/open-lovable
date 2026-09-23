@@ -1,7 +1,7 @@
 import { lookup as dnsLookup } from 'node:dns';
 import { BlockList, isIP, type LookupFunction } from 'node:net';
 import { Agent, fetch as httpFetch } from 'undici';
-import { assertNoSecrets } from '@/lib/security/secret-content';
+import { prepareProviderBody } from '@/lib/security/provider-content';
 
 const denied = new BlockList();
 for (const [address, prefix] of [
@@ -62,10 +62,11 @@ export function createProviderFetch(baseURL: string, options: {allowLoopback?: b
       throw new Error('Provider request escaped its configured origin or path');
     }
     if (input instanceof Request) throw new Error('Provider transport requires explicit request options');
+    let requestBody:string|undefined;
     if (init?.body != null) {
       if (typeof init.body !== 'string') throw new Error('Provider transport only accepts JSON request bodies');
       if (Buffer.byteLength(init.body) > 12 * 1024 * 1024) throw new Error('Provider request exceeds byte limit');
-      assertNoSecrets(JSON.parse(init.body));
+      requestBody=await prepareProviderBody(init.body);
     }
     const local = LOOPBACK.has(base.hostname);
     const dispatcher = new Agent({connect: {timeout:10000, lookup:local ? loopbackLookup : publicLookup}});
@@ -82,7 +83,7 @@ export function createProviderFetch(baseURL: string, options: {allowLoopback?: b
     if (init?.signal) signals.push(init.signal);
     try {
       const upstream = await httpFetch(url, {
-        method:init?.method ?? 'GET', headers: new Headers(init?.headers), body: init?.body as string | undefined,
+        method:init?.method ?? 'GET', headers: new Headers(init?.headers), body: requestBody,
         signal:AbortSignal.any(signals), redirect:'error', dispatcher,
       });
       touch();

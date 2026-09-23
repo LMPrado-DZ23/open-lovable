@@ -1,3 +1,4 @@
+import {assertSafeDataAncestors} from '@/lib/security/data-paths';
 import { isBase64 } from '@/lib/security/base64';
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID, createHash } from 'node:crypto';
@@ -65,10 +66,12 @@ export class ProjectStore {
    }
   }
   this.db=new DatabaseSync(path);
-  this.db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
-  const version=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
-  if(version>migrations.length) {this.db.close();throw new ProjectError('Database schema is newer than this application',503);}
-  try {for(const migration of migrations.filter(item=>item.version>version)) this.transaction(()=>{
+  try {
+   // Reject an unsupported version before changing persistent journal mode or running migrations.
+   const version=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
+   if(version>migrations.length)throw new ProjectError('Database schema is newer than this application',503);
+   this.db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
+   for(const migration of migrations.filter(item=>item.version>version)) this.transaction(()=>{
    // A second process may have migrated while this connection waited for the write lock.
    const current=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
    if(current>=migration.version)return;
@@ -269,14 +272,10 @@ export class ProjectStore {
  }
 }
 
-/** Refuses symlinks and Windows junctions in every existing component. */
+/** Preserve the domain error while admitting only verified native system aliases. */
 function assertPlainAncestors(path:string):void {
- let candidate=resolve(path);
- while(true) {
-  try {if(lstatSync(candidate).isSymbolicLink()) throw new ProjectError('Data path cannot contain a symlink or junction',503);}
-  catch(error) {if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
-  const parent=dirname(candidate);if(parent===candidate)break;candidate=parent;
- }
+ try {assertSafeDataAncestors(path);}
+ catch {throw new ProjectError('Data path cannot contain an untrusted symlink or junction',503);}
 }
 
 /** Server configuration only. User requests cannot select database paths. */

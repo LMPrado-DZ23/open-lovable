@@ -65,3 +65,14 @@ Data is stored outside the checkout in `OPEN_LOVABLE_DATA_DIR` (default: the ser
 Connection values in SQLite are encrypted with AES-256-GCM and owner/provider/version authenticated data. Keep `credentials.key` or the separately configured `OPEN_LOVABLE_MASTER_KEY` private and backed up. Missing/corrupt keys fail closed; the application does not erase stored configuration. Operating-system ACLs and encrypted backups remain deployment responsibilities.
 
 See `docs/durable-projects.md` for backup/recovery and the exact scope of the React preview. Imported source is data, never permission to run scripts, install packages, publish, or access the host.
+
+
+## F00 corrections: connection destination and raster input
+
+A saved credential is retained on a blank edit only when the canonical endpoint is unchanged. Changing host, port, scheme or API base path requires explicitly providing a key or clearing the existing key. This is a save-time authorization boundary; it does not revoke credentials already disclosed to a provider or cancel every already-running SDK request.
+
+Inline PNG/JPEG/WebP parts are decoded and bounded separately from textual content. Only recognized protocol image fields are exempted from the text heuristic after raster validation; surrounding metadata remains scanned. Remote image/file source URLs are not supported by this transport. Normalization strips metadata, not secrets or personal data visible in pixels. Provider fixtures are not proof that a live model accepts a given image.
+
+On macOS, exact root-owned system aliases /var, /tmp and /etc may be recognized under a narrow ownership/target policy. Arbitrary links and Windows junctions stay blocked. Unsupported future database schemas are rejected before switching persistent journal mode.
+
+The experimental P03 recovery prototype is not part of this delivery and must not be used as a production backup system. Follow the existing consistent-backup procedure; a restoration must be verified with the original credential master key.

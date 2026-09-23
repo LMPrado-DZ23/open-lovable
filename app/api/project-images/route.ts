@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {authorizeOperatorRequest} from '@/lib/security/operator-access';
 import {readJsonObject,ClientInputError} from '@/lib/security/input-validation';
-import {SecretContentError,safeLogger} from '@/lib/security/secret-content';
+import {assertNoSecrets,SecretContentError,safeLogger} from '@/lib/security/secret-content';
 import {projectStore,operatorID,ProjectError} from '@/lib/projects/store';
 import {ReferenceImageStore} from '@/lib/projects/images';
 
@@ -32,7 +32,9 @@ export async function GET(request:Request){
 export async function POST(request:Request){
  const denied=await authorizeOperatorRequest(request);if(denied)return denied;
  try{
-  const body=schema.parse(await readJsonObject(request,8*1024*1024));
+  const body=schema.parse(await readJsonObject(request,8*1024*1024,false));
+  // Binary data has a separate decoder; metadata still passes the textual credential check.
+  if(body.action==='upload')assertNoSecrets({name:body.name,role:body.role,projectID:body.projectID});
   const images=new ReferenceImageStore(projectStore()),owner=operatorID();
   if(body.action==='upload')return Response.json({image:await images.add(owner,body.projectID,body.name,body.role,body.data)},{status:201,headers:{'Cache-Control':'no-store'}});
   images.archive(owner,body.projectID,body.imageID);
