@@ -55,3 +55,20 @@
 - Capturas desktop/mobile de configuracoes inspecionadas; campos e nova orientacao de endpoint visiveis, sem tela vazia/overlay. Provedores eram fixtures HTTP/SSE, nao servicos reais.
 - P03 segue em desenvolvimento separado, com falha reproduzida. A arvore de entrega nao inclui seu modulo, CLI nem novos testes; o trabalho local os preserva. Nenhum teste existente do baseline foi removido.
 - CI Windows/macOS/Linux do novo commit e revisao independente devem ser conferidos separadamente antes de aceitar a entrega. F00 nao encerrado.
+
+## P03 retomada - snapshot autenticado
+
+- Branch isolada existente derivada de cf4c86f; pendencias preservadas em .audit/p03-resume/prechange-source.zip.
+- RED atual: backup aceita chave diferente da usada nas conexoes; teste mantido.
+- Ruling: validar a chave contra todas as linhas cifradas do snapshot consistente, nao somente da base viva; leitura compartilhada com o cofre sem executar migrations.
+- P01/P02/P50 compartilham paths/cofre; preservar audiencia e criptografia existente. Nenhum segredo real e nenhuma operacao de producao autorizados por esta correcao.
+
+## P03 - implementation and local verification
+
+- The preserved prototype is now included with its original failing test corrected, not excluded from the delivered tree.
+- Added read-only source backup, shared credential authentication for every snapshot connection, standalone verify CLI, schema/content checks, bounds and isolated restore.
+- RED and GREEN captures: .audit/f00/p03-resume-red.json, p03-guard-green.json, p03-safety-red.json, p03-integrity-green.json, p03-budgets-red.json, p03-budgets-green.json.
+- First full local run: 113 code/API/integration + 8 verifier tests; 22 E2E; lint/types/build/audit passed. Fresh clean-install verification remains to be recorded from its actual exit codes.
+- Browser restoration exercised a separate authenticated loopback server and preserved the original synthetic database; screenshot inspected.
+- P03 does not imply F00 review acceptance or hosted/full-product completion. No live recovery, key copying between projects, dependency addition, merge or deployment.
+- Next code phase after reviewed recovery: P04 contracts and persistence. Docker daemon unavailable in read-only probe; no service changed.

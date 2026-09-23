@@ -18,21 +18,27 @@ function checkProvider(provider:string):asserts provider is SettingsProvider {
  if(!providerIDs.includes(provider as SettingsProvider)) throw new ProjectError('Unknown provider');
 }
 
-/** Encrypted configuration, scoped to the authenticated operator; no plaintext credentials in SQLite. */
-export class CredentialStore {
- constructor(private readonly store:ProjectStore,private readonly key:Buffer) {if(key.length!==32) throw new ProjectError('Credential master key must contain 32 bytes',503);}
- read(owner:string,provider:string):ProviderConfiguration|null {
+/** Read and authenticate a stored row without migrations, writes, or logging secret values. */
+export function readProviderConfiguration(db: ProjectStore['db'], key: Buffer, owner: string, provider: string): ProviderConfiguration | null {
+ if(key.length!==32)throw new ProjectError('Credential master key must contain 32 bytes',503);
   checkProvider(provider);
-  const row=this.store.db.prepare('SELECT version,encrypted FROM provider_settings WHERE owner=? AND provider=?').get(owner,provider);
+  const row=db.prepare('SELECT version,encrypted FROM provider_settings WHERE owner=? AND provider=?').get(owner,provider);
   if(!row)return null;
   try {
    const bytes=Buffer.from(row.encrypted as string,'base64');
    if(bytes.length<29)throw new Error('Invalid ciphertext');
-   const decipher=createDecipheriv('aes-256-gcm',this.key,bytes.subarray(0,12));
+   const decipher=createDecipheriv('aes-256-gcm',key,bytes.subarray(0,12));
    decipher.setAAD(Buffer.from(`${owner}:${provider}:${row.version}`));decipher.setAuthTag(bytes.subarray(12,28));
    const plaintext=Buffer.concat([decipher.update(bytes.subarray(28)),decipher.final()]).toString('utf8');
    return {...JSON.parse(plaintext),version:row.version};
   }catch {throw new ProjectError('Cannot decrypt provider credentials. Restore the original master key; configuration was preserved.',503);}
+}
+
+/** Encrypted configuration, scoped to the authenticated operator; no plaintext credentials in SQLite. */
+export class CredentialStore {
+ constructor(private readonly store:ProjectStore,private readonly key:Buffer) {if(key.length!==32) throw new ProjectError('Credential master key must contain 32 bytes',503);}
+ read(owner:string,provider:string):ProviderConfiguration|null {
+  return readProviderConfiguration(this.store.db,this.key,owner,provider);
  }
  save(owner:string,provider:string,expectedVersion:number,input:Partial<ProviderConfiguration>&{clearKey?:boolean}):void {
   checkProvider(provider);

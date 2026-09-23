@@ -118,3 +118,8 @@ Read [visual-reference usage and limits](docs/visual-references.md) and the [ind
 Connection edits no longer silently retain a saved key when the endpoint changes. Re-enter the key for the new destination or explicitly clear it. Raster uploads and provider image parts are validated separately from textual secret checks.
 
 See `docs/evidence/f00-scope.md` for the exact delivery scope and the still-open recovery work; `docs/admission/README.md` documents optional third-party code admission. These changes do not make the application multi-tenant or production-certified.
+
+
+## Verified individual recovery
+
+The operator-only `npm run recovery -- create|verify|restore ...` workflow is documented in [docs/recovery-guide.md](docs/recovery-guide.md). It uses the original key and a consistent SQLite snapshot, verifies schema/content/connection integrity, and never overwrites an existing restore destination. It does not switch production configuration, schedule off-host backups or cover application backends. See the guide for limits and interrupted-operation handling.

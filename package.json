@@ -19,7 +19,8 @@
     "security:audit": "npm audit --audit-level=low",
     "test:roadmap": "node --test tests/roadmap/*.test.mjs",
     "verify:baseline": "node scripts/verification/baseline.mjs",
-    "check:admission": "tsx scripts/admission-check.ts"
+    "check:admission": "tsx scripts/admission-check.ts",
+    "recovery": "tsx scripts/recovery.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.1",
