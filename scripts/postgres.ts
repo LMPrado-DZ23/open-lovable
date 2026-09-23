@@ -1,3 +1,4 @@
+import {postgresOperationError} from '../lib/persistence/operator-errors';
 import {Pool} from 'pg';
 import {lstatSync,readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -24,4 +25,4 @@ async function main():Promise<void>{
   }
  }finally{await pool.end();}
 }
-main().catch(()=>{console.error('PostgreSQL operation failed. Check the operator connection, role, source schema, private key, empty target and permissions. No existing target data are overwritten; runtime activation is a separate action.');process.exitCode=1;});
+main().catch(error=>{console.error(postgresOperationError(error));process.exitCode=1;});

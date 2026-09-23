@@ -67,3 +67,16 @@ export function verifyNpmLock(input:unknown,sourceDirectory:string,lock:unknown)
  const row=packages?.[sourceDirectory];
  return row&&row.version===manifest.revision&&row.integrity===manifest.integrity&&row.resolved===manifest.sourceURL?[]:['Package lock identity changed or is missing'];
 }
+
+/** Canonical JSON evidence remains stable across LF/CRLF checkout conversion, not content changes. */
+export function reviewEvidenceDigest(value:unknown):string{return createHash('sha256').update(canonical(value)).digest('hex');}
+/** A declaration of a digest is insufficient: the protected review artifact must actually match it. */
+export function verifyReviewEvidence(input:unknown,root:string):string[]{
+ try{
+  const value=input as {evidencePath?:string;evidenceDigest?:string;evidenceFormat?:string};
+  if(value?.evidenceFormat!=='canonical-json-v1'||typeof value.evidencePath!=='string'||!/^docs\/admission\/[a-zA-Z0-9._-]+\.json$/.test(value.evidencePath))return ['Missing or invalid review evidence reference'];
+  const path=resolve(root,value.evidencePath);assertSafeDataAncestors(path);const stat=lstatSync(path);
+  if(!stat.isFile()||stat.isSymbolicLink()||stat.size>1024*1024)return ['Invalid review evidence file'];
+  return reviewEvidenceDigest(JSON.parse(readFileSync(path,'utf8')))===value.evidenceDigest?[]:['Review evidence content changed'];
+ }catch{return ['Review evidence missing or unreadable'];}
+}

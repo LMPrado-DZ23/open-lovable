@@ -2,13 +2,18 @@ import {randomUUID} from 'node:crypto';
 import {ProjectStore,ProjectError,validateSnapshot,type ProjectSnapshot} from '../projects/store';
 import type {AuthorizedContext,WorkspaceContext} from '../contracts/domain';
 import type {ProjectRepository,RepositoryProject,RepositoryRevision,ProjectSummary} from './repository';
-import {individualContext as trustedIndividualContext} from './workspaces';
+import {individualContext as trustedIndividualContext,ensureIndividualWorkspace} from './workspaces';
 import {assertContext,READ_ROLES,WRITE_ROLES,ID_PATTERN,notFound,snapshotDigest,REVISION_BUDGET,validateProjectDetails,validateRevisionLabel} from './validation';
 
 /** Uses the existing database and revision rows, not a parallel copy of project data. */
 export class SqliteProjectRepository implements ProjectRepository {
   constructor(readonly store:ProjectStore){}
-  individualContext(owner:string):WorkspaceContext{try{return this.store.transaction(()=>trustedIndividualContext(this.store.db,owner));}catch(error){if(error instanceof Error&&error.message==='Workspace access not found')throw notFound();throw error;}}
+  individualContext(owner:string):WorkspaceContext{
+    try{
+      if(!this.store.db.prepare('SELECT id FROM workspaces WHERE legacy_owner=?').get(owner))return this.store.transaction(()=>{ensureIndividualWorkspace(this.store.db,owner);return trustedIndividualContext(this.store.db,owner);});
+      return trustedIndividualContext(this.store.db,owner);
+    }catch(error){if(error instanceof Error&&error.message==='Workspace access not found')throw notFound();throw error;}
+  }
   private authorize(ctx:WorkspaceContext,write=false):void {
     assertContext(ctx);
     const member=this.store.db.prepare('SELECT role FROM workspace_members WHERE workspace_id=? AND actor_id=? AND active=1').get(ctx.principal.workspaceId,ctx.principal.actorId);

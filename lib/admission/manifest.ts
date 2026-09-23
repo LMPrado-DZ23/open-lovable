@@ -15,8 +15,11 @@ export const admissionManifestSchema=z.union([
  commonManifestSchema.extend({sourceKind:z.literal('npm'),revision:z.string().regex(/^\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?$/),
   packageName:z.string().regex(/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/),
   integrity:z.string().regex(/^sha512-[A-Za-z0-9+/]{86}==$/),
- }).strict().refine(value=>new URL(value.sourceURL).hostname==='registry.npmjs.org','Npm packages require the pinned registry artifact URL'),
+ }).strict().refine(value=>{
+  const url=new URL(value.sourceURL),base=value.packageName.split('/').at(-1)!;
+  return url.origin==='https://registry.npmjs.org'&&url.pathname==='/'+value.packageName+'/-/'+base+'-'+value.revision+'.tgz';
+ },'Npm artifact URL must match its declared registry package and exact version'),
 ]);
 export type AdoptionManifest=z.infer<typeof admissionManifestSchema>;
-export interface AdmissionApproval {manifestDigest:string;reviewer:string;decision:'allowed'|'conditional'|'denied';expiresAt:string;evidenceDigest:string;restrictedPathsReviewed:readonly string[];}
+export interface AdmissionApproval {manifestDigest:string;reviewer:string;decision:'allowed'|'conditional'|'denied';expiresAt:string;evidenceDigest:string;evidencePath?:string;evidenceFormat?:'canonical-json-v1';restrictedPathsReviewed:readonly string[];}
 export interface AdmissionDecision {status:'allowed'|'conditional'|'denied';approvedDigest?:string;reasons:string[];}

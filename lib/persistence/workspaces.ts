@@ -30,8 +30,8 @@ export function backfillLegacyWorkspaces(db:DatabaseSync):void {
 }
 /** Context for a caller already authenticated by the individual-mode HTTP gate. */
 export function individualContext(db:DatabaseSync,owner:string):WorkspaceContext {
-  const workspace=ensureIndividualWorkspace(db,owner);
-  const membership=db.prepare('SELECT role,version FROM workspace_members WHERE workspace_id=? AND actor_id=? AND active=1').get(workspace.id,workspace.actorId);
+  const workspace={id:legacyIdentifier('workspace',owner),actorId:legacyIdentifier('actor',owner)};
+  const membership=db.prepare('SELECT m.role,m.version FROM workspace_members m JOIN workspaces w ON w.id=m.workspace_id WHERE m.workspace_id=? AND m.actor_id=? AND m.active=1 AND w.legacy_owner=?').get(workspace.id,workspace.actorId,owner);
   if(!membership)throw new Error('Workspace access not found');
   return {principal:{actorId:workspace.actorId,workspaceId:workspace.id,roles:[membership.role as WorkspaceRole],sessionVersion:1},environment:'development',requestId:randomUUID(),policyVersion:1};
 }

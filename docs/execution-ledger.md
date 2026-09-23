@@ -94,3 +94,10 @@
 - Import preserves existing data, refuses a nonempty target and does not activate a hosted backend. Remaining auth/jobs/connectors are not falsely represented as PostgreSQL-ready.
 
 - P04 first full local verification: 130 code/API tests, 8 baseline checks and 22 E2E; lint/types/build/admission/audit passed. Evidence docs/evidence/p04-local.json. PostgreSQL real-service tests are prepared, not yet executed; publication is an incremental draft awaiting that gate.
+
+- PR5 review confirmed the import-column bug already reproduced by real PostgreSQL: sha256 rejected by an over-restrictive identifier regex. Added a local regression against every declared schema column and kept rejection of SQL metacharacters.
+- Corrected an unnecessary SQLite write lock during context reads (two-connection regression), and tied admission decisions to actual canonical review artifacts across LF/CRLF.
+- Review follow-up: require npm tarball path to match package/version; expose sanitized domain precondition errors in operator CLI; test runtime roles now have unique per-run identifiers/secrets and cleanup only the role created by the test. Repeated PostgreSQL suite on the same disposable server is a CI gate.
+
+- P04 review verification: 136 root code/API tests + 8 baseline tests and 22 E2E passed. Real PostgreSQL initial run passed 7/8 and exposed the column-name bug; fixed with local RED/GREEN while keeping the actual import test. Full PostgreSQL retry is required on the follow-up SHA.
+- Evidence: docs/evidence/p04-review.json. No live credentials, source cutover, merge or production change.

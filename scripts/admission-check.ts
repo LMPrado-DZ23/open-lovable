@@ -1,6 +1,7 @@
+import type {AdmissionApproval} from '../lib/admission/manifest';
 import {readFileSync} from 'node:fs';
 import {resolve,relative,isAbsolute,sep} from 'node:path';
-import {evaluateAdmission,verifyAdmissionFiles,verifyNpmLock} from '../lib/admission/policy';
+import {evaluateAdmission,verifyAdmissionFiles,verifyNpmLock,verifyReviewEvidence} from '../lib/admission/policy';
 
 try{
  const root=process.cwd();
@@ -17,9 +18,11 @@ try{
    artifacts=!rel||rel==='..'||rel.startsWith('..'+sep)||isAbsolute(rel)?['Source directory escaped repository']:verifyAdmissionFiles(item.manifest,absolute);
   }
   artifacts.push(...verifyNpmLock(item.manifest,item.sourceDirectory,lock));
+  const approval=registry.approvals.find((row:AdmissionApproval)=>row.manifestDigest===decision.approvedDigest);
+  artifacts.push(...verifyReviewEvidence(approval,root));
   reports.push({id:item.manifest?.id||'invalid',status:decision.status,issues:[...decision.reasons,...artifacts]});
  }
  const passed=reports.every(report=>report.status==='allowed'&&report.issues.length===0);
- console.log(JSON.stringify({passed,submittedCandidates:reports.length,reports,note:'No candidates does not retrospectively approve existing dependencies or the research catalog.'},null,2));
+ console.log(JSON.stringify({passed,submittedCandidates:reports.length,reports,note:reports.length?'Only submitted artifacts and their referenced review records are verified; this is not independent security certification.':'No candidates does not retrospectively approve existing dependencies or the research catalog.'},null,2));
  if(!passed)process.exitCode=1;
 }catch{console.error('Admission registry could not be verified; no candidates were admitted.');process.exitCode=1;}

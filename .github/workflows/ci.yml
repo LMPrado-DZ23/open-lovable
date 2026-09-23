@@ -84,3 +84,5 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run check:admission
       - run: npm run test:postgres
+      - name: Verify repeatability on the same disposable database
+        run: npm run test:postgres

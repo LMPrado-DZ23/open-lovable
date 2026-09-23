@@ -10,6 +10,13 @@ import {ProjectError} from '../projects/store';
 import {POSTGRES_SCHEMA_VERSION,POSTGRES_SCHEMA_DIGEST} from './postgres-schema';
 
 export const IMPORT_TABLES=['workspaces','workspace_members','projects','revisions','runs','messages','run_events','provider_settings','project_documents','execution_claims','project_images'] as const;
+/** Columns come only from a known schema table and still pass strict identifier validation. */
+export function importColumns(db:DatabaseSync,table:typeof IMPORT_TABLES[number]):string[]{
+ if(!IMPORT_TABLES.includes(table))throw new ProjectError('Unexpected source table');
+ const columns=db.prepare(`PRAGMA table_info("${table}")`).all().map(row=>String(row.name));
+ if(!columns.length||columns.some(column=>!/^[a-z_][a-z0-9_]*$/.test(column)))throw new ProjectError('Unexpected source column');
+ return columns;
+}
 export interface ImportReport {
  sourceSchemaVersion:number;targetSchemaVersion:number;sourceSnapshotDigest:string;
  tables:Record<string,{rows:number;digest:string}>;activation:'NOT_PERFORMED';
@@ -52,8 +59,7 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
    for(const table of IMPORT_TABLES){budget.check();if((await client.query(`SELECT 1 FROM open_lovable.${table} LIMIT 1`)).rowCount)throw new ProjectError('Import target must be empty; existing data were preserved',409);}
    const tables:ImportReport['tables']={};
    for(const table of IMPORT_TABLES){
-    budget.check();const columns=(db.prepare(`PRAGMA table_info("${table}")`).all()).map(row=>String(row.name));
-    if(!columns.length||columns.some(column=>!/^[a-z_]+$/.test(column)))throw new ProjectError('Unexpected source column');
+    budget.check();const columns=importColumns(db,table);
     const rowHashes:string[]=[];let batch:unknown[][]=[],batchBytes=0,totalRows=0;
     const flush=async()=>{
      if(!batch.length)return;budget.check();

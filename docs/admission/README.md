@@ -14,3 +14,5 @@ O programa nao interpreta automaticamente obrigacoes legais. A decisao do reviso
 Um registro vazio passa somente porque nao ha novos candidatos submetidos. Ele NAO certifica dependencias legadas, todos os arquivos do repositorio ou a pesquisa. Bloquear mudancas nao cadastradas de dependencias e proteger a aprovacao por revisor independente exigem a politica de branch/release; nao sao garantidos por um JSON que o proprio autor pode editar.
 
 Nao foi admitido codigo novo de terceiros neste incremento. Preservar THIRD_PARTY_NOTICES.md e as licencas existentes.
+
+New npm admissions use exact package version, registry SRI, actual installed files and a canonical-JSON digest of the referenced review document. The CLI reads and checks that document, so formatting/line-ending conversion is not confused with altered evidence. Reviewer independence still depends on branch protection and review; this hash is not a signature.

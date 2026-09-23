@@ -1,6 +1,6 @@
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,randomBytes} from 'node:crypto';
 import {Pool} from 'pg';
 import {repositoryContract,context} from '../helpers/repository-contract';
 import {legacyIdentifier} from '../../lib/persistence/workspaces';
@@ -13,15 +13,23 @@ const parsed=new URL(url);
 if(!['localhost','127.0.0.1','[::1]'].includes(parsed.hostname)||!/^\/ol_test_[a-z0-9_]+$/.test(parsed.pathname))throw new Error('Only a dedicated loopback test database is accepted');
 const admin=new Pool({connectionString:url,max:3,connectionTimeoutMillis:5000});
 let pool:Pool;
+const runtimeRole='ol_test_runtime_'+randomUUID().replaceAll('-','');
+const runtimePassword=randomBytes(24).toString('hex');
+let runtimeRoleCreated=false;
 before(async()=>{
- await admin.query("CREATE ROLE ol_contract_runtime LOGIN PASSWORD 'isolated-contract-only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE");
- await migratePostgres(admin,{runtimeRole:'ol_contract_runtime'});
+ await admin.query(`CREATE ROLE "${runtimeRole}" LOGIN PASSWORD '${runtimePassword}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`);runtimeRoleCreated=true;
+ await migratePostgres(admin,{runtimeRole});
 });
-after(async()=>{await pool?.end();await admin.end();});
+after(async()=>{
+ try{await pool?.end();}finally{
+  try{if(runtimeRoleCreated){await admin.query(`DROP OWNED BY "${runtimeRole}"`);await admin.query(`DROP ROLE "${runtimeRole}"`);}}
+  finally{await admin.end();}
+ }
+});
 async function setup(t:{after(fn:()=>unknown):void}){
  const {grantPostgresRuntime}=await import('../../lib/persistence/postgres-schema');
- await grantPostgresRuntime(admin,'ol_contract_runtime');
- if(!pool){const application=new URL(url!);application.username='ol_contract_runtime';application.password='isolated-contract-only';pool=new Pool({connectionString:application.toString(),max:3,connectionTimeoutMillis:5000});}
+ await grantPostgresRuntime(admin,runtimeRole);
+ if(!pool){const application=new URL(url!);application.username=runtimeRole;application.password=runtimePassword;pool=new Pool({connectionString:application.toString(),max:3,connectionTimeoutMillis:5000});}
  const repository=new PostgresProjectRepository(pool);
  async function seed(owner:string):Promise<WorkspaceContext>{
   const actorId=legacyIdentifier('actor',owner),workspaceId=legacyIdentifier('workspace',owner);
@@ -66,7 +74,7 @@ test('SQLite snapshot import preserves all data and rejects a second import into
  const targetURL=new URL(url!);targetURL.pathname='/'+dbName;
  await admin.query('CREATE DATABASE "'+dbName+'"');const target=new Pool({connectionString:targetURL.toString(),max:2});
  try{
-  await migratePostgres(target,{runtimeRole:'ol_contract_runtime'});
+  await migratePostgres(target,{runtimeRole});
   await assert.rejects(()=>importSqliteSnapshot(file,randomBytes(32),target),/key|credential|decrypt/i);
   assert.equal((await target.query('SELECT count(*) AS n FROM open_lovable.workspaces')).rows[0].n,'0');
   const report=await importSqliteSnapshot(file,key,target);assert.equal(report.activation,'NOT_PERFORMED');assert.equal(report.tables.projects.rows,1);assert.equal(report.tables.revisions.rows,2);assert.equal(report.tables.project_images.rows,1);assert.equal(report.tables.runs.rows,1);assert.equal(report.tables.run_events.rows,1);assert.equal(report.tables.execution_claims.rows,1);assert.equal(report.tables.messages.rows,2);
