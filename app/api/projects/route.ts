@@ -1,10 +1,9 @@
-import {SqliteProjectRepository} from '@/lib/persistence/sqlite';
+import {studioAccess,authenticateStudio} from '@/lib/identity/request';
 import { z } from 'zod';
-import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { readJsonObject, ClientInputError } from '@/lib/security/input-validation';
 import { SecretContentError, redactSecretText, safeLogger } from '@/lib/security/secret-content';
 import { ProviderConfigError } from '@/lib/ai/provider-catalog';
-import { projectStore, operatorID, ProjectError } from '@/lib/projects/store';
+import { ProjectError } from '@/lib/projects/store';
 import { importProjectZip, exportProjectZip } from '@/lib/projects/archive';
 import { compileProject } from '@/lib/projects/preview';
 import { streamProjectRun } from '@/lib/projects/generation';
@@ -32,10 +31,10 @@ function failure(error:unknown):Response {
 }
 /** Reads are always scoped to the authenticated operator, never to a supplied owner. */
 export async function GET(request:Request){
- const denied=await authorizeOperatorRequest(request);if(denied)return denied;
  try{
-  const params=new URL(request.url).searchParams;const store=projectStore(),owner=operatorID(),projectID=params.get('id');
-  const repository=new SqliteProjectRepository(store),workspace=repository.individualContext(owner);
+  const params=new URL(request.url).searchParams,projectID=params.get('id');
+  const access=await studioAccess(request,projectID||undefined);if(access instanceof Response)return access;
+  const {store,owner,repository,workspace,guard}=access;guard(projectID||undefined);
   if(!projectID)return json({projects:await repository.list(workspace)});
   const context={...workspace,projectId:projectID};
   const project=await repository.read(context);
@@ -45,21 +44,26 @@ export async function GET(request:Request){
    if(!snapshot)throw new ProjectError('This run has no preview candidate',409);
    const compiled=await compileProject(snapshot,channel);
    if(request.signal.aborted)return new Response(null,{status:499});
+   guard(projectID);
    return json(compiled);
   }
   if(params.get('action')==='export'){
    const bytes=exportProjectZip(project.snapshot);
    return new Response(new Uint8Array(bytes),{headers:{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="project-${project.id}.zip"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
   }
-  return json({project,revisions:await repository.revisions(context),runs:store.runs(owner,projectID),messages:store.messages(owner,projectID),documents:store.documents(owner,projectID)});
+  let write=true,manageConnections=true;
+  try{guard(projectID,true);}catch(error){if(error instanceof ProjectError&&error.status===403)write=false;else throw error;}
+  try{access.requireAdmin();}catch(error){if(error instanceof ProjectError&&error.status===403)manageConnections=false;else throw error;}
+  return json({permissions:{write,manageConnections},profile:access.mode,project,revisions:await repository.revisions(context),runs:store.runs(owner,projectID),messages:store.messages(owner,projectID),documents:store.documents(owner,projectID)});
  }catch(error){return failure(error);}
 }
 /** Mutations validate bounded input and delegate to transactional, ownership-checked stores. */
 export async function POST(request:Request){
- const denied=await authorizeOperatorRequest(request);if(denied)return denied;
  try{
-  const body=schema.parse(await readJsonObject(request,18*1024*1024));const store=projectStore(),owner=operatorID();
-  const repository=new SqliteProjectRepository(store),workspace=repository.individualContext(owner);
+  const authenticated=await authenticateStudio(request);if(authenticated instanceof Response)return authenticated;
+  const body=schema.parse(await readJsonObject(request,18*1024*1024));
+  const access=await studioAccess(request,'id' in body?body.id:undefined,authenticated);if(access instanceof Response)return access;
+  const {store,owner,repository,workspace,guard}=access;guard('id' in body?body.id:undefined,body.action!=='preview');
   const context=(projectId:string)=>({...workspace,projectId});
   if('id' in body){if(body.action==='preview')await repository.read(context(body.id));else await repository.requireWrite(context(body.id));}
   switch(body.action){
@@ -74,19 +78,20 @@ export async function POST(request:Request){
     if(body.imageIDs?.length&&body.confirmVision!==true)throw new ProjectError('Confirm that the selected model accepts images. No text-only fallback is allowed.');
     const run=store.beginRun(owner,body.id,body.requestKey,body.prompt,body.model,body.version,{mode:body.mode,imageIDs:body.imageIDs});
     if(!store.claimRun(owner,body.id,run.id))return json({run});
-    return streamProjectRun(store,owner,run,request.signal);
+    return streamProjectRun(store,owner,run,request.signal,{scope:access.scope,assertLive:()=>guard(body.id,true)});
    }
    case 'cancel':return json({run:store.cancelRun(owner,body.id,body.runID)});
    case 'accept':{
     const run=store.getRun(owner,body.id,body.runID);if(!run.candidate)throw new ProjectError('No candidate is awaiting approval',409);
     await compileProject(run.candidate);
     await repository.requireWrite(context(body.id));
+    guard(body.id,true);
     return json({project:store.acceptRun(owner,body.id,body.runID,body.version)});
    }
    case 'preview':{
     const project=store.getProject(owner,body.id);const snapshot=body.runID?store.getRun(owner,body.id,body.runID).candidate:project.snapshot;
     if(!snapshot)throw new ProjectError('This run has no preview candidate',409);
-    return json(await compileProject(snapshot,body.channel));
+    const compiled=await compileProject(snapshot,body.channel);guard(body.id);return json(compiled);
    }
    case 'document':return json({documents:store.addDocument(owner,body.id,body.name,body.content)});
   }

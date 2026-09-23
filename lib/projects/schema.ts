@@ -1,3 +1,4 @@
+import {identitySchema} from '../identity/schema';
 /** Additive, transactional SQLite migrations. Never edit an applied migration. */
 export const migrations = [{version:1, sql:`
 CREATE TABLE projects (
@@ -71,4 +72,4 @@ CREATE TRIGGER projects_require_workspace BEFORE INSERT ON projects WHEN NEW.wor
 CREATE TRIGGER projects_keep_workspace BEFORE UPDATE OF workspace_id ON projects
  WHEN OLD.workspace_id IS NOT NULL AND (NEW.workspace_id IS NULL OR NEW.workspace_id<>OLD.workspace_id)
  BEGIN SELECT RAISE(ABORT,'Workspace reassignment is not allowed'); END;
-`}];
+`},{version:5,sql:identitySchema}];

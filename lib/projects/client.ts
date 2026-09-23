@@ -1,7 +1,9 @@
 "use client";
 import type { Project, ProjectRun } from './store';
 export interface ProjectState {
- project:Project;
+ project:Project & {workspaceId?:string};
+ permissions?:{write:boolean;manageConnections:boolean};
+ profile?:'individual'|'supabase';
  revisions:Array<{id:string;version:number;label:string;sha256:string;created_at:string}>;
  runs:ProjectRun[];
  messages:Array<{id:string;role:string;content:string;created_at:string}>;

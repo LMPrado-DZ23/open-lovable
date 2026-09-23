@@ -15,24 +15,24 @@ export async function normalizeReferenceImage(data:unknown) {
 }
 /** Only normalized immutable references live here; archives retain evidence used by past runs. */
 export class ReferenceImageStore {
- constructor(private readonly store:ProjectStore){}
+ constructor(private readonly store:ProjectStore,private readonly authorize?:(projectID:string,write:boolean)=>void){}
  list(owner:string,projectID:string):ReferenceImage[]{
-  this.store.getProject(owner,projectID);
+  this.authorize?.(projectID,false);this.store.getProject(owner,projectID);
   return this.store.db.prepare('SELECT id,project_id,name,role,mime,width,height,bytes,sha256,created_at FROM project_images WHERE project_id=? AND archived=0 ORDER BY created_at,id').all(projectID) as unknown as ReferenceImage[];
  }
  get(owner:string,projectID:string,id:string):StoredImage {
-  this.store.getProject(owner,projectID);
+  this.authorize?.(projectID,false);this.store.getProject(owner,projectID);
   const row=this.store.db.prepare('SELECT * FROM project_images WHERE project_id=? AND id=? AND archived=0').get(projectID,id);
   if(!row)throw new ProjectError('Image not found',404);
   return row as unknown as StoredImage;
  }
  async add(owner:string,projectID:string,name:string,role:'target'|'current',data:string):Promise<ReferenceImage>{
-  this.store.getProject(owner,projectID);
+  this.authorize?.(projectID,false);this.store.getProject(owner,projectID);
   if(typeof name!=='string'||!name.trim()||name.length>160||/[\\/\p{Cc}]/u.test(name)||!['target','current'].includes(role))throw new ProjectError('Invalid image name or role');
   assertNoSecrets(name);
   const normalized=await normalizeReferenceImage(data),id=randomUUID(),created_at=new Date().toISOString();
   this.store.transaction(()=>{
-   this.store.getProject(owner,projectID);
+   this.authorize?.(projectID,true);this.store.getProject(owner,projectID);
    const quota=this.store.db.prepare('SELECT count(*) AS count, coalesce(sum(bytes),0) AS bytes FROM project_images WHERE project_id=?').get(projectID)!;
    if(Number(quota.count)>=32||Number(quota.bytes)+normalized.bytes>32*1024*1024)throw new ProjectError('Image storage budget reached (32 images / 32 MiB including archived references).',413);
    this.store.db.prepare('INSERT INTO project_images(id,project_id,name,role,mime,width,height,bytes,sha256,data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,projectID,name.trim(),role,normalized.mime,normalized.width,normalized.height,normalized.bytes,normalized.sha256,normalized.data,created_at);
@@ -40,7 +40,7 @@ export class ReferenceImageStore {
   return this.list(owner,projectID).find(image=>image.id===id)!;
  }
  archive(owner:string,projectID:string,id:string):void {
-  this.get(owner,projectID,id);
+  this.authorize?.(projectID,true);this.get(owner,projectID,id);
   this.store.db.prepare('UPDATE project_images SET archived=1 WHERE project_id=? AND id=?').run(projectID,id);
  }
  forRun(owner:string,projectID:string,runID:string):StoredImage[]{

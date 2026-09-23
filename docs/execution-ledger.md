@@ -101,3 +101,33 @@
 
 - P04 review verification: 136 root code/API tests + 8 baseline tests and 22 E2E passed. Real PostgreSQL initial run passed 7/8 and exposed the column-name bug; fixed with local RED/GREEN while keeping the actual import test. Full PostgreSQL retry is required on the follow-up SHA.
 - Evidence: docs/evidence/p04-review.json. No live credentials, source cutover, merge or production change.
+
+
+## P05 - identity and workspaces (execution started)
+
+- Baseline ec98549. P04 PostgreSQL CI run 35923307652 passed, including import and repeatability; earlier ledger entries remain historical. No merge or production change.
+- Ruling: integrate account-backed sessions and workspaces with the canonical single-node SQLite flow first, so existing runs/images/credentials remain in one authorization and persistence boundary. PostgreSQL hosted activation is not claimed until all those domains and identity are wired together; no dual-write, no fake hosted mode.
+- Implement server-held Supabase Auth sessions (opaque HttpOnly cookie), live verified identity, bounded refresh, revocation, CSRF, login budgets, email-bound single-use invitations, roles and workspace-scoped connections. Keep the individual profile isolated and explicitly deny legacy global sandbox routes in the account profile.
+- Pre-flight: identity touches middleware/API/model resolver/generation/recovery. Preserve old individual contracts; recheck membership after async work and before storing proposals; account workspaces never inherit operator environment credentials.
+- Verification: RED/GREEN unit and HTTP contract fixtures; full prior suite; browser flow for two identities; external Supabase/SMTP remains a separate homologation, not faked by fixtures.
+
+- P05 UI direction: keep the existing warm-white Studio, restrained copper accents and clear form/table hierarchy. Login is a compact credential form, workspace management exposes real roles/invitation states; no fake metrics or unrelated imagery. Desktop, tablet and mobile use the same actions.
+- Browser plugin not available. Use the installed Playwright runner. Target: sign in -> create workspace -> invite second verified identity -> edit shared project -> reduce role/revoke -> verify denied write/read -> logout. All provider fixtures remain explicitly synthetic.
+
+- P05 resume: uncommitted source preserved; actual schema compatibility tests failed (PostgreSQL identity migration/import missing). Append PostgreSQL migration 2 without altering v1 SQL/digest; support source schemas 4 and 5 without source mutation. Identity tables are not granted to the project runtime role. No hosted cutover.
+
+- P05 browser trace showed the revoke action was correctly cancelled by the native confirmation dialog (no POST was issued). The test now explicitly accepts that dialog and waits for the actual successful revocation response before verifying denied access. No authorization assertion was removed.
+
+- Visual RED: existing theme maps numerical spacing utilities to pixels, so default-style p-6/py-3 produced cramped 26px fields. Converted only new account surfaces to explicit pixel spacing and added >=44px field assertions; existing theme preserved. Workspace bar now consumes the management page session metadata instead of showing a stale selected workspace.
+
+- Refresh lease RED reproduced reclaim at 31 seconds although two bounded provider calls can consume 30 seconds. Lease now 45 seconds; stale completions still fenced. Invitation-memory test also ran in Next dev: it passed before any change, so no unproven StrictMode defect was claimed or patched.
+
+## P05 - local verification and pending independent gates
+
+- Opt-in Supabase Auth profile with encrypted opaque sessions, email-bound one-use invitations, workspace management and server-side role checks. The individual profile and prior project flow remain available separately.
+- Added PostgreSQL migration 2/SQLite migration 5 compatibility and identity-aware import/recovery. Past migration SQL is preserved; restored/imported browser sessions and pending invitations are invalidated explicitly.
+- Local final check, browser and dependency audit exited zero; original command artifacts verified by bytes and SHA-256 in docs/evidence/p05-local.json. Browser includes two identities and actual role changes/revocation, not only page rendering. Current account screenshots inspected after pixel-scale spacing correction.
+- No new runtime npm dependency, no user credentials or data, no deployment or main change. The optional upstream Auth container is CI-only, pinned by manifest digest with license/source inspection recorded.
+- Real PostgreSQL v1-to-v2 upgrade/import and the pinned upstream Auth protocol tests remain pending until their CI results are read. The local Auth HTTP fixture does not certify Supabase cloud or SMTP.
+- Remaining operational warning: cancelled incoming requests reach a Next.js 15.5.26 uncaughtException log. Monitor traced node:_http_server; servers remained responsive. No blanket exception swallowing, middleware disabling, or silent claim of clean logs.
+- Next functional dependency: versioned API/audit and worker execution (P07/P08), followed by queue/HITL (P09/P10). Hosted-domain wiring and public release remain open.

@@ -1,12 +1,12 @@
 # Security and deployment scope
 
-This branch hardens the existing **single-operator** builder. It is not a multi-user SaaS release.
+This branch preserves the **single-operator** builder and adds an opt-in, single-node account/workspace profile backed by Supabase Auth. Neither profile is a production security certification.
 The legacy cloud builder's global sandbox and conversation state remain shared by the operator's browser sessions. The separate durable `/projects` workflow does not use those globals.
-Do not share a deployment or its credentials among mutually untrusted users.
+Never share operator credentials among mutually untrusted users. Account mode disables the legacy global sandbox endpoints and uses server-checked workspace memberships; runtime segregation and deployment validation remain release gates.
 
 ## Access configuration
 
-Production requires OPEN_LOVABLE_APP_ORIGIN and OPEN_LOVABLE_PASSWORD (32 to 512 characters).
+Individual-mode production requires OPEN_LOVABLE_APP_ORIGIN and OPEN_LOVABLE_PASSWORD (32 to 512 characters). Account-mode configuration is documented in docs/identity-guide.md and does not use a shared operator password.
 OPEN_LOVABLE_USERNAME defaults to admin. Use a password-manager-generated unique secret.
 The password must stay in server environment variables, never NEXT_PUBLIC variables or source control.
 Public deployments require HTTPS. The reverse proxy must preserve the original Host header.
@@ -16,7 +16,7 @@ uses the native HTTP Basic dialog; passwords are not persisted in browser localS
 Development binds to 127.0.0.1. Never tunnel or reverse-proxy an unauthenticated development
 server. Configure credentials before access from another machine. For internet exposure,
 add VPN/private access or a hardened reverse proxy with throttling and access logging.
-This release does not include distributed rate limiting or fine-grained user authorization.
+This release does not include distributed rate limiting. Account-mode project, media and connection operations do check server-side workspace permissions; this does not authorize exposing the legacy individual APIs.
 
 ## Generated code
 
@@ -50,7 +50,7 @@ SDK-boundary unit tests are not live E2B/Vercel integration tests.
 
 ## Remaining release blockers
 
-- Full user/tenant isolation: HTTP identity is still a single operator. Durable data methods check owner/project, but this is not multi-user authentication.
+- Hosted PostgreSQL activation for all operational domains, multi-replica consistency, full runtime/resource isolation and independent account-profile security verification. Identity/workspace checks are implemented; public SaaS certification is not.
 - Distributed jobs, durable autonomous workers, automatic legacy-to-project migration and cloud sandbox revision transactions.
 - Live AI, Firecrawl, E2B and Vercel end-to-end checks with explicitly authorized credentials.
 - Distributed throttling, full log redaction and a complete security review of legacy routes.
@@ -81,3 +81,11 @@ The superseded P03 prototype is replaced by the operator-only recovery workflow 
 ## Verified individual recovery
 
 The operator-only `npm run recovery -- create|verify|restore ...` workflow is documented in [docs/recovery-guide.md](docs/recovery-guide.md). It uses the original key and a consistent SQLite snapshot, verifies schema/content/connection integrity, and never overwrites an existing restore destination. It does not switch production configuration, schedule off-host backups or cover application backends. See the guide for limits and interrupted-operation handling.
+
+## Account profile and recovery capabilities
+
+See `docs/identity-guide.md` for verified-email login, opaque HttpOnly cookies, server-held encrypted refresh tokens, CSRF/origin checks, roles and one-use invitations. A restored/imported account database invalidates local sessions and pending invitations; the original snapshot digest and the transformed result are distinguished. Memberships themselves reflect the backup time: before an operator activates an old copy, reconcile current revocations and access decisions with the authoritative directory. No recovery command automatically cuts over a live installation.
+
+Tests use controlled identities and bounded services. A separate CI job executes pinned upstream Auth software; SMTP delivery and a specific operator Supabase project require their own acceptance. Do not infer provider homology from a fixture or from the presence of a login screen.
+
+During cancelled navigation requests, the current Next.js 15.5.26 server can report `ECONNRESET`/`aborted` from `node:_http_server` as an uncaught exception. An observation-only monitor reproduced the framework stack, and subsequent authenticated requests continued. Logs are retained; no global exception handler was added to hide the condition, and middleware was not disabled. This operational warning must be addressed/revalidated before a public production release. Upstream references: vercel/next.js issues #84649/#56529 and unmerged PR #94658 (consulted 23/09/2026); their proposed changes have not been imported.

@@ -80,7 +80,7 @@ export class CredentialStore {
  }
 }
 
-function masterKey():Buffer {
+export function masterKey():Buffer {
  const env=process.env.OPEN_LOVABLE_MASTER_KEY;
  if(env) {
   const key=Buffer.from(env,'base64');
@@ -92,7 +92,8 @@ function masterKey():Buffer {
  catch(error) {
   if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;
   const count=Number(projectStore().db.prepare('SELECT count(*) AS n FROM provider_settings').get()?.n);
-  if(count)throw new ProjectError('Credential key is missing. Restore it from backup; existing credentials were not overwritten.',503);
+  const sessions=Number(projectStore().db.prepare("SELECT count(*) AS n FROM auth_sessions WHERE encrypted<>''").get()?.n);
+  if(count||sessions)throw new ProjectError('Credential key is missing. Restore it from backup; existing credentials were not overwritten.',503);
   try {const fd=openSync(path,'wx',0o600);try {writeFileSync(fd,randomBytes(32));}finally{closeSync(fd);}}
   catch(writeError) {if((writeError as NodeJS.ErrnoException).code!=='EEXIST')throw writeError;}
  }
@@ -101,9 +102,16 @@ function masterKey():Buffer {
 }
 export function credentialStore():CredentialStore {return new CredentialStore(projectStore(),masterKey());}
 
+export interface ProviderScope {owner:string;allowLoopback:boolean;}
+
 /** Environment is an explicit deployment override. UI changes never mutate process.env. */
-export function effectiveProvider(provider:SettingsProvider):ProviderConfiguration & {source:'environment'|'saved'|'unconfigured'} {
+export function effectiveProvider(provider:SettingsProvider,scope?:ProviderScope):ProviderConfiguration & {source:'environment'|'saved'|'unconfigured'} {
  const mapping=providerEnvironment[provider];
+ if(scope){
+  if(!/^workspace:[0-9a-f-]{36}$/.test(scope.owner))throw new ProjectError('Invalid connection scope',403);
+  const value=credentialStore().read(scope.owner,provider);
+  return value?{...value,source:'saved'}:{enabled:false,baseURL:mapping.defaultURL,source:'unconfigured'};
+ }
  if(process.env[mapping.key]?.trim()||process.env[mapping.url]?.trim()) {
   let models:string[]|undefined;
   if(provider==='gateway' && process.env.OPEN_LOVABLE_GATEWAY_MODELS) {

@@ -34,7 +34,7 @@ export function validateProviderURL(raw: string, allowLoopback = false): URL {
 }
 
 /** DNS answers are validated in the actual connection lookup, not a separate preflight. */
-const publicLookup: LookupFunction = (hostname, options, callback) => {
+export const publicLookup: LookupFunction = (hostname, options, callback) => {
   dnsLookup(hostname, {all:true}, (error, addresses) => {
     if (error) return callback(error, '', 4);
     if (!addresses.length || addresses.some(item => !isPublicProviderIP(item.address))) {
@@ -46,7 +46,7 @@ const publicLookup: LookupFunction = (hostname, options, callback) => {
   });
 };
 
-const loopbackLookup: LookupFunction = (_hostname, options, callback) => {
+export const loopbackLookup: LookupFunction = (_hostname, options, callback) => {
   // Do not allow a hosts-file or DNS rewrite of localhost to leave loopback.
   if (options.all) callback(null, [{address:'127.0.0.1',family:4}]);
   else callback(null, '127.0.0.1', 4);

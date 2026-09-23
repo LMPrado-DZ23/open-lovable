@@ -44,6 +44,8 @@ async function constantTimeEqual(left: string, right: string): Promise<boolean> 
 }
 
 export async function authorizeOperatorRequest(request: Request): Promise<Response | null> {
+  const mode=process.env.OPEN_LOVABLE_AUTH_MODE||'individual';
+  if(mode!=='individual')return deny(mode==='supabase'?403:503,'This operation is restricted to the isolated individual profile.');
   const password = process.env.OPEN_LOVABLE_PASSWORD;
   const username = process.env.OPEN_LOVABLE_USERNAME || 'admin';
   const production = process.env.NODE_ENV === 'production';

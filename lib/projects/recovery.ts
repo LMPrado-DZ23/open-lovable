@@ -1,3 +1,4 @@
+import {decodeAuthTokens} from '../identity/crypto';
 import {performance} from 'node:perf_hooks';
 import {backup,DatabaseSync} from 'node:sqlite';
 import {createCipheriv,createDecipheriv,createHash,createHmac,hkdfSync,randomBytes,timingSafeEqual} from 'node:crypto';
@@ -91,6 +92,9 @@ export function inspectRecoverySnapshot(path:string,key:Buffer,maxBytes=LIMIT,ch
   for(const row of db.prepare('SELECT owner,provider FROM provider_settings').all()){
    check();readProviderConfiguration(db,key,String(row.owner),String(row.provider));
   }
+  if(schemaVersion>=5)for(const row of db.prepare("SELECT id,actor_id,issuer,encrypted FROM auth_sessions WHERE encrypted<>''").iterate()){
+   check();decodeAuthTokens(key,String(row.id),String(row.actor_id),String(row.issuer),String(row.encrypted));
+  }
   const tables:RecoveryManifest['tables']={};
   for(const row of db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all()){
    check();const name=String(row.name);if(!/^[a-z_][a-z0-9_]*$/i.test(name))throw new ProjectError('Unexpected table name in recovery database');
@@ -125,7 +129,7 @@ export async function createRecoveryBundle(store:Pick<ProjectStore,'db'>,masterK
 }
 
 /** Restore only into a new private directory after authentication, digests and schema checks. */
-async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:string,materializeKey:boolean,options:RecoveryOptions={}):Promise<{schemaVersion:number;databaseDigest:string;tables:RecoveryManifest['tables']}>{
+async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:string,materializeKey:boolean,options:RecoveryOptions={}):Promise<{schemaVersion:number;databaseDigest:string;restoredDatabaseDigest:string;sessionsInvalidated:number;invitationsInvalidated:number;tables:RecoveryManifest['tables']}>{
  const budget=createRecoveryBudget(options);const key=keyBytes(masterKey);let target:string|undefined;let encryptionKey:Buffer|undefined;
  try{
   budget.check();const source=resolve(bundle),manifestPath=join(source,'manifest.json'),encrypted=join(source,'database.enc');regularFile(manifestPath,1024*1024);
@@ -140,8 +144,15 @@ async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:stri
   if(await fileDigest(plain,budget.maxBytes,budget.signal)!==manifest.databaseDigest)throw new ProjectError('Restored database checksum mismatch',503);
   const actual=inspectRecoverySnapshot(plain,key,budget.maxBytes,budget.check);
   if(actual.schemaVersion!==manifest.schemaVersion||canonical(actual.tables)!==canonical(manifest.tables))throw new ProjectError('Restored database inventory mismatch',503);
+  let sessionsInvalidated=0,invitationsInvalidated=0;
+  if(materializeKey&&actual.schemaVersion>=5){
+   budget.check();const restored=new DatabaseSync(plain);
+   try{restored.exec('BEGIN IMMEDIATE');sessionsInvalidated=Number(restored.prepare("UPDATE auth_sessions SET revoked_at=?,encrypted='',refresh_lease=NULL,refresh_until=0 WHERE revoked_at IS NULL OR encrypted<>''").run(Date.now()).changes);invitationsInvalidated=Number(restored.prepare('UPDATE workspace_invites SET cancelled_at=? WHERE consumed_at IS NULL AND cancelled_at IS NULL').run(Date.now()).changes);restored.exec('COMMIT');}
+   finally{restored.close();}
+  }
+  const restoredDatabaseDigest=await fileDigest(plain,budget.maxBytes,budget.signal);
   budget.check();if(materializeKey)writeFileSync(join(target,'credentials.key'),key,{flag:'wx',mode:0o600,flush:true});
-  return {...actual,databaseDigest:manifest.databaseDigest};
+  return {...actual,databaseDigest:manifest.databaseDigest,restoredDatabaseDigest,sessionsInvalidated,invitationsInvalidated};
  }catch(error){if(target)rmSync(target,{recursive:true,force:true});throw error;}
  finally{key.fill(0);encryptionKey?.fill(0);}
 }

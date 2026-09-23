@@ -1,8 +1,9 @@
 import {createHash} from 'node:crypto';
 import type {Pool} from 'pg';
+import {POSTGRES_IDENTITY_SQL} from './postgres-identity-schema';
 
 /** PostgreSQL control-plane schema v1 corresponds to the existing SQLite schema through migration 4. */
-export const POSTGRES_SCHEMA_VERSION=1;
+export const POSTGRES_SCHEMA_VERSION=2;
 export const POSTGRES_SCHEMA_SQL=`
 CREATE TABLE open_lovable.workspaces(id TEXT PRIMARY KEY,legacy_owner TEXT UNIQUE,name TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE open_lovable.workspace_members(workspace_id TEXT NOT NULL REFERENCES open_lovable.workspaces(id),actor_id TEXT NOT NULL,role TEXT NOT NULL CHECK(role IN ('owner','admin','editor','viewer','billing')),active INTEGER NOT NULL DEFAULT 1 CHECK(active IN(0,1)),version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),PRIMARY KEY(workspace_id,actor_id));
@@ -55,6 +56,16 @@ REVOKE ALL ON ALL SEQUENCES IN SCHEMA open_lovable FROM PUBLIC;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA open_lovable FROM PUBLIC;
 `;
 export const POSTGRES_SCHEMA_DIGEST=createHash('sha256').update(POSTGRES_SCHEMA_SQL).digest('hex');
+/** Applied SQL remains immutable; future changes append a migration with a new digest. */
+export const POSTGRES_MIGRATIONS=Object.freeze([
+ {version:1,sql:POSTGRES_SCHEMA_SQL,digest:POSTGRES_SCHEMA_DIGEST},
+ {version:2,sql:POSTGRES_IDENTITY_SQL,digest:createHash('sha256').update(POSTGRES_IDENTITY_SQL).digest('hex')},
+]);
+/** Rejects missing, reordered, future or rewritten migrations; prefix mode is for explicit upgrades only. */
+export function assertPostgresHistory(rows:readonly {version:number;digest:string}[],complete=true):void {
+ if(rows.length>POSTGRES_MIGRATIONS.length||(complete&&rows.length!==POSTGRES_MIGRATIONS.length)||rows.some((row,index)=>row.version!==POSTGRES_MIGRATIONS[index].version||row.digest!==POSTGRES_MIGRATIONS[index].digest))throw new Error('Unknown or changed PostgreSQL migration history');
+}
+
 function roleIdentifier(role:string):string{if(!/^[a-z][a-z0-9_]{0,62}$/.test(role))throw new Error('Invalid runtime role');return '"'+role+'"';}
 /** Operator-only grant path. The application role cannot mutate memberships or stored credentials. */
 export async function grantPostgresRuntime(admin:Pool,role:string):Promise<void>{
@@ -73,11 +84,12 @@ export async function migratePostgres(admin:Pool,options:{runtimeRole:string}):P
    const existing=await client.query("SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='open_lovable' LIMIT 1");
    if(existing.rowCount)throw new Error('Refusing unversioned nonempty PostgreSQL schema');
    await client.query('CREATE SCHEMA IF NOT EXISTS open_lovable; REVOKE ALL ON SCHEMA open_lovable FROM PUBLIC; CREATE TABLE open_lovable.schema_migrations(version INTEGER PRIMARY KEY,digest TEXT NOT NULL,applied_at TEXT NOT NULL)');
-   await client.query(POSTGRES_SCHEMA_SQL);
-   await client.query('INSERT INTO open_lovable.schema_migrations VALUES($1,$2,$3)',[POSTGRES_SCHEMA_VERSION,POSTGRES_SCHEMA_DIGEST,new Date().toISOString()]);
-  }else{
-   const versions=await client.query('SELECT version,digest FROM open_lovable.schema_migrations ORDER BY version');
-   if(versions.rowCount!==1||versions.rows[0].version!==POSTGRES_SCHEMA_VERSION||versions.rows[0].digest!==POSTGRES_SCHEMA_DIGEST)throw new Error('Unknown or changed PostgreSQL migration history');
+  }
+  const versions=await client.query('SELECT version,digest FROM open_lovable.schema_migrations ORDER BY version');
+  assertPostgresHistory(versions.rows,false);
+  for(const migration of POSTGRES_MIGRATIONS.slice(versions.rows.length)){
+   await client.query(migration.sql);
+   await client.query('INSERT INTO open_lovable.schema_migrations VALUES($1,$2,$3)',[migration.version,migration.digest,new Date().toISOString()]);
   }
   await client.query('COMMIT');
  }catch(error){try{await client.query('ROLLBACK');}catch{client.release(true);released=true;throw error;}throw error;}

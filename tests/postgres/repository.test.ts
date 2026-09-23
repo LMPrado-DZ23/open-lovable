@@ -69,7 +69,12 @@ test('SQLite snapshot import preserves all data and rejects a second import into
  source.addDocument(owner,project.id,'rules.md','Keep original history');
  const image=await new ReferenceImageStore(source).add(owner,project.id,'reference.png','target',(await rasterWithTokenShapedEncoding()).toString('base64'));
  const run=source.beginRun(owner,project.id,'import-plan-request','Plan my app','gateway/coder',2,{mode:'plan',imageIDs:[image.id]});source.claimRun(owner,project.id,run.id);source.event(owner,project.id,run.id,'planned',{count:1});source.completePlan(owner,project.id,run.id,'Persist this plan');
- new CredentialStore(source,key).save(owner,'gateway',0,{enabled:true,baseURL:'https://example.test/v1',apiKey:'synthetic-import-key'});source.close();
+ new CredentialStore(source,key).save(owner,'gateway',0,{enabled:true,baseURL:'https://example.test/v1',apiKey:'synthetic-import-key'});
+ const {IdentityStore}=await import('../../lib/identity/store');const identity=new IdentityStore(source,key);
+ const actor=identity.upsertActor({issuer:'https://identity.example/auth/v1',subject:randomUUID(),email:'import@example.test'});
+ const workspace=identity.createWorkspace(actor.id,'Imported team');
+ identity.createSession(actor.id,actor.issuer,{access_token:'synthetic-import-access',refresh_token:'synthetic-import-refresh',expires_in:3600});
+ identity.invite(actor.id,workspace.id,'invitee@example.test','editor');source.close();
  const original=readFileSync(file);const dbName='ol_test_import_'+randomUUID().replaceAll('-','');
  const targetURL=new URL(url!);targetURL.pathname='/'+dbName;
  await admin.query('CREATE DATABASE "'+dbName+'"');const target=new Pool({connectionString:targetURL.toString(),max:2});
@@ -79,9 +84,33 @@ test('SQLite snapshot import preserves all data and rejects a second import into
   assert.equal((await target.query('SELECT count(*) AS n FROM open_lovable.workspaces')).rows[0].n,'0');
   const report=await importSqliteSnapshot(file,key,target);assert.equal(report.activation,'NOT_PERFORMED');assert.equal(report.tables.projects.rows,1);assert.equal(report.tables.revisions.rows,2);assert.equal(report.tables.project_images.rows,1);assert.equal(report.tables.runs.rows,1);assert.equal(report.tables.run_events.rows,1);assert.equal(report.tables.execution_claims.rows,1);assert.equal(report.tables.messages.rows,2);
   assert.deepEqual(readFileSync(file),original);
+  assert.equal(report.tables.identity_actors.rows,1);assert.equal(report.tables.auth_sessions.rows,1);assert.equal(report.tables.workspace_invites.rows,1);
+  assert.equal(report.sessionsInvalidated,1);assert.equal(report.invitationsInvalidated,1);
+  assert.equal((await target.query("SELECT count(*) AS n FROM open_lovable.auth_sessions WHERE revoked_at IS NULL OR encrypted<>''")).rows[0].n,'0');
+  assert.equal((await target.query('SELECT count(*) AS n FROM open_lovable.workspace_invites WHERE cancelled_at IS NULL')).rows[0].n,'0');
   const loaded=await target.query('SELECT snapshot,version,id FROM open_lovable.projects');assert.equal(loaded.rows[0].id,project.id);assert.equal(loaded.rows[0].version,2);
   const connection=await target.query('SELECT encrypted FROM open_lovable.provider_settings');assert.equal(connection.rows[0].encrypted.includes('synthetic-import-key'),false);
   await assert.rejects(()=>importSqliteSnapshot(file,key,target),/empty|nonempty|exist/i);assert.equal((await target.query('SELECT count(*) AS n FROM open_lovable.revisions')).rows[0].n,'2');
   assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),createHash('sha256').update(original).digest('hex'));
  }finally{await target.end();await admin.query('DROP DATABASE "'+dbName+'"');rmSync(root,{recursive:true,force:true});key.fill(0);}
+});
+
+test('P05 identity storage is denied to the project runtime role',async t=>{
+ await setup(t);
+ for(const table of ['identity_actors','auth_sessions','workspace_invites','identity_audit','identity_rate_limits']){
+  await assert.rejects(()=>pool.query('SELECT * FROM open_lovable.'+table),/permission denied/);
+ }
+});
+test('P05 migration 2 upgrades a real v1 database without rewriting its migration history',async()=>{
+ const {POSTGRES_SCHEMA_SQL,POSTGRES_SCHEMA_DIGEST,POSTGRES_MIGRATIONS}=await import('../../lib/persistence/postgres-schema');
+ const dbName='ol_test_upgrade_'+randomUUID().replaceAll('-',''),targetURL=new URL(url!);targetURL.pathname='/'+dbName;
+ await admin.query('CREATE DATABASE "'+dbName+'"');const target=new Pool({connectionString:targetURL.toString(),max:2});
+ try{
+  await target.query('CREATE SCHEMA open_lovable; CREATE TABLE open_lovable.schema_migrations(version INTEGER PRIMARY KEY,digest TEXT NOT NULL,applied_at TEXT NOT NULL)');
+  await target.query(POSTGRES_SCHEMA_SQL);
+  await target.query('INSERT INTO open_lovable.schema_migrations VALUES(1,$1,$2)',[POSTGRES_SCHEMA_DIGEST,'2026-01-01']);
+  await migratePostgres(target,{runtimeRole});await migratePostgres(target,{runtimeRole});
+  const rows=(await target.query('SELECT version,digest,applied_at FROM open_lovable.schema_migrations ORDER BY version')).rows;
+  assert.equal(rows.length,2);assert.equal(rows[0].applied_at,'2026-01-01');assert.equal(rows[0].digest,POSTGRES_SCHEMA_DIGEST);assert.equal(rows[1].digest,POSTGRES_MIGRATIONS[1].digest);
+ }finally{await target.end();await admin.query('DROP DATABASE "'+dbName+'"');}
 });

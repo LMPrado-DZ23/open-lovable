@@ -123,3 +123,7 @@ See `docs/evidence/f00-scope.md` for the exact delivery scope and the still-open
 ## Verified individual recovery
 
 The operator-only `npm run recovery -- create|verify|restore ...` workflow is documented in [docs/recovery-guide.md](docs/recovery-guide.md). It uses the original key and a consistent SQLite snapshot, verifies schema/content/connection integrity, and never overwrites an existing restore destination. It does not switch production configuration, schedule off-host backups or cover application backends. See the guide for limits and interrupted-operation handling.
+
+## Contas e equipes (opt-in)
+
+O modo de contas adiciona login, recuperacao, workspaces, membros e convites vinculados a e-mail, sem compartilhar a senha do operador. Consulte [docs/identity-guide.md](docs/identity-guide.md) antes de ativar. O perfil individual permanece o padrao; nao houve mudanca automatica de banco ou publicacao. O registro em [docs/execution-ledger.md](docs/execution-ledger.md) distingue implementacao, testes locais e homologacao externa.
