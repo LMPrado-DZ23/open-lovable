@@ -1,3 +1,4 @@
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextResponse } from 'next/server';
 import { Sandbox } from '@vercel/sandbox';
 import type { SandboxState } from '@/types/sandbox';
@@ -13,7 +14,9 @@ declare global {
   var sandboxCreationPromise: Promise<any> | null;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   // Check if sandbox creation is already in progress
   if (global.sandboxCreationInProgress && global.sandboxCreationPromise) {
     console.log('[create-ai-sandbox] Sandbox creation already in progress, waiting for existing creation...');

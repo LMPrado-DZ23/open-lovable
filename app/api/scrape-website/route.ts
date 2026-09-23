@@ -1,9 +1,13 @@
+import { ClientInputError, readJsonObject } from '@/lib/security/input-validation';
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from "next/server";
 import FirecrawlApp from '@mendable/firecrawl-js';
 
 export async function POST(request: NextRequest) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
-    const { url, formats = ['markdown', 'html'], options = {} } = await request.json();
+    const { url, formats = ['markdown', 'html'], options = {} } = await readJsonObject(request);
     
     if (!url) {
       return NextResponse.json(
@@ -93,18 +97,17 @@ export async function POST(request: NextRequest) {
           statusCode: 500
         }
       }
-    }, { status: 500 });
+    }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }
 
 // Optional: Add OPTIONS handler for CORS if needed
-export async function OPTIONS() {
+export async function OPTIONS(request: Request) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   return new NextResponse(null, {
     status: 200,
     headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
 }

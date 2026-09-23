@@ -1,3 +1,5 @@
+import { ClientInputError, readJsonObject } from '@/lib/security/input-validation';
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Function to sanitize smart quotes and other problematic characters
@@ -17,8 +19,10 @@ function sanitizeQuotes(text: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
-    const { url } = await request.json();
+    const { url } = await readJsonObject(request);
     
     if (!url) {
       return NextResponse.json({
@@ -122,6 +126,6 @@ ${sanitizedMarkdown}
     return NextResponse.json({
       success: false,
       error: (error as Error).message
-    }, { status: 500 });
+    }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }

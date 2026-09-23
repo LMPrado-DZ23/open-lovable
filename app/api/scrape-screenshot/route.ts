@@ -1,7 +1,10 @@
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 import FirecrawlApp from '@mendable/firecrawl-js';
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await authorizeOperatorRequest(req);
+  if (accessDenied) return accessDenied;
   try {
     const { url } = await req.json();
     

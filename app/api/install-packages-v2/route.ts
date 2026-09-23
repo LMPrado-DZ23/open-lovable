@@ -1,3 +1,5 @@
+import { ClientInputError, readJsonObject, validatePackages } from '@/lib/security/input-validation';
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 import { SandboxProvider } from '@/lib/sandbox/types';
 import { sandboxManager } from '@/lib/sandbox/sandbox-manager';
@@ -7,8 +9,11 @@ declare global {
 }
 
 export async function POST(request: NextRequest) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
-    const { packages } = await request.json();
+    const { packages: rawPackages } = await readJsonObject(request);
+    const packages = validatePackages(rawPackages);
     
     if (!packages || !Array.isArray(packages) || packages.length === 0) {
       return NextResponse.json({ 
@@ -43,6 +48,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: false, 
       error: (error as Error).message 
-    }, { status: 500 });
+    }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }

@@ -1,3 +1,6 @@
+import { fetchApplication } from '@/lib/security/internal-fetch';
+import { ClientInputError, readJsonObject } from '@/lib/security/input-validation';
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 import { createGroq } from '@ai-sdk/groq';
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -89,8 +92,10 @@ declare global {
 }
 
 export async function POST(request: NextRequest) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
-    const { prompt, model = 'openai/gpt-oss-20b', context, isEdit = false } = await request.json();
+    const { prompt, model = 'openai/gpt-oss-20b', context, isEdit = false } = await readJsonObject(request);
     
     console.log('[generate-ai-code-stream] Received request:');
     console.log('[generate-ai-code-stream] - prompt:', prompt);
@@ -199,7 +204,7 @@ export async function POST(request: NextRequest) {
             
             // STEP 1: Get search plan from AI
             try {
-              const intentResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analyze-edit-intent`, {
+              const intentResponse = await fetchApplication(request, '/api/analyze-edit-intent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt, manifest, model })
@@ -330,7 +335,7 @@ User request: "${prompt}"`;
               
               try {
                 // Fetch files directly from sandbox
-                const filesResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/get-sandbox-files`, {
+                const filesResponse = await fetchApplication(request, '/api/get-sandbox-files', {
                   method: 'GET',
                   headers: { 'Content-Type': 'application/json' }
                 });
@@ -344,7 +349,7 @@ User request: "${prompt}"`;
                     
                     // Now try to analyze edit intent with the fetched manifest
                     try {
-                      const intentResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analyze-edit-intent`, {
+                      const intentResponse = await fetchApplication(request, '/api/analyze-edit-intent', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ prompt, manifest, model })
@@ -973,7 +978,7 @@ MORPH FAST APPLY MODE (EDIT-ONLY):
             console.log('[generate-ai-code-stream] No backend files, attempting to fetch from sandbox...');
             
             try {
-              const filesResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/get-sandbox-files`, {
+              const filesResponse = await fetchApplication(request, '/api/get-sandbox-files', {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
               });
@@ -1018,7 +1023,7 @@ MORPH FAST APPLY MODE (EDIT-ONLY):
                     if (!editContext) {
                       console.log('[generate-ai-code-stream] Analyzing edit intent with fetched manifest');
                       try {
-                        const intentResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/analyze-edit-intent`, {
+                        const intentResponse = await fetchApplication(request, '/api/analyze-edit-intent', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ prompt, manifest: filesData.manifest, model })
@@ -1880,9 +1885,6 @@ Provide the complete file content without any truncation. Include all necessary 
         'Transfer-Encoding': 'chunked',
         'Content-Encoding': 'none', // Prevent compression that can break streaming
         'X-Accel-Buffering': 'no', // Disable nginx buffering
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       },
     });
     
@@ -1891,6 +1893,6 @@ Provide the complete file content without any truncation. Include all necessary 
     return NextResponse.json({ 
       success: false, 
       error: (error as Error).message 
-    }, { status: 500 });
+    }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }

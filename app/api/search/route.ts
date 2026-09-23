@@ -1,6 +1,9 @@
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
+  const accessDenied = await authorizeOperatorRequest(req);
+  if (accessDenied) return accessDenied;
   try {
     const { query } = await req.json();
     

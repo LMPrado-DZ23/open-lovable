@@ -1,3 +1,5 @@
+import { ClientInputError, readJsonObject } from '@/lib/security/input-validation';
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 
 declare global {
@@ -10,8 +12,10 @@ if (!global.viteErrors) {
 }
 
 export async function POST(request: NextRequest) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
-    const { error, file, type = 'runtime-error' } = await request.json();
+    const { error, file, type = 'runtime-error' } = await readJsonObject(request);
     
     if (!error) {
       return NextResponse.json({ 
@@ -57,6 +61,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: false, 
       error: (error as Error).message 
-    }, { status: 500 });
+    }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }

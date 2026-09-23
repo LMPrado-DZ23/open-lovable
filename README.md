@@ -8,9 +8,9 @@ Chat with AI to build React apps instantly. An example app made by the [Firecraw
 
 1. **Clone & Install**
 ```bash
-git clone https://github.com/firecrawl/open-lovable.git
+git clone https://github.com/LMPrado-DZ23/open-lovable.git
 cd open-lovable
-pnpm install  # or npm install / yarn install
+npm ci --ignore-scripts
 ```
 
 2. **Add `.env.local`**
@@ -57,7 +57,7 @@ VERCEL_OIDC_TOKEN=auto_generated_by_vercel_env_pull
 
 3. **Run**
 ```bash
-pnpm dev  # or npm run dev / yarn dev
+npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
@@ -65,3 +65,27 @@ Open [http://localhost:3000](http://localhost:3000)
 ## License
 
 MIT
+
+## Security foundation (single operator)
+
+Use Node.js 22.18+ or 24 and npm. `package-lock.json` is the supported lockfile;
+old Bun/pnpm lockfiles were removed because they selected stale dependencies.
+Read [SECURITY.md](SECURITY.md) before deployment. Development binds to loopback.
+Production is fail-closed until `OPEN_LOVABLE_APP_ORIGIN` and a strong
+`OPEN_LOVABLE_PASSWORD` are configured. The browser shows an HTTP Basic login;
+`OPEN_LOVABLE_USERNAME` defaults to `admin`. Public access requires HTTPS.
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run security:audit
+npm run build
+npx --no-install playwright install chromium
+npm run test:e2e
+```
+
+The tests do not consume AI/scraping/sandbox credits. Browser smoke uses a separate,
+loopback-only server and test-only credentials. Live integrations must be verified
+separately. This is not a multi-tenant release: operator tabs still share runtime state.
+The implementation plan is in `docs/security-foundation-plan.md`.

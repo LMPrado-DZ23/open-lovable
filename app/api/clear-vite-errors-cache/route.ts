@@ -1,10 +1,13 @@
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextResponse } from 'next/server';
 
 declare global {
   var viteErrorsCache: { errors: any[], timestamp: number } | null;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
     // Clear the cache
     global.viteErrorsCache = null;

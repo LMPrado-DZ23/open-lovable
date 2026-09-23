@@ -1,3 +1,4 @@
+import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextResponse } from 'next/server';
 
 declare global {
@@ -6,7 +7,9 @@ declare global {
   var existingFiles: Set<string>;
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const accessDenied = await authorizeOperatorRequest(request);
+  if (accessDenied) return accessDenied;
   try {
     console.log('[kill-sandbox] Stopping active sandbox...');
 

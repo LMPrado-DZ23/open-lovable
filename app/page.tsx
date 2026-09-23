@@ -295,7 +295,7 @@ export default function HomePage() {
                   }}
                 >
 
-                <div className="p-[28px] flex gap-12 items-center w-full relative bg-white rounded-20">
+                <div className="p-16 sm:p-[28px] grid grid-cols-[20px_minmax(0,1fr)] sm:flex gap-12 items-center w-full relative bg-white rounded-20">
                   {/* Show different UI when search results are displayed */}
                   {hasSearched && searchResults.length > 0 && !isFadingOut ? (
                     <>
@@ -377,7 +377,8 @@ export default function HomePage() {
                         </svg>
                       )}
                       <input
-                        className="flex-1 bg-transparent text-body-input text-accent-black placeholder:text-black-alpha-48 focus:outline-none focus:ring-0 focus:border-transparent"
+                        aria-label="Website URL or search term"
+                        className="min-w-0 flex-1 bg-transparent text-body-input text-accent-black placeholder:text-black-alpha-48 focus:outline-none focus:ring-0 focus:border-transparent"
                         placeholder="Enter URL or search term..."
                         type="text"
                         value={url}
@@ -412,7 +413,7 @@ export default function HomePage() {
                             handleSubmit();
                           }
                         }}
-                        className={isSearching ? 'pointer-events-none' : ''}
+                        className={`col-span-2 sm:col-auto [&>button]:w-full sm:[&>button]:w-auto ${isSearching ? 'pointer-events-none' : ''}`}
                       >
                         <HeroInputSubmitButton 
                           dirty={url.length > 0} 
@@ -426,9 +427,9 @@ export default function HomePage() {
 
                 {/* Options Section - Only show when valid URL */}
                 <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                  isValidUrl ? (extendBrandStyles ? 'max-h-[400px]' : 'max-h-[300px]') + ' opacity-100' : 'max-h-0 opacity-0'
+                  isValidUrl ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
                 }`}>
-                  <div className="px-[28px] pt-0 pb-[28px]">
+                  <div className="px-16 sm:px-[28px] pt-0 pb-[28px]">
                     <div className="border-t border-gray-100 bg-white">
                       {/* Extend Brand Styles Toggle */}
                       <div className={`transition-all duration-300 transform ${
@@ -445,6 +446,9 @@ export default function HomePage() {
                           <div className="flex justify-end">
                             <button
                               className="transition-all relative rounded-full group bg-black-alpha-10"
+                              role="switch"
+                              aria-label="Extend brand styles"
+                              aria-checked={extendBrandStyles}
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -491,17 +495,18 @@ export default function HomePage() {
                         <div className={`mb-2 transition-all duration-300 transform ${
                           isValidUrl ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
                         }`} style={{ transitionDelay: '100ms' }}>
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
                             {styles.map((style, index) => (
                               <button
                                 key={style.id}
+                                aria-pressed={selectedStyle === style.id}
                                 onClick={() => setSelectedStyle(style.id)}
                                 className={`
                                   ${selectedStyle === style.id
                                     ? 'bg-heat-100 hover:bg-heat-200 flex items-center justify-center button relative text-label-medium button-primary group/button rounded-10 p-8 text-accent-white active:scale-[0.995] border-0'
                                     : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700 py-3.5 px-4 rounded text-xs font-medium border text-center'
                                   }
-                                  transition-all
+                                  min-w-0 min-h-[44px] transition-all
                                   ${isValidUrl ? 'opacity-100' : 'opacity-0'}
                                 `}
                                 style={{
@@ -522,14 +527,15 @@ export default function HomePage() {
                       )}
 
                       {/* Model Selector Dropdown and Additional Instructions */}
-                      <div className={`flex items-center gap-3 mt-2 pb-4 transition-all duration-300 transform ${
+                      <div className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-8 mt-8 pb-4 transition-all duration-300 transform ${
                         isValidUrl ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
                       }`} style={{ transitionDelay: '400ms' }}>
                         {/* Model Dropdown */}
                         <select
+                          aria-label="AI model"
                           value={selectedModel}
                           onChange={(e) => setSelectedModel(e.target.value)}
-                          className={`px-3 py-2.5 text-xs font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 ${extendBrandStyles ? 'flex-1' : ''}`}
+                          className={`w-full sm:w-auto min-w-0 px-8 py-8 text-xs font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 ${extendBrandStyles ? 'flex-1' : ''}`}
                         >
                           {models.map((model) => (
                             <option key={model.id} value={model.id}>
@@ -542,7 +548,8 @@ export default function HomePage() {
                         {!extendBrandStyles && (
                           <input
                             type="text"
-                            className="flex-1 px-3 py-2.5 text-xs font-medium text-gray-700 bg-gray-50 rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder:text-gray-400"
+                            aria-label="Additional instructions"
+                            className="min-w-0 w-full sm:w-auto flex-1 px-8 py-8 text-xs font-medium text-gray-700 bg-gray-50 rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 placeholder:text-gray-400"
                             placeholder="Additional instructions (optional)"
                             onChange={(e) => sessionStorage.setItem('additionalInstructions', e.target.value)}
                           />
