@@ -1,4 +1,6 @@
 'use client';
+import AIModelSelect from '@/components/AIModelSelect';
+import Link from 'next/link';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -80,7 +82,8 @@ function AISandboxPage() {
   const router = useRouter();
   const [aiModel, setAiModel] = useState(() => {
     const modelParam = searchParams.get('model');
-    return appConfig.ai.availableModels.includes(modelParam || '') ? modelParam! : appConfig.ai.defaultModel;
+    // Preserve an explicit selection; server catalog validation is authoritative.
+    return modelParam || appConfig.ai.defaultModel;
   });
   const [urlOverlayVisible, setUrlOverlayVisible] = useState(false);
   const [urlInput, setUrlInput] = useState('');
@@ -245,6 +248,11 @@ function AISandboxPage() {
         sessionStorage.setItem('autoStart', 'true');
       }
       
+      // Merely opening the editor or changing a model must not allocate paid
+      // resources, discard conversation history, or replace an existing sandbox.
+      // The read-only mount status check below handles an existing runtime.
+      if (!storedUrl) return;
+
       // Clear old conversation
       try {
         await fetch('/api/conversation-state', {
@@ -3285,26 +3293,14 @@ Focus on the key sections and content, making it clean and modern.`;
         <HeaderBrandKit />
         <div className="flex items-center gap-2">
           {/* Model Selector - Left side */}
-          <select
-            value={aiModel}
-            onChange={(e) => {
-              const newModel = e.target.value;
+          <AIModelSelect value={aiModel} onValueChange={(newModel) => {
               setAiModel(newModel);
-              const params = new URLSearchParams(searchParams);
-              params.set('model', newModel);
-              if (sandboxData?.sandboxId) {
-                params.set('sandbox', sandboxData.sandboxId);
-              }
+              const params=new URLSearchParams(searchParams);
+              params.set('model',newModel);
+              if(sandboxData?.sandboxId) params.set('sandbox',sandboxData.sandboxId);
               router.push(`/generation?${params.toString()}`);
-            }}
-            className="px-3 py-1.5 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-300 transition-colors"
-          >
-            {appConfig.ai.availableModels.map(model => (
-              <option key={model} value={model}>
-                {appConfig.ai.modelDisplayNames?.[model] || model}
-              </option>
-            ))}
-          </select>
+            }} className="min-w-0 max-w-[230px] rounded-lg border border-gray-200 bg-gray-50 px-[12px] py-[8px] text-[13px] text-gray-900" />
+          <Link href="/settings/ai" aria-label="Conexões de IA" className="text-[12px] underline">IA</Link>
           <button 
             onClick={() => createSandbox()}
             className="p-8 rounded-lg transition-colors bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100"
@@ -3344,7 +3340,7 @@ Focus on the key sections and content, making it clean and modern.`;
           {/* Sidebar Input Component */}
           {!hasInitialSubmission ? (
             <div className="p-4 border-b border-border">
-              <SidebarInput
+              <SidebarInput model={aiModel} onModelChange={setAiModel}
                 onSubmit={(url, style, model, instructions) => {
                   // Mark that we've had an initial submission
                   setHasInitialSubmission(true);

@@ -1,3 +1,4 @@
+import { assertNoSecrets } from '@/lib/security/secret-content';
 import { zipSync } from 'fflate';
 
 const MAX_TOTAL = 8 * 1024 * 1024;
@@ -70,6 +71,7 @@ export function zipExportManifest(raw: string): { bytes: Uint8Array; excludedCou
     const bytes = Buffer.from(file.base64,'base64');
     total += bytes.length;
     if (bytes.length > MAX_FILE || total > MAX_TOTAL) throw new Error('Export exceeds size limit');
+    assertNoSecrets(bytes.toString('utf8'));
     entries[file.path] = bytes;
   }
   return { bytes:zipSync(entries,{level:3}), excludedCount:Array.isArray(manifest.excluded) ? manifest.excluded.length : 0 };

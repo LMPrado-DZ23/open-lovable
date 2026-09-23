@@ -89,3 +89,11 @@ The tests do not consume AI/scraping/sandbox credits. Browser smoke uses a separ
 loopback-only server and test-only credentials. Live integrations must be verified
 separately. This is not a multi-tenant release: operator tabs still share runtime state.
 The implementation plan is in `docs/security-foundation-plan.md`.
+
+## Selective Classe A+ integration
+
+The optional model gateway, shared model selectors and `/settings/ai` diagnostics connect this builder to Ollama / Classe A+ without merging the products. Generation, edit planning and completion resolve an explicit model; failed requests never switch to an unrelated provider.
+
+See [configuration and boundaries](docs/classe-a-plus-integration.md) and [source attribution](THIRD_PARTY_NOTICES.md). API keys remain server-side. Credential-shaped content in ordinary source files is checked before outbound AI and export. A successful model probe does not certify generated-app correctness.
+
+This is still a single-operator preview. Durable project revisions, tenant isolation and a full mission runtime remain separate work.

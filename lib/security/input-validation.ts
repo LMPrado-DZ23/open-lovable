@@ -1,3 +1,5 @@
+import { assertNoSecrets, SecretContentError } from './secret-content';
+
 export class ClientInputError extends Error {
   constructor(message: string) { super(message); this.name = 'ClientInputError'; }
 }
@@ -25,8 +27,12 @@ export async function readJsonObject(request: Request, maxBytes = 2 * 1024 * 102
     for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
     const data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Not an object');
+    assertNoSecrets(data);
     return data;
-  } catch { throw new ClientInputError('Request body must be a valid JSON object'); }
+  } catch (error) {
+    if (error instanceof SecretContentError) throw new ClientInputError(error.message);
+    throw new ClientInputError('Request body must be a valid JSON object');
+  }
 }
 
 export function validateCommand(value: unknown): string {
@@ -93,6 +99,7 @@ export function assertCompleteFileBlocks(response: unknown): asserts response is
 export function validateGeneratedFiles(files: Array<{ path: string; content: string }>): void {
   if (files.length > 200) throw new ClientInputError('Too many generated files');
   for (const file of files) {
+    assertNoSecrets(file.content);
     file.path = normalizeProjectPath(file.path);
     if (typeof file.content !== 'string' || new TextEncoder().encode(file.content).length > 1024 * 1024) {
       throw new ClientInputError('Generated file exceeds the size limit');

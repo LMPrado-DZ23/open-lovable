@@ -1,4 +1,5 @@
 "use client";
+import AIModelSelect from '@/components/AIModelSelect';
 
 import Link from "next/link";
 import Image from "next/image";
@@ -78,10 +79,6 @@ export default function HomePage() {
     { id: "8", name: "Retro Wave", description: "80s inspired" },
   ];
 
-  const models = appConfig.ai.availableModels.map(model => ({
-    id: model,
-    name: appConfig.ai.modelDisplayNames[model] || model,
-  }));
 
   const handleSubmit = async (selectedResult?: SearchResult) => {
     const inputValue = url.trim();
@@ -272,6 +269,7 @@ export default function HomePage() {
               >
                 Powered by Firecrawl.
               </Link>
+              <Link href="/settings/ai" className="ml-[12px] text-[13px] underline underline-offset-4">Conexões de IA</Link>
             </div>
           </div>
 
@@ -531,18 +529,8 @@ export default function HomePage() {
                         isValidUrl ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
                       }`} style={{ transitionDelay: '400ms' }}>
                         {/* Model Dropdown */}
-                        <select
-                          aria-label="AI model"
-                          value={selectedModel}
-                          onChange={(e) => setSelectedModel(e.target.value)}
-                          className={`w-full lg:w-auto min-w-0 px-8 py-8 text-xs font-medium text-gray-700 bg-white rounded border border-gray-200 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 ${extendBrandStyles ? 'flex-1' : ''}`}
-                        >
-                          {models.map((model) => (
-                            <option key={model.id} value={model.id}>
-                              {model.name}
-                            </option>
-                          ))}
-                        </select>
+                        <AIModelSelect value={selectedModel} onValueChange={setSelectedModel}
+                            className="min-w-0 w-full lg:w-auto max-w-full px-[12px] py-[10px] text-[12px] text-gray-700 bg-white rounded border border-gray-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-500" />
 
                         {/* Additional Instructions - Hidden when extend brand styles is enabled */}
                         {!extendBrandStyles && (
