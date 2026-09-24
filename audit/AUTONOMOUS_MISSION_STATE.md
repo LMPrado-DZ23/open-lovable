@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T14:09:00-03:00"
-last_progress_at: "2026-09-24T14:09:00-03:00"
+heartbeat_at: "2026-09-24T14:13:00-03:00"
+last_progress_at: "2026-09-24T14:13:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue P60 with tenant-bound model routing, LOCAL_ONLY egress preflight and explicit usage-unknown handling; real model/provider benchmarking remains blocked without authorized inference budget."
+next_action: "Continue P61-P66 with local hosting/operations/extension/mobile contracts; real cloud, voice, provider and distribution homologation remain blocked without authorization."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -293,6 +293,9 @@ latest_gate_evidence:
   p59_scenarios: "PASS 2/2 focused; reviewed scenarios bind requirement/workspace/revision/test environment/actions/assertions, signature changes invalidate approval, and replay is diagnostic-only without external effects"
   p59_full_regression: "PASS; npm test exit 0 with 113 roadmap tests, 225 unit/integration tests and 8 P00 checks"
   p59_external_browser: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external browser session or production/test service was used for homologation"
+  p60_model_routing: "PASS 2/2 focused; direct/gateway bindings preserve requested model, tenant/project scope and cache identity, LOCAL_ONLY rejects cloud egress, resource preflight is bounded, and absent usage remains UNKNOWN"
+  p60_full_regression: "PASS; npm test exit 0 with 115 roadmap tests, 225 unit/integration tests and 8 P00 checks"
+  p60_external_models: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no Ollama/vLLM/Lemonade weights, gateway, hardware or paid inference was used"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
