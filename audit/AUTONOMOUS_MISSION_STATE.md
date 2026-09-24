@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 1
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T09:25:42-03:00"
-last_progress_at: "2026-09-24T09:25:42-03:00"
+heartbeat_at: "2026-09-24T09:34:22-03:00"
+last_progress_at: "2026-09-24T09:34:22-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -79,9 +79,10 @@ completed_tasks:
   - "P11 restart/fencing requeues only pre-effect work and marks started uncertain work interrupted"
   - "P12 RuntimeFactory now adapts the existing SandboxFactory providers through the canonical RuntimeAdapter"
   - "P14 React/Vite template includes real package lockfile, build/test scripts, and clean build evidence"
-  - "Review branch pushed; draft PR creation blocked by GitHub integration permission"
+  - "P10 v1 approval GET/POST has route-level coverage; matching digest/nonce resumes the queued run"
+  - "Review branch pushed; draft PR creation remains blocked by GitHub integration permission"
 pending_tasks:
-  - "P10 HTTP/UI approval pause/resume journey"
+  - "P10 browser-level approval pause/resume journey"
   - "P13 external Linux/container homologation"
   - "P11 timeout/concurrency acceptance and external model homologation"
   - "All remaining packages and full-flow acceptance"
@@ -175,5 +176,7 @@ latest_gate_evidence:
   p14_template: "PASS 7/7; clean npm ci + vite build + smoke test; generated dist excluded from source"
   full_regression_p11: "PASS; npm test exit 0"
   full_regression_log_p11: "/tmp/mission-full-test-p11.log"
+  p10_http: "PASS 13/13; lint/typecheck PASS; route GET exposes digest/nonce and POST resumes only matching approval"
+  pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---

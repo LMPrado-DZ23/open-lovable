@@ -85,3 +85,12 @@ test('repeated exports are bounded and never exhaust the final cancellation jour
  assert.equal((await f.cancel.POST(f.req('/api/v1/runs/'+run.id+'/cancel',{}))).status,200);
  assert.equal(f.store.getRun('admin',f.project.id,run.id).state,'CANCELLED');
 });
+
+test('v1 approval endpoint exposes the pending digest and resumes only the matching decision',async t=>{
+ const f=await fixture(t);const admitted=await f.route.POST(f.req('/api/v1/runs',f.body));assert.equal(admitted.status,202);await admitted.json();const {RunQueue}=await import('../lib/runs/queue');const {ApprovalService}=await import('../lib/approvals/service');
+ const queue=new RunQueue(f.store),worker=queue.acquireWorker('approval-http')!,job=queue.claim(worker)!;
+ const connection={provider:'gateway',endpoint:'http://127.0.0.1:39999/v1',credentialConfigured:true};new ApprovalService(queue).pause(job,'connection',connection);
+ const route=await import('../app/api/v1/runs/[runId]/approval/route');const url='/api/v1/runs/'+job.run.id+'/approval';
+ const status=await route.GET(f.req(url));assert.equal(status.status,200);const pending=(await status.json()).pending;assert.equal(pending.connection.provider,'gateway');assert.equal(pending.actionDigest.length,64);
+ const resolved=await route.POST(f.req(url,{approvalId:pending.id,actionDigest:pending.actionDigest,nonce:pending.nonce,decision:'approve',connection}));const resolvedBody=await resolved.json();assert.equal(resolved.status,200,JSON.stringify(resolvedBody));assert.equal(resolvedBody.run.state,'QUEUED');
+});

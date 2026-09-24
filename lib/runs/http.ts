@@ -24,7 +24,7 @@ function failure(error:unknown,trace:Correlation):Response {
  const status=error instanceof ProjectError||error instanceof ProviderConfigError||error instanceof SecretContentError?error.status:error instanceof z.ZodError||error instanceof ClientInputError?400:500;
  const code=({400:'INVALID_REQUEST',401:'UNAUTHENTICATED',403:'FORBIDDEN',404:'NOT_FOUND',408:'DEADLINE_EXCEEDED',409:'CONFLICT',413:'LIMIT_EXCEEDED',429:'RATE_LIMITED',503:'UNAVAILABLE'} as Record<number,string>)[status]||'INTERNAL_ERROR';
  if(status===500)safeLogger.error('Run request failed',{requestId:trace.requestId,error});
- const message=status===404?'Run not found':status>=500?'Execution service unavailable. The saved revision was preserved.':error instanceof z.ZodError?'Review the run request fields.':redactSecretText(error instanceof Error?error.message:'Request failed');
+ const message=status===404?'Run not found':status>=500?'Execution service unavailable. The saved revision was preserved.':error instanceof z.ZodError?`Review the run request fields: ${error.issues.map(issue=>`${issue.path.join('.')||'body'} ${issue.message}`).join('; ')}`:redactSecretText(error instanceof Error?error.message:'Request failed');
  return json({success:false,code,error:message,...trace},trace,status);
 }
 export function reader(access:Access):RunAccess {
@@ -146,6 +146,7 @@ export async function resolveApproval(request:Request):Promise<Response>{const t
  const run=found.queue.get(found.principal,found.runId),current=authority(found.access,request,run.model);
  const body=z.object({approvalId:id,actionDigest:z.string().regex(/^[a-f0-9]{64}$/),nonce:z.string().regex(/^[a-f0-9]{32}$/),decision:z.enum(['approve','deny']),connection:z.object({provider:z.string().min(1).max(120),endpoint:z.string().url().max(2048),credentialConfigured:z.boolean()}).strict()}).strict().parse(await readJsonObject(request,10000));
  found.access.guard(found.projectId,true);
- const result=new ApprovalService(found.queue).resolve(current,found.runId,body as ApprovalResolution,current,body.connection as ConnectionSummary);
+ const {connection,...resolution}=body;
+ const result=new ApprovalService(found.queue).resolve(current,found.runId,resolution as ApprovalResolution,current,connection as ConnectionSummary);
  return json({approval:result,run:found.queue.get(found.principal,found.runId)},trace);
  }catch(error){return failure(error,trace);}}
