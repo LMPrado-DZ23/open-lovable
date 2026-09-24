@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T12:40:00-03:00"
-last_progress_at: "2026-09-24T12:40:00-03:00"
+heartbeat_at: "2026-09-24T12:43:10-03:00"
+last_progress_at: "2026-09-24T12:43:10-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue P34 with deployment adapter contracts: plan/publish/status/rollback bound to the exact release digest, idempotency, health checks and preservation of the previous release on timeout or bad health."
+next_action: "Continue the DAG with P35 deployment observability and post-publish reconciliation: deployment logs/status provenance, uncertain outcome handling, and no false published state."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -235,6 +235,8 @@ latest_gate_evidence:
   p32_async_adapters: "PASS 2/2 focused; async Figma/Sentry adapters preserve workspace/project provenance, redact error credentials, and reject wrong project/non-operational context"
   p33_release_manifest: "PASS 2/2 focused; release manifest binds exact artifact bytes, commit/revision, schema range, passing checks, component licenses and config refs; tampered artifact and failed build are rejected"
   p33_full_regression: "PASS; npm test exit 0 with 69 roadmap tests and 8 P00 checks"
+  p34_deploy_contract: "PASS 2/2 focused; publish requires matching release digest approval, verifies healthy status, and rolls back on bad health while preserving the prior release"
+  p34_full_regression: "PASS; npm test exit 0 with 73 roadmap tests and 8 P00 checks"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
