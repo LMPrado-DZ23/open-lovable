@@ -44,7 +44,7 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "61fd9ebf5a59ffc066dd56032e30bc030672e6b0"
+  head: "a8cf02aba076d16463f527a674f14ad46ec5ea22"
   uncommitted_changes: false
 watchdog:
   executor_pid: null
@@ -82,6 +82,7 @@ completed_tasks:
   - "P10 v1 approval GET/POST has route-level coverage; matching digest/nonce resumes the queued run"
   - "P07 canonical DomainEvent/redaction/tracing helpers are integrated with versioned run HTTP handlers"
   - "P08 explicit run state machine is enforced in RunQueue claim/reconcile paths"
+  - "P08/P09 regression fixed: safe RUNNING->QUEUED reconciliation is allowed and compiled worker process tests pass 4/4"
   - "Review branch pushed; draft PR creation remains blocked by GitHub integration permission"
 pending_tasks:
   - "P10 browser-level approval pause/resume journey"
