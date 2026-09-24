@@ -44,7 +44,7 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "a8cf02aba076d16463f527a674f14ad46ec5ea22"
+  head: "b95d7521648deaa42e38f5a93bac8ab9a255a536"
   uncommitted_changes: false
 watchdog:
   executor_pid: null
@@ -83,6 +83,7 @@ completed_tasks:
   - "P07 canonical DomainEvent/redaction/tracing helpers are integrated with versioned run HTTP handlers"
   - "P08 explicit run state machine is enforced in RunQueue claim/reconcile paths"
   - "P08/P09 regression fixed: safe RUNNING->QUEUED reconciliation is allowed and compiled worker process tests pass 4/4"
+  - "Full npm test regression after rebuild passes with exit 0; 219 tests observed"
   - "Review branch pushed; draft PR creation remains blocked by GitHub integration permission"
 pending_tasks:
   - "P10 browser-level approval pause/resume journey"
@@ -169,6 +170,7 @@ risks:
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
 next_action: "Inspect existing P10 approval UI/routes and add a real pause/resume flow test bound to approval digest, lease and worker state; preserve external approval blockers explicitly."
 latest_gate_evidence:
+  full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
   full_unit_and_roadmap: "PASS; npm test exit 0"
   browser: "PASS 5/5; npx --no-install playwright test tests/e2e/projects.spec.ts --reporter=line"
