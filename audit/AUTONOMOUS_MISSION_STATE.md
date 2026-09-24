@@ -32,7 +32,7 @@ budget:
   no_progress_timeout: "checkpoint and strategy change after 5 unsuccessful attempts"
   api_or_cost_limit: "free/local fixtures only unless explicit approval"
 rollback_plan: "Every code step is committed on the development branch; restore to 05875bef7ef8f3f43a84195df7f6df05abc3e379 or the last verified commit. Database tests use disposable roots; no destructive production migration is permitted."
-state: CHECKPOINTING
+state: EXECUTING
 iteration: 1
 started_at: "2026-09-24T08:11:36-03:00"
 heartbeat_at: "2026-09-24T08:56:05-03:00"
@@ -44,13 +44,13 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "4745a7122bca910cc920c18e142c2d55599f97ee"
+  head: "6b9facf9140ffa68469f74d59e32917b15a95831"
   uncommitted_changes: false
 watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Close P10 HTTP/UI approval pause/resume journey after completing the P06 ExportBundle consumer."
+current_task: "Implement P13 rootless runner policy and then advance through the remaining DAG slices."
 current_failure: "The previous session stopped after a partial P06/P10/P11 increment; full project is not complete."
 current_strategy: "Use vertical slices: integrate existing P06 services into hot consumers, close HTTP/worker approval journeys, then add governance improvements with tests and evidence."
 plan:
@@ -81,6 +81,7 @@ completed_tasks:
   - "Review branch pushed; draft PR creation blocked by GitHub integration permission"
 pending_tasks:
   - "P10 HTTP/UI approval pause/resume journey"
+  - "P13 external Linux/container homologation"
   - "P11 timeout/concurrency acceptance and external model homologation"
   - "All remaining packages and full-flow acceptance"
 dependencies:
@@ -169,6 +170,7 @@ latest_gate_evidence:
   p11: "PASS 7/7; lint/typecheck PASS; capability endpoint now returns explicit evidence when model/capability are requested"
   p11_restart: "PASS 9/9; pre-effect requeue, worker epoch fencing, started-request interruption, capability and budget gates"
   p12_factory: "PASS 4/4; lint/typecheck PASS; provider adapter remains unhomologated externally"
+  p13_runner: "PASS 2/2; lint/typecheck PASS; actual host/container homologation remains pending"
   full_regression_p11: "PASS; npm test exit 0"
   full_regression_log_p11: "/tmp/mission-full-test-p11.log"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
