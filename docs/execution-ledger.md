@@ -256,3 +256,9 @@ Sem homologação em provedor real ou produção; esses gates continuam externos
 A primeira execução Playwright após a mudança falhou porque o artefato Next compilado ainda continha o comportamento anterior ao opt-in e o cenário `FIXTURE_INVALID` deixou de exibir a mensagem esperada. A correção foi tornar o repair explicitamente opt-in: sem variáveis de deployment, o orçamento permanece `maxModelCalls=1` e `maxRepairs=0`; somente com `OPEN_LOVABLE_MAX_MODEL_CALLS=2` e `OPEN_LOVABLE_MAX_REPAIRS=1` o worker pode fazer uma segunda chamada. O teste de integração do repair configura essas variáveis apenas no fixture autorizado.
 
 A mensagem de falha determinística original também é preservada quando o repair esgota ou detecta no-progress. Depois de reconstruir o artefato Next/worker, o E2E de projetos passou 5/5 e o gate completo passou: unit/integration 228/228, roadmap 131/131, P00 8/8, build verde e Playwright 31/31. Logs de `ECONNRESET` e comando inválido continuam pertencendo a cenários negativos/cancelamentos cobertos pelos testes.
+
+## CI de feature branch e gates extras (2026-09-24)
+
+A inspeção somente leitura confirmou que não havia execuções remotas porque o workflow aceitava push apenas em `main` ou eventos de pull request. O gatilho foi ampliado de forma reversível para `main` e `feat/**`, sem criar PR ou fazer merge. O push do SHA `bebb527d572c229ab8fc2518eb6bcbf79c2de2e6` disparou o workflow `Verify security foundation`, run `36062680684`, atualmente `queued`; nenhuma conclusão externa foi inferida.
+
+Enquanto o runner remoto aguarda, foram executados localmente os jobs adicionais equivalentes: `check:admission`, `security:audit`, `build:worker` e a suíte de portabilidade/controle-plane com 57/57 testes aprovados. Os gates locais principais continuam verdes: 228 unit/integration, 131 roadmap, 8 P00, build e 31 Playwright.
