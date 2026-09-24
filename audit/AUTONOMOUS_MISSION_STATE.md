@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T14:31:00-03:00"
-last_progress_at: "2026-09-24T14:31:00-03:00"
+heartbeat_at: "2026-09-24T14:34:00-03:00"
+last_progress_at: "2026-09-24T14:34:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue P67 with admitted experiment manifests and reproducible metric recording; hardware, datasets, weights and benchmark promotion remain blocked without authorization."
+next_action: "Continue P49 with an honest versioned capability ledger over implemented packages, evidence SHAs and explicit external blockers; do not declare release complete while mandatory gaps remain."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -311,6 +311,9 @@ latest_gate_evidence:
   p65_deliverables: "PASS 2/2 focused; deliverables bind project/release revision, renderer, content, licensed asset provenance and output digest; unverified claims, secrets, invalid release and missing licenses block public material"
   p65_full_regression: "PASS; npm test exit 0 with 125 roadmap tests, 225 unit/integration tests and 8 P00 checks"
   p65_external_rendering: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external renderer, video pipeline or unlicensed asset was used"
+  p67_model_experiments: "PASS 2/2 focused; experiments require model/hardware/dataset/license/baseline metadata, isolated approval and budget flags, and otherwise remain blocked with a reproducible manifest digest"
+  p67_full_regression: "PASS; npm test exit 0 with 127 roadmap tests, 225 unit/integration tests and 8 P00 checks"
+  p67_external_lab: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no customer dataset, model weights, hardware benchmark or promotion was used"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
