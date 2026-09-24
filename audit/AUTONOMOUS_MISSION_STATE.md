@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T11:25:45-03:00"
-last_progress_at: "2026-09-24T11:25:45-03:00"
+heartbeat_at: "2026-09-24T11:29:50-03:00"
+last_progress_at: "2026-09-24T11:29:50-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Implement P22 visual comparison evidence with same-viewport constraints and functional-error disclosure; then audit P23 drafts/three-way merge."
+next_action: "Implement P23 isolated drafts and three-way merge with line diffs and conflict rejection; then audit external Git P24 as local/blocked split."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -201,6 +201,8 @@ latest_gate_evidence:
   p20_full_regression: "PASS; npm test exit 0 with 38 roadmap tests and 8 P00 checks"
   p21_visual_edit: "PASS 13/13 focused; visualEdit accepts only revision-bound ElementRef/static text and persists through PatchSet; dynamic values rejected"
   p21_full_regression: "PASS; npm test exit 0 with 38 roadmap tests and 8 P00 checks"
+  p22_visual_comparison: "PASS 14/14 focused; API issues signed same-viewport evidence, requires human review, discloses functional errors and rejects reference-only substitution"
+  p22_full_regression: "PASS; npm test exit 0 with 40 roadmap tests and 8 P00 checks"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
