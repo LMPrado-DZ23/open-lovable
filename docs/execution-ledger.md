@@ -224,3 +224,11 @@ Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the
 
 - Preserve o branch `feat/manus-p06-p10-p11-20260924`, compare o SHA remoto e não faça merge em `main` sem autorização.
 - Se a missão continuar, priorize P10 end-to-end com approval/wait no worker, E2E das três jornadas obrigatórias e os blockers externos documentados; não reintroduza o endpoint de geração inline.
+
+## P10 - integração de pausa HITL no worker (2026-09-24)
+
+- O worker agora usa `ApprovalService.pause` antes do primeiro efeito de modelo quando a política explícita `OPEN_LOVABLE_REQUIRE_CONNECTION_APPROVAL=1` está ativa em autoridade Supabase.
+- A pausa persiste `AWAITING_INPUT`, digest/nonce/expiração e libera o lease; nenhuma chamada de modelo é iniciada. A retomada continua restrita ao approval API, que revalida autoridade, contexto e conexão.
+- O comportamento individual e as execuções Supabase sem essa política explícita permanecem compatíveis; não foi introduzida aprovação tácita nem segredo no prompt.
+- Foco P10/P09: typecheck, lint, `tests/durable-worker.test.ts` e `tests/run-api.test.ts` passaram (13/13); regressão integral passou com 227 testes unitários/integrados, 131 roadmap e 8 P00; build web/worker passou.
+- Estado: implementação local do worker avançou; homologação com Auth/PostgreSQL/provedor externo real permanece `BLOCKED_BY_EXTERNAL_DEPENDENCY`.

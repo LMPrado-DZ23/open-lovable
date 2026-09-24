@@ -5,6 +5,7 @@ import {requestFrozenModel,validateRunResult} from '../projects/generation';
 import {safeLogger} from '../security/secret-content';
 import type {ProviderScope} from '../settings/store';
 import {RunQueue} from './queue';
+import {ApprovalService} from '../approvals/service';
 import {modelBindingDigest} from './model-binding';
 import type {ClaimedRun,WorkerLease} from './types';
 
@@ -40,7 +41,24 @@ export async function runWorkerOnce(queue:RunQueue,worker:WorkerLease,stopSignal
   let scope=localGuard(queue,job);await verifySession(job,signal);signal.throwIfAborted();scope=localGuard(queue,job);
   let text=job.output;
   if(text===null){
-   const result=await requestFrozenModel(job.run,job.input,signal,{scope,limits:queue.limitsFor(job.run.id,job.run.inputs.mode),assertLive:()=>{localGuard(queue,job);},beforeModel:()=>queue.markModelStarted(job),status:payload=>queue.event(job,'run.progress',payload)});
+   const approval=new ApprovalService(queue);
+   const result=await requestFrozenModel(job.run,job.input,signal,{
+    scope,
+    limits:queue.limitsFor(job.run.id,job.run.inputs.mode),
+    assertLive:()=>{localGuard(queue,job);},
+    beforeModel:()=>{
+     if(job.authority.mode==='supabase'&&process.env.OPEN_LOVABLE_REQUIRE_CONNECTION_APPROVAL==='1'){
+      localGuard(queue,job);
+      // A connection approval is required before the first model call in production-like modes.
+      // The worker pauses and releases the lease; the HITL must resolve via the approval API.
+      const summary={provider:'gateway',endpoint:process.env.OPEN_LOVABLE_GATEWAY_URL||'https://gateway.invalid',credentialConfigured:Boolean(process.env.OPEN_LOVABLE_GATEWAY_API_KEY)};
+      approval.pause(job,'connection',summary);
+      throw new ProjectError('Connection approval required',402);
+     }
+     queue.markModelStarted(job);
+    },
+    status:payload=>queue.event(job,'run.progress',payload)
+   });
    queue.recordModelResult(job,result.text,result.usage);text=result.text;
   }
   queue.event(job,'run.progress',{phase:job.run.inputs.mode==='plan'?'planning':'compiling'});

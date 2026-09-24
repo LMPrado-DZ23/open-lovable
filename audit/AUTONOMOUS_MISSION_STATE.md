@@ -36,8 +36,8 @@ state: EXECUTING
 status: CONTINUE
 iteration: 3
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T17:04:00-03:00"
-last_progress_at: "2026-09-24T17:04:00-03:00"
+heartbeat_at: "2026-09-24T17:11:00-03:00"
+last_progress_at: "2026-09-24T17:11:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -45,13 +45,13 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "f6f167d85c790ee8d28943f77f3782e6a22ee303"
-  uncommitted_changes: false
+  head: "91779a6c6e870352aa0299bbd83f4fd47e0f85e2"
+  uncommitted_changes: true
 watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Audit HIGH-01/HIGH-02 and Windows runner fixed and published at f6f167d; continue only with authorized P10/E2E/external homologation gates."
+current_task: "Integrate P10 HITL pause in the durable worker under explicit Supabase policy, verify full gates, then publish the checkpoint."
 current_failure: "External homologation and release authorization remain open; no local code failure after the audit fixes."
 current_strategy: "Use evidence-driven vertical slices, then run independent security, product and accessibility audits; never treat local fixtures as external homologation."
 plan:
@@ -347,6 +347,8 @@ latest_gate_evidence:
   audit_windows_test_runner: "PASS; roadmap MJS tests now use scripts/test-roadmap-mjs.mjs instead of a shell glob, and P06 hardening handles Windows symlink privilege limits without weakening regular-path checks"
   audit_high_fixes_focused: "PASS; lint/typecheck and 21 focused identity/repository/visual/project workflow tests"
   audit_high_fixes_full: "PASS; npm test exit 0 with 227 unit/integration tests, 131 roadmap tests and 8 P00 checks; npm run build exit 0"
+  p10_worker_hilt_pause: "PASS; with OPEN_LOVABLE_REQUIRE_CONNECTION_APPROVAL=1 and Supabase authority, the worker pauses before model effect through ApprovalService; lease is released and approval API remains the only resume path; default individual behavior is unchanged"
+  p10_worker_regression: "PASS; npm test exit 0 with 227 unit/integration tests, 131 roadmap tests and 8 P00 checks; npm run build exit 0"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
