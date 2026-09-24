@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T12:01:10-03:00"
-last_progress_at: "2026-09-24T12:01:10-03:00"
+heartbeat_at: "2026-09-24T12:05:35-03:00"
+last_progress_at: "2026-09-24T12:05:35-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Implement P30 scoped connector capability gateway with opaque credential refs, audience/project/operation binding, expiry/revocation and idempotency; keep external connector calls disabled without authorization."
+next_action: "Implement P31 webhook/event connector contracts with raw-byte signatures, replay protection, bounded payloads and out-of-order reconciliation; keep external connector homologation blocked."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -223,6 +223,9 @@ latest_gate_evidence:
   p29_app_runtime: "PASS 2/2 focused; tenant-bound private objects enforce size/media/path policy, quarantine is explicit, realtime channels are tenant-scoped, and jobs are idempotent across retries"
   p29_full_regression: "PASS; npm test exit 0 with 57 roadmap tests and 8 P00 checks"
   p29_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external storage/function runtime was deployed"
+  p30_connector_gateway: "PASS 2/2 focused; opaque credential refs stay server-side, grants bind audience/workspace/project/operation/environment/endpoint, and expiry/revocation/body limits are enforced"
+  p30_full_regression: "PASS; npm test exit 0 with 59 roadmap tests and 8 P00 checks"
+  p30_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external connector call was executed"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
