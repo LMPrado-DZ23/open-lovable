@@ -74,7 +74,11 @@ test('SQLite snapshot import preserves all data and rejects a second import into
  const actor=identity.upsertActor({issuer:'https://identity.example/auth/v1',subject:randomUUID(),email:'import@example.test'});
  const workspace=identity.createWorkspace(actor.id,'Imported team');
  identity.createSession(actor.id,actor.issuer,{access_token:'synthetic-import-access',refresh_token:'synthetic-import-refresh',expires_in:3600});
- identity.invite(actor.id,workspace.id,'invitee@example.test','editor');source.close();
+ identity.invite(actor.id,workspace.id,'invitee@example.test','editor');
+ const {RunQueue}=await import('../../lib/runs/queue');const {SqliteProjectRepository}=await import('../../lib/persistence/sqlite');
+ const context=new SqliteProjectRepository(source).individualContext(owner),queue=new RunQueue(source);
+ const queued=queue.enqueue({workspaceId:context.principal.workspaceId,actorId:context.principal.actorId,memberVersion:1,mode:'individual',sessionId:null,origin:'http://127.0.0.1:3100',settingsOwner:owner,allowLoopback:true,modelBinding:'a'.repeat(64),policyVersion:1},{projectId:project.id,baseVersion:2,requestKey:randomUUID(),prompt:'Queued before backup',model:'gateway/coder',mode:'build',imageIDs:[],confirmCost:true});
+ source.close();
  const original=readFileSync(file);const dbName='ol_test_import_'+randomUUID().replaceAll('-','');
  const targetURL=new URL(url!);targetURL.pathname='/'+dbName;
  await admin.query('CREATE DATABASE "'+dbName+'"');const target=new Pool({connectionString:targetURL.toString(),max:2});
@@ -82,10 +86,17 @@ test('SQLite snapshot import preserves all data and rejects a second import into
   await migratePostgres(target,{runtimeRole});
   await assert.rejects(()=>importSqliteSnapshot(file,randomBytes(32),target),/key|credential|decrypt/i);
   assert.equal((await target.query('SELECT count(*) AS n FROM open_lovable.workspaces')).rows[0].n,'0');
-  const report=await importSqliteSnapshot(file,key,target);assert.equal(report.activation,'NOT_PERFORMED');assert.equal(report.tables.projects.rows,1);assert.equal(report.tables.revisions.rows,2);assert.equal(report.tables.project_images.rows,1);assert.equal(report.tables.runs.rows,1);assert.equal(report.tables.run_events.rows,1);assert.equal(report.tables.execution_claims.rows,1);assert.equal(report.tables.messages.rows,2);
+  const report=await importSqliteSnapshot(file,key,target);assert.equal(report.activation,'NOT_PERFORMED');assert.equal(report.tables.projects.rows,1);assert.equal(report.tables.revisions.rows,2);assert.equal(report.tables.project_images.rows,1);assert.equal(report.tables.runs.rows,2);assert.equal(report.tables.run_events.rows,1);assert.equal(report.tables.execution_claims.rows,1);assert.equal(report.tables.messages.rows,3);
   assert.deepEqual(readFileSync(file),original);
   assert.equal(report.tables.identity_actors.rows,1);assert.equal(report.tables.auth_sessions.rows,1);assert.equal(report.tables.workspace_invites.rows,1);
   assert.equal(report.sessionsInvalidated,1);assert.equal(report.invitationsInvalidated,1);
+  assert.equal(report.tables.run_controls.rows,1);assert.equal(report.tables.run_journal.rows,1);assert.equal(report.runsInvalidated,1);
+  assert.equal((await target.query('SELECT state FROM open_lovable.runs WHERE id=$1',[queued.id])).rows[0].state,'INTERRUPTED');
+  assert.equal((await target.query('SELECT outcome FROM open_lovable.run_controls WHERE run_id=$1',[queued.id])).rows[0].outcome,'RECOVERY_REVIEW_REQUIRED');
+  await assert.rejects(()=>target.query('UPDATE open_lovable.run_controls SET authority=$1 WHERE run_id=$2',['{}',queued.id]),/immutable/i);
+  await assert.rejects(()=>target.query('UPDATE open_lovable.runs SET prompt=$1 WHERE id=$2',['Changed prompt',queued.id]),/immutable/i);
+  await assert.rejects(()=>target.query('DELETE FROM open_lovable.run_journal WHERE run_id=$1',[queued.id]),/immutable/i);
+
   assert.equal((await target.query("SELECT count(*) AS n FROM open_lovable.auth_sessions WHERE revoked_at IS NULL OR encrypted<>''")).rows[0].n,'0');
   assert.equal((await target.query('SELECT count(*) AS n FROM open_lovable.workspace_invites WHERE cancelled_at IS NULL')).rows[0].n,'0');
   const loaded=await target.query('SELECT snapshot,version,id FROM open_lovable.projects');assert.equal(loaded.rows[0].id,project.id);assert.equal(loaded.rows[0].version,2);
@@ -97,7 +108,7 @@ test('SQLite snapshot import preserves all data and rejects a second import into
 
 test('P05 identity storage is denied to the project runtime role',async t=>{
  await setup(t);
- for(const table of ['identity_actors','auth_sessions','workspace_invites','identity_audit','identity_rate_limits']){
+ for(const table of ['identity_actors','auth_sessions','workspace_invites','identity_audit','identity_rate_limits','run_controls','run_journal','worker_leases']){
   await assert.rejects(()=>pool.query('SELECT * FROM open_lovable.'+table),/permission denied/);
  }
 });
@@ -111,6 +122,6 @@ test('P05 migration 2 upgrades a real v1 database without rewriting its migratio
   await target.query('INSERT INTO open_lovable.schema_migrations VALUES(1,$1,$2)',[POSTGRES_SCHEMA_DIGEST,'2026-01-01']);
   await migratePostgres(target,{runtimeRole});await migratePostgres(target,{runtimeRole});
   const rows=(await target.query('SELECT version,digest,applied_at FROM open_lovable.schema_migrations ORDER BY version')).rows;
-  assert.equal(rows.length,2);assert.equal(rows[0].applied_at,'2026-01-01');assert.equal(rows[0].digest,POSTGRES_SCHEMA_DIGEST);assert.equal(rows[1].digest,POSTGRES_MIGRATIONS[1].digest);
+  assert.equal(rows.length,4);assert.equal(rows[3].digest,POSTGRES_MIGRATIONS[3].digest);assert.equal(rows[2].digest,POSTGRES_MIGRATIONS[2].digest);assert.equal(rows[0].applied_at,'2026-01-01');assert.equal(rows[0].digest,POSTGRES_SCHEMA_DIGEST);assert.equal(rows[1].digest,POSTGRES_MIGRATIONS[1].digest);
  }finally{await target.end();await admin.query('DROP DATABASE "'+dbName+'"');}
 });

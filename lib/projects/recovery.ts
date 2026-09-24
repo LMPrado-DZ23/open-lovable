@@ -129,7 +129,7 @@ export async function createRecoveryBundle(store:Pick<ProjectStore,'db'>,masterK
 }
 
 /** Restore only into a new private directory after authentication, digests and schema checks. */
-async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:string,materializeKey:boolean,options:RecoveryOptions={}):Promise<{schemaVersion:number;databaseDigest:string;restoredDatabaseDigest:string;sessionsInvalidated:number;invitationsInvalidated:number;tables:RecoveryManifest['tables']}>{
+async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:string,materializeKey:boolean,options:RecoveryOptions={}):Promise<{schemaVersion:number;databaseDigest:string;restoredDatabaseDigest:string;sessionsInvalidated:number;invitationsInvalidated:number;runsInvalidated:number;tables:RecoveryManifest['tables']}>{
  const budget=createRecoveryBudget(options);const key=keyBytes(masterKey);let target:string|undefined;let encryptionKey:Buffer|undefined;
  try{
   budget.check();const source=resolve(bundle),manifestPath=join(source,'manifest.json'),encrypted=join(source,'database.enc');regularFile(manifestPath,1024*1024);
@@ -144,15 +144,23 @@ async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:stri
   if(await fileDigest(plain,budget.maxBytes,budget.signal)!==manifest.databaseDigest)throw new ProjectError('Restored database checksum mismatch',503);
   const actual=inspectRecoverySnapshot(plain,key,budget.maxBytes,budget.check);
   if(actual.schemaVersion!==manifest.schemaVersion||canonical(actual.tables)!==canonical(manifest.tables))throw new ProjectError('Restored database inventory mismatch',503);
-  let sessionsInvalidated=0,invitationsInvalidated=0;
+  let sessionsInvalidated=0,invitationsInvalidated=0,runsInvalidated=0;
   if(materializeKey&&actual.schemaVersion>=5){
    budget.check();const restored=new DatabaseSync(plain);
    try{restored.exec('BEGIN IMMEDIATE');sessionsInvalidated=Number(restored.prepare("UPDATE auth_sessions SET revoked_at=?,encrypted='',refresh_lease=NULL,refresh_until=0 WHERE revoked_at IS NULL OR encrypted<>''").run(Date.now()).changes);invitationsInvalidated=Number(restored.prepare('UPDATE workspace_invites SET cancelled_at=? WHERE consumed_at IS NULL AND cancelled_at IS NULL').run(Date.now()).changes);restored.exec('COMMIT');}
    finally{restored.close();}
   }
+  if(materializeKey&&actual.schemaVersion>=6){
+   budget.check();const restored=new DatabaseSync(plain);
+   try{
+    restored.exec('BEGIN IMMEDIATE');
+    runsInvalidated=Number(restored.prepare("UPDATE runs SET state='INTERRUPTED',lease_until=0,error='Restored execution requires a new authorization; no automatic replay.' WHERE state IN ('QUEUED','RUNNING')").run().changes);
+    restored.exec("DELETE FROM worker_leases; UPDATE run_controls SET worker_id=NULL,phase='interrupted',outcome='RECOVERY_REVIEW_REQUIRED' WHERE run_id IN (SELECT id FROM runs WHERE state='INTERRUPTED'); COMMIT");
+   }finally{restored.close();}
+  }
   const restoredDatabaseDigest=await fileDigest(plain,budget.maxBytes,budget.signal);
   budget.check();if(materializeKey)writeFileSync(join(target,'credentials.key'),key,{flag:'wx',mode:0o600,flush:true});
-  return {...actual,databaseDigest:manifest.databaseDigest,restoredDatabaseDigest,sessionsInvalidated,invitationsInvalidated};
+  return {...actual,databaseDigest:manifest.databaseDigest,restoredDatabaseDigest,sessionsInvalidated,invitationsInvalidated,runsInvalidated};
  }catch(error){if(target)rmSync(target,{recursive:true,force:true});throw error;}
  finally{key.fill(0);encryptionKey?.fill(0);}
 }

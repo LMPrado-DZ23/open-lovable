@@ -3,34 +3,46 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
 import AccountBar from '@/components/account/AccountBar';
 import AIModelSelect from '@/components/AIModelSelect';
-import {loadProject,projectRequest,zipAsBase64,readProjectEvents,type ProjectState} from '@/lib/projects/client';
+import {loadProject,projectRequest,zipAsBase64,type ProjectState} from '@/lib/projects/client';
 import ProjectPreview from './ProjectPreview';
 import ProjectCode from './ProjectCode';
 import ProjectChanges from './ProjectChanges';
 import ProjectImages from './ProjectImages';
+import RunJournal from './RunJournal';
+import {enqueueRun} from '@/lib/runs/client';
 import {useProjectImages} from '@/hooks/useProjectImages';
 
-const tabs=['Prévia','Código','Alterações','Histórico','Referências','Imagens','Plano'] as const;
+const tabs=['Prévia','Código','Alterações','Histórico','Referências','Imagens','Plano','Execu\u00e7\u00f5es'] as const;
 type Tab=typeof tabs[number];
 const control='rounded-md border border-[#d2d2c8] bg-white px-[13px] py-[10px] text-[12px] font-medium disabled:opacity-40';
-const states:Record<string,string>={RUNNING:'Em execução',AWAITING_APPROVAL:'Aguardando aprovação',SUCCEEDED:'Revisão aceita',FAILED:'Falhou',CANCELLED:'Cancelada',INTERRUPTED:'Interrompida'};
+const states:Record<string,string>={QUEUED:'Na fila',RUNNING:'Em execução',AWAITING_APPROVAL:'Aguardando aprovação',SUCCEEDED:'Revisão aceita',FAILED:'Falhou',CANCELLED:'Cancelada',INTERRUPTED:'Interrompida'};
 export default function ProjectWorkspace({id}:{id:string}){
  const [data,setData]=useState<ProjectState|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[tab,setTab]=useState<Tab>('Prévia');
  const [prompt,setPrompt]=useState(''),[model,setModel]=useState(''),[consent,setConsent]=useState(false),[phase,setPhase]=useState('');
  const {images,loading:imagesLoading,error:imagesError,reload:reloadImages}=useProjectImages(id);
  const [mode,setMode]=useState<'build'|'plan'>('build'),[selectedImages,setSelectedImages]=useState<string[]>([]),[visionConfirmed,setVisionConfirmed]=useState(false);
  const selectImages=(ids:string[])=>{setSelectedImages(ids);setVisionConfirmed(false);setConsent(false);};
- const active=useRef<AbortController|null>(null);const sequence=useRef(0);
+ const submitted=useRef<string|null>(null);const active=useRef<AbortController|null>(null);const sequence=useRef(0);
  const reload=useCallback(async(signal?:AbortSignal)=>{const request=++sequence.current;const state=await loadProject(id,signal);if(!signal?.aborted&&request===sequence.current){setData(state);setModel(current=>current||state.project.model);}return state;},[id]);
  useEffect(()=>{const controller=new AbortController();void reload(controller.signal).catch(caught=>{if(!controller.signal.aborted)setError(caught.message);});return()=>{controller.abort();active.current?.abort();};},[reload]);
- const pending=data?.runs.find(run=>run.state==='RUNNING'||run.state==='AWAITING_APPROVAL');
- useEffect(()=>{if(pending?.state!=='RUNNING')return;const controller=new AbortController();const timer=setInterval(()=>void reload(controller.signal).catch(caught=>{if(!controller.signal.aborted)setError(caught.message);}),2500);return()=>{clearInterval(timer);controller.abort();};},[pending?.state,reload]);
+ const pending=data?.runs.find(run=>run.state==='QUEUED'||run.state==='RUNNING'||run.state==='AWAITING_APPROVAL');
+ useEffect(()=>{if(pending?.state!=='RUNNING'&&pending?.state!=='QUEUED')return;const controller=new AbortController();const timer=setInterval(()=>void reload(controller.signal).catch(caught=>{if(!controller.signal.aborted)setError(caught.message);}),2500);return()=>{clearInterval(timer);controller.abort();};},[pending?.state,reload]);
  async function mutate(body:unknown,message:string){setBusy(true);setError('');setNotice('');try{const result=await projectRequest<{excluded?:string[]}>(body);await reload();setNotice(message+(result.excluded?.length?` ${result.excluded.length} arquivo(s) sensível(is) ou de build excluído(s) da importação.`:''));}catch(caught){setError(caught instanceof Error?caught.message:'Operação não concluída.');}finally{setBusy(false);}}
- async function generate(event:React.FormEvent){event.preventDefault();if(!data||busy||pending||!consent||!prompt.trim()||(selectedImages.length>0&&!visionConfirmed))return;const controller=new AbortController();active.current=controller;setBusy(true);setError('');setNotice('');setPhase('Iniciando…');
-  try{const response=await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({action:'generate',id,version:data.project.version,requestKey:crypto.randomUUID(),prompt,model,mode,imageIDs:selectedImages,confirmVision:visionConfirmed})});
-   await readProjectEvents(response,event=>{if(event.type==='error')setError(event.error||'Geração interrompida; a revisão salva foi preservada.');if(event.phase)setPhase(({planning:'Preparando contexto…',generating:mode==='plan'?'Escrevendo o plano…':'Gerando arquivos…',compiling:'Compilando a proposta…'} as Record<string,string>)[event.phase]||event.phase);if(event.type==='plan-complete'){setNotice('Plano salvo. Nenhum arquivo foi alterado.');setTab('Plano');}if(event.type==='complete'){setNotice('Proposta compilada. Revise o resultado antes de aprovar.');setTab('Prévia');}});
-  }catch(caught){if(!controller.signal.aborted)setError(caught instanceof Error?caught.message:'Falha ao gerar proposta.');}
-  finally{active.current=null;setBusy(false);setConsent(false);setPhase('');await reload().catch(caught=>setError(caught.message));}
+ useEffect(()=>{
+  const run=data?.runs.find(item=>item.id===submitted.current);if(!run||['QUEUED','RUNNING'].includes(run.state))return;
+  submitted.current=null;
+  if(run.state==='AWAITING_APPROVAL'){setNotice('Proposta compilada. Revise o resultado antes de aprovar.');setTab('Pr\u00e9via');}
+  else if(run.state==='SUCCEEDED'&&run.inputs.mode==='plan'){setNotice('Plano salvo. Nenhum arquivo foi alterado.');setTab('Plano');}
+  else if(run.state==='FAILED'||run.state==='INTERRUPTED')setError(run.error||'Execu\u00e7\u00e3o interrompida. A revis\u00e3o salva foi preservada.');
+ },[data]);
+ async function generate(event:React.FormEvent){
+  event.preventDefault();if(!data||busy||pending||!consent||!prompt.trim()||(selectedImages.length>0&&!visionConfirmed))return;
+  const controller=new AbortController();active.current=controller;setBusy(true);setError('');setNotice('');setPhase('Admitindo pedido\u2026');
+  try{
+   const {run}=await enqueueRun({projectId:id,baseVersion:data.project.version,requestKey:crypto.randomUUID(),prompt,model,mode,imageIDs:selectedImages,confirmCost:consent,confirmVision:visionConfirmed},controller.signal);
+   submitted.current=run.id;setNotice('Pedido salvo no servidor. Voc\u00ea pode fechar esta aba e acompanhar depois.');
+  }catch(caught){if(!controller.signal.aborted)setError(caught instanceof Error?caught.message:'Admiss\u00e3o n\u00e3o confirmada. Recarregue o projeto antes de tentar novamente.');}
+  finally{active.current=null;if(!controller.signal.aborted){setBusy(false);setConsent(false);setPhase('');await reload().catch(caught=>setError(caught.message));}}
  }
  async function cancel(){if(!pending)return;try{await projectRequest({action:'cancel',id,runID:pending.id});active.current?.abort();await reload();setNotice('Proposta descartada; a revisão salva foi preservada.');}catch(caught){setError(caught instanceof Error?caught.message:'Não foi possível cancelar.');}}
  async function importZip(file:File|undefined){if(!file||!data||busy||pending)return;if(Object.keys(data.project.snapshot.files).length&&!window.confirm('Importar como uma nova revisão? A versão atual continuará no histórico.'))return;try{const archive=await zipAsBase64(file);await mutate({action:'import',id,version:data.project.version,archive},'Projeto importado e salvo.');setTab('Prévia');}catch(caught){setError(caught instanceof Error?caught.message:'Não foi possível ler o ZIP.');}}
@@ -57,7 +69,7 @@ export default function ProjectWorkspace({id}:{id:string}){
       {selectedImages.length>0&&<label className="mt-[12px] flex items-start gap-[9px] text-[11px] leading-relaxed text-[#6c6c62]"><input type="checkbox" aria-label="Confirmo suporte a imagens no modelo escolhido" checked={visionConfirmed} disabled={locked} onChange={event=>setVisionConfirmed(event.target.checked)} className="mt-[2px] shrink-0"/><span>Confirmo que o modelo escolhido aceita imagens. Essa declaração não substitui um teste real de visão; falhas não trocam de modelo.</span></label>}
       <button type="submit" disabled={locked||!consent||!prompt.trim()||!model||(selectedImages.length>0&&!visionConfirmed)} className="mt-[16px] w-full rounded-md bg-[#a6471f] px-[18px] py-[13px] text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">{phase||(mode==='plan'?'Gerar plano':'Gerar proposta')}</button>
      </form>
-     {!readOnly&&pending?.state==='RUNNING'&&<div className="border-t border-[#e5e5dc] p-[20px]"><p role="status" className="text-[12px]">Geração em execução. Sua revisão salva permanece intacta.</p><button type="button" onClick={()=>void cancel()} className="mt-[12px] text-[12px] underline">Cancelar geração</button></div>}
+     {!readOnly&&(pending?.state==='RUNNING'||pending?.state==='QUEUED')&&<div className="border-t border-[#e5e5dc] p-[20px]"><p role="status" className="text-[12px]">Geração em execução. Sua revisão salva permanece intacta.</p><button type="button" onClick={()=>void cancel()} className="mt-[12px] text-[12px] underline">Cancelar geração</button></div>}
      {data.runs[0]&&!pending&&<p className="border-t border-[#e5e5dc] px-[20px] py-[14px] text-[11px] text-[#77776b]">Última execução: {data.runs[0].inputs?.mode==='plan'&&data.runs[0].state==='SUCCEEDED'?'Plano salvo':states[data.runs[0].state]||data.runs[0].state}.</p>}
     </aside>
     <section className="min-w-0 overflow-hidden rounded-lg border border-[#dcdcd2] bg-white" aria-label="Workspace do projeto">
@@ -69,6 +81,7 @@ export default function ProjectWorkspace({id}:{id:string}){
       {tab==='Alterações'&&<ProjectChanges saved={project.snapshot} candidate={candidate?.candidate||null}/>}
       {tab==='Histórico'&&<div className="min-h-[430px] p-[22px]"><h2 className="mb-[8px] text-[17px] font-semibold">Histórico de revisões</h2><p className="mb-[24px] text-[13px] text-[#727266]">Restaurar cria uma nova revisão; as versões anteriores não são apagadas.</p><ol className="divide-y divide-[#e3e3d9]">{data.revisions.map(revision=><li key={revision.id} className="flex flex-wrap items-center justify-between gap-[14px] py-[16px]"><div className="min-w-0"><h3 className="text-[13px] font-medium">Revisão {revision.version} · {revision.label}</h3><p className="mt-[6px] text-[11px] text-[#77776b]">{new Date(revision.created_at).toLocaleString('pt-BR')}</p></div>{revision.version!==project.version&&<button type="button" disabled={locked} onClick={()=>{if(window.confirm('Restaurar esta versão como uma nova revisão?'))void mutate({action:'restore',id,version:project.version,revisionID:revision.id},'Versão restaurada sem apagar o histórico.');}} className={control}>Restaurar revisão {revision.version}</button>}</li>)}</ol></div>}
       {tab==='Imagens'&&<ProjectImages id={id} images={images} selected={selectedImages} onSelection={selectImages} reload={reloadImages} locked={locked} loading={imagesLoading} loadError={imagesError}/>}
+      {tab==='Execu\u00e7\u00f5es'&&<RunJournal projectId={id} refreshKey={data.runs[0]?.id+':'+data.runs[0]?.updated_at}/>}
       {tab==='Plano'&&<div className="min-h-[430px] p-[22px]"><h2 className="text-[17px] font-semibold">Plano antes do código</h2><p className="mb-[20px] mt-[10px] text-[13px] leading-relaxed text-[#727266]">O modo Planejar registra uma proposta de trabalho sem alterar os arquivos. Uma construção posterior exige outra autorização.</p>{lastPlan?<><pre className="max-h-[620px] overflow-auto whitespace-pre-wrap break-words text-[13px] leading-relaxed">{lastPlan.explanation}</pre><button type="button" disabled={locked||lastPlan.base_version!==project.version} onClick={()=>{const text='Implemente o plano abaixo, preservando os arquivos existentes:\n\n'+lastPlan.explanation;if(text.length>32768){setError('O plano excede o limite do pedido. Selecione uma etapa menor.');return;}setPrompt(text);setMode('build');setConsent(false);setNotice('Plano copiado para o pedido. Revise e autorize antes de construir.');}} className={control+' mt-[22px]'}>Usar plano em nova solicitação</button>{lastPlan.base_version!==project.version&&<p className="mt-[12px] text-[12px] text-[#7c5e30]">O projeto mudou desde este plano. Peça um novo planejamento antes de construir.</p>}</>:<p className="text-[13px] text-[#77776b]">Selecione Planejar no formulário para discutir a mudança antes de gerar código.</p>}</div>}
       {tab==='Referências'&&<div className="min-h-[430px] p-[22px]"><h2 className="text-[17px] font-semibold">Referências do projeto</h2><p className="mb-[22px] mt-[10px] max-w-[650px] text-[13px] leading-relaxed text-[#727266]">Adicione requisitos e decisões em TXT, MD, JSON ou CSV. Estes documentos são enviados como contexto quando você autoriza uma geração. Não inclua senhas ou dados pessoais desnecessários.</p><label className={`${control} inline-block cursor-pointer`}>Adicionar referência<input type="file" aria-label="Adicionar referência" accept=".txt,.md,.json,.csv" disabled={locked} className="sr-only" onChange={event=>{void reference(event.target.files?.[0]);event.currentTarget.value='';}}/></label><div className="mt-[26px] divide-y divide-[#e3e3d9]">{data.documents.map(document=><details key={document.id} className="py-[14px]"><summary className="cursor-pointer text-[13px] font-medium">{document.name}</summary><pre className="mt-[12px] max-h-[300px] overflow-auto whitespace-pre-wrap break-words text-[12px] leading-relaxed text-[#727266]">{document.content}</pre></details>)}</div>{!data.documents.length&&<p className="mt-[22px] text-[13px] text-[#77776b]">Nenhuma referência adicionada.</p>}</div>}
      </div>

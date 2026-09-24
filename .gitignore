@@ -62,3 +62,6 @@ bun.lockb
 .audit/
 playwright-report/
 test-results/
+
+# Application worker build (source remains in workers/)
+.open-lovable-build/

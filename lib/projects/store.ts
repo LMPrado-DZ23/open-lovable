@@ -14,9 +14,9 @@ export interface ProjectSnapshot { files: Record<string,string>; assets: Record<
 export interface Project {
  id:string; owner:string; name:string; model:string; version:number; snapshot:ProjectSnapshot; created_at:string; updated_at:string;
 }
-export type RunState='RUNNING'|'AWAITING_APPROVAL'|'SUCCEEDED'|'FAILED'|'CANCELLED'|'INTERRUPTED';
+export type RunState='QUEUED'|'RUNNING'|'AWAITING_APPROVAL'|'SUCCEEDED'|'FAILED'|'CANCELLED'|'INTERRUPTED';
 export interface RunInputs {mode:'build'|'plan';images:Array<{id:string;sha256:string}>;}
-export interface RunOptions {mode?:'build'|'plan';imageIDs?:string[];}
+export interface RunOptions {mode?:'build'|'plan';imageIDs?:string[];queued?:boolean;}
 export interface ProjectRun {
  inputs:RunInputs;
  id:string; project_id:string; request_key:string; prompt:string; model:string; base_version:number;
@@ -34,6 +34,7 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
 export function validateSnapshot(input:unknown):ProjectSnapshot {
  if(!input || typeof input!=='object') throw new ProjectError('Invalid project snapshot');
  const source=input as ProjectSnapshot;
+ if(Object.keys(source).some(key=>key!=='files'&&key!=='assets'))throw new ProjectError('Unknown snapshot field; only files and assets are accepted');
  if(!source.files || typeof source.files!=='object' || Array.isArray(source.files) || !source.assets || typeof source.assets!=='object' || Array.isArray(source.assets)) throw new ProjectError('Files and assets must be objects');
  if(Object.keys(source.files).length+Object.keys(source.assets).length>300) throw new ProjectError('Project exceeds 300 files');
  let bytes=0;const paths=new Set<string>();
@@ -58,6 +59,7 @@ export function validateSnapshot(input:unknown):ProjectSnapshot {
 export class ProjectStore {
  readonly db:DatabaseSync;
  private closed=false;
+ private transactionDepth=0;
  constructor(readonly path:string) {
   if(path!==':memory:') {
    mkdirSync(dirname(path),{recursive:true,mode:0o700});
@@ -72,19 +74,33 @@ export class ProjectStore {
    const version=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
    if(version>migrations.length)throw new ProjectError('Database schema is newer than this application',503);
    this.db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
-   for(const migration of migrations.filter(item=>item.version>version)) this.transaction(()=>{
-   // A second process may have migrated while this connection waited for the write lock.
-   const current=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
-   if(current>=migration.version)return;
-   this.db.exec(migration.sql);if(migration.version===4)backfillLegacyWorkspaces(this.db);this.db.exec(`PRAGMA user_version=${migration.version}`);
-  });}
+   for(const migration of migrations.filter(item=>item.version>version)) {
+    // SQLite requires connection-local FK enforcement paused during a table replacement. Validate every relation before commit and re-enable in finally.
+    const rebuild= migration.version===6;
+    if(rebuild)this.db.exec('PRAGMA foreign_keys=OFF');
+    try {this.transaction(()=>{
+     const current=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
+     if(current>=migration.version)return;
+     this.db.exec(migration.sql);if(migration.version===4)backfillLegacyWorkspaces(this.db);
+     if(rebuild&&this.db.prepare('PRAGMA foreign_key_check').all().length)throw new ProjectError('Migration would violate database integrity',503);
+     this.db.exec(`PRAGMA user_version=${migration.version}`);
+    });} finally {if(rebuild)this.db.exec('PRAGMA foreign_keys=ON');}
+   }
+  }
   catch(error) {this.db.close();throw error;}
  }
  close():void {if(!this.closed) {this.db.close();this.closed=true;}}
  transaction<T>(fn:()=>T):T {
-  this.db.exec('BEGIN IMMEDIATE');
-  try {const result=fn();this.db.exec('COMMIT');return result;}
-  catch(error) {this.db.exec('ROLLBACK');throw error;}
+  if(fn.constructor.name==='AsyncFunction')throw new ProjectError('Transaction callbacks must be synchronous');
+  const depth=this.transactionDepth,name='ol_nested_'+depth;
+  this.db.exec(depth?'SAVEPOINT '+name:'BEGIN IMMEDIATE');this.transactionDepth++;
+  try {
+   const result=fn();
+   if(result&&typeof (result as {then?:unknown}).then==='function')throw new ProjectError('Transaction callbacks must be synchronous');
+   this.db.exec(depth?'RELEASE SAVEPOINT '+name:'COMMIT');return result;
+  } catch(error) {
+   this.db.exec(depth?'ROLLBACK TO SAVEPOINT '+name+'; RELEASE SAVEPOINT '+name:'ROLLBACK');throw error;
+  } finally {this.transactionDepth--; }
  }
  private owner(owner:string):void {if(typeof owner!=='string'||!owner.trim()||owner.length>128) throw new ProjectError('Invalid owner',403);}
  getProject(owner:string,id:string):Project {
@@ -163,10 +179,10 @@ export class ProjectStore {
    if(selected.reduce((sum,row)=>sum+Number(row.bytes),0)>6*1024*1024)throw new ProjectError('Selected images exceed the 6 MiB model input budget',413);
    const inputs:RunInputs={mode,images:selected.map(row=>({id:row.id as string,sha256:row.sha256 as string}))};
    this.expireRuns(id);
-   if(this.db.prepare("SELECT id FROM runs WHERE project_id=? AND state IN ('RUNNING','AWAITING_APPROVAL')").get(id)) throw new ProjectError('A generation or proposal is already in progress',409);
+   if(this.db.prepare("SELECT id FROM runs WHERE project_id=? AND state IN ('QUEUED','RUNNING','AWAITING_APPROVAL')").get(id)) throw new ProjectError('A generation or proposal is already in progress',409);
    if(p.version!==baseVersion) throw new ProjectError('Revision conflict',409);
    const runID=randomUUID(),time=now();
-   this.db.prepare('INSERT INTO runs(id,project_id,request_key,prompt,model,base_version,state,lease_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?, ?,?,?)').run(runID,id,requestKey,prompt,model,baseVersion,'RUNNING',Date.now()+120000,time,time);
+   this.db.prepare('INSERT INTO runs(id,project_id,request_key,prompt,model,base_version,state,lease_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?, ?,?,?)').run(runID,id,requestKey,prompt,model,baseVersion,options.queued?'QUEUED':'RUNNING',options.queued?0:Date.now()+120000,time,time);
    this.db.prepare('UPDATE runs SET inputs=? WHERE id=?').run(JSON.stringify(inputs),runID);
    this.db.prepare('INSERT INTO messages VALUES(?,?,?,?,?,?)').run(randomUUID(),id,runID,'user',prompt,time);
    return this.getRun(owner,id,runID);
@@ -196,7 +212,7 @@ export class ProjectStore {
   return this.db.prepare('SELECT * FROM runs WHERE project_id=? ORDER BY created_at DESC LIMIT 100').all(id).map(row=>this.decodeRun(row));
  }
  private expireRuns(id:string):void {
-  this.db.prepare("UPDATE runs SET state='INTERRUPTED',error='Execution interrupted. The saved revision is intact; retry explicitly.',updated_at=? WHERE project_id=? AND state='RUNNING' AND lease_until<?").run(now(),id,Date.now());
+  this.db.prepare("UPDATE runs SET state='INTERRUPTED',error='Execution interrupted. The saved revision is intact; retry explicitly.',updated_at=? WHERE project_id=? AND state='RUNNING' AND lease_until<? AND NOT EXISTS(SELECT 1 FROM run_controls c WHERE c.run_id=runs.id)").run(now(),id,Date.now());
  }
  heartbeat(owner:string,id:string,runID:string):boolean {
   this.getRun(owner,id,runID);
@@ -240,7 +256,7 @@ export class ProjectStore {
  cancelRun(owner:string,id:string,runID:string):ProjectRun {
   const run=this.getRun(owner,id,runID);
   if(run.state==='SUCCEEDED') throw new ProjectError('Accepted revision cannot be cancelled; use restore',409);
-  this.db.prepare("UPDATE runs SET state='CANCELLED',candidate=NULL,updated_at=? WHERE id=? AND state IN ('RUNNING','AWAITING_APPROVAL')").run(now(),runID);
+  this.db.prepare("UPDATE runs SET state='CANCELLED',candidate=NULL,updated_at=? WHERE id=? AND state IN ('QUEUED','RUNNING','AWAITING_APPROVAL')").run(now(),runID);
   return this.getRun(owner,id,runID);
  }
  failRun(owner:string,id:string,runID:string,error:string):void {

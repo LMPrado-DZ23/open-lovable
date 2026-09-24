@@ -41,7 +41,15 @@ export class AccountService {
   }finally{this.identity.releaseRefresh(session.id,lease);}
  }
  async authenticate(token:string,signal?:AbortSignal,allowRecovery=false):Promise<StoredSession> {
-  let session=this.identity.readSession(token,this.binding),refreshed=false;
+  return this.authenticateStored(this.identity.readSession(token,this.binding),signal,allowRecovery);
+ }
+ /** Trusted worker entry. No route accepts a session ID as a replacement for the opaque cookie. */
+ async authenticateSession(id:string,signal?:AbortSignal):Promise<StoredSession> {
+  return this.authenticateStored(this.identity.revalidateSession(id),signal,false);
+ }
+ private async authenticateStored(initial:StoredSession,signal?:AbortSignal,allowRecovery=false):Promise<StoredSession> {
+  if(initial.issuer!==this.binding)throw new ProjectError('Session binding changed. Sign in again.',401);
+  let session=initial,refreshed=false;
   if(session.purpose==='recovery'&&!allowRecovery)throw new ProjectError('Complete password recovery before opening projects.',403);
   if(session.access_expires_at<=Date.now()+30000){session=await this.refresh(session,signal);refreshed=true;}
   let user:ProviderUser;

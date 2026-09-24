@@ -1,9 +1,11 @@
+import {POSTGRES_RUN_INTEGRITY_SQL} from './postgres-run-integrity';
+import {POSTGRES_RUN_SQL} from './postgres-run-schema';
 import {createHash} from 'node:crypto';
 import type {Pool} from 'pg';
 import {POSTGRES_IDENTITY_SQL} from './postgres-identity-schema';
 
 /** PostgreSQL control-plane schema v1 corresponds to the existing SQLite schema through migration 4. */
-export const POSTGRES_SCHEMA_VERSION=2;
+export const POSTGRES_SCHEMA_VERSION=4;
 export const POSTGRES_SCHEMA_SQL=`
 CREATE TABLE open_lovable.workspaces(id TEXT PRIMARY KEY,legacy_owner TEXT UNIQUE,name TEXT NOT NULL,created_at TEXT NOT NULL);
 CREATE TABLE open_lovable.workspace_members(workspace_id TEXT NOT NULL REFERENCES open_lovable.workspaces(id),actor_id TEXT NOT NULL,role TEXT NOT NULL CHECK(role IN ('owner','admin','editor','viewer','billing')),active INTEGER NOT NULL DEFAULT 1 CHECK(active IN(0,1)),version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),PRIMARY KEY(workspace_id,actor_id));
@@ -60,6 +62,8 @@ export const POSTGRES_SCHEMA_DIGEST=createHash('sha256').update(POSTGRES_SCHEMA_
 export const POSTGRES_MIGRATIONS=Object.freeze([
  {version:1,sql:POSTGRES_SCHEMA_SQL,digest:POSTGRES_SCHEMA_DIGEST},
  {version:2,sql:POSTGRES_IDENTITY_SQL,digest:createHash('sha256').update(POSTGRES_IDENTITY_SQL).digest('hex')},
+ {version:3,sql:POSTGRES_RUN_SQL,digest:createHash('sha256').update(POSTGRES_RUN_SQL).digest('hex')},
+ {version:4,sql:POSTGRES_RUN_INTEGRITY_SQL,digest:createHash('sha256').update(POSTGRES_RUN_INTEGRITY_SQL).digest('hex')},
 ]);
 /** Rejects missing, reordered, future or rewritten migrations; prefix mode is for explicit upgrades only. */
 export function assertPostgresHistory(rows:readonly {version:number;digest:string}[],complete=true):void {

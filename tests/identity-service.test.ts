@@ -53,3 +53,13 @@ test('P05 documented email confirmation creates a usable first workspace without
  assert.equal(session.purpose,'normal');assert.ok(session.selected_workspace_id);
  assert.equal(f.identity.listWorkspaces(session.actor_id).length,1);
 });
+
+test('a queued worker session is revalidated without a cookie and cannot cross a changed service binding',async t=>{
+ const f=await setup(t),created=await f.service.login('alice@example.test','a-valid-fixture-password');
+ assert.equal(typeof f.service.authenticateSession,'function','Workers must use the same verified session contract');
+ assert.equal((await f.service.authenticateSession(created.session.id)).actor.id,created.session.actor_id);
+ f.provider.binding+='-rotated';const {AccountService}=await import('../lib/identity/service');
+ const rotated=new AccountService(f.identity,f.provider,'https://studio.example');
+ await assert.rejects(()=>rotated.authenticateSession(created.session.id),/session|binding/i);
+ await f.service.logout(created.token);await assert.rejects(()=>f.service.authenticateSession(created.session.id),/session/i);
+});
