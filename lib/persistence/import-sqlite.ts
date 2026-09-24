@@ -7,6 +7,7 @@ import type {Pool,PoolClient} from 'pg';
 import {assertSafeDataAncestors} from '../security/data-paths';
 import {createRecoveryBudget,inspectRecoverySnapshot} from '../projects/recovery';
 import {ProjectError} from '../projects/store';
+import {migrations} from '../projects/schema';
 import {POSTGRES_SCHEMA_VERSION,assertPostgresHistory} from './postgres-schema';
 
 export const IMPORT_TABLES=['workspaces','workspace_members','projects','revisions','runs','messages','run_events','provider_settings','project_documents','execution_claims','project_images','identity_actors','auth_sessions','workspace_invites','identity_rate_limits','identity_audit','run_controls','run_journal','worker_leases','run_limits','run_approvals','run_grants'] as const;
@@ -37,7 +38,7 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
   temporary=mkdtempSync(join(realpathSync(tmpdir()),'open-lovable-import-'));const snapshot=join(temporary,'snapshot.sqlite3');
   const input=new DatabaseSync(source,{readOnly:true});
   try{
-   if(![4,5,6,7,8].includes(Number(input.prepare('PRAGMA user_version').get()?.user_version)))throw new ProjectError('Import requires an explicitly upgraded SQLite schema version 4, 5, 6, 7 or 8');
+   const sourceVersion=Number(input.prepare('PRAGMA user_version').get()?.user_version);if(!Number.isInteger(sourceVersion)||sourceVersion<4||sourceVersion>migrations.length)throw new ProjectError(`Import requires an explicitly upgraded SQLite schema version 4 through ${migrations.length}`);
    const pageSize=Number(input.prepare('PRAGMA page_size').get()?.page_size);
    if(pageSize*Number(input.prepare('PRAGMA page_count').get()?.page_count)>budget.maxBytes)throw new ProjectError('Import size budget exceeded',413);
    await backup(input,snapshot,{rate:100,progress:({totalPages})=>{budget.check();if(totalPages*pageSize>budget.maxBytes)throw new ProjectError('Import size budget exceeded',413);}});

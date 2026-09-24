@@ -36,8 +36,8 @@ state: EXECUTING
 status: CONTINUE
 iteration: 3
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T17:36:00-03:00"
-last_progress_at: "2026-09-24T17:36:00-03:00"
+heartbeat_at: "2026-09-24T18:18:00-03:00"
+last_progress_at: "2026-09-24T18:18:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -45,13 +45,13 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "0e0f92f2420b77f37daf79da12cb20b0c3cac9e4"
-  uncommitted_changes: false
+  head: "445e21f18805fe0d6a9c609b93e34b2c32869a9a"
+  uncommitted_changes: true
 watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Authorized tool context and full E2E are verified and published at 0e0f92f; continue with remaining internal repair/tool end-to-end evidence while external gates remain blocked."
+current_task: "Bounded durable repair is implemented and green locally; publish checkpoint, then continue with remaining internal acceptance evidence while external gates remain blocked."
 current_failure: "External homologation and release authorization remain open; no local code failure after the audit fixes."
 current_strategy: "Use evidence-driven vertical slices, then run independent security, product and accessibility audits; never treat local fixtures as external homologation."
 plan:
@@ -351,6 +351,8 @@ latest_gate_evidence:
   p10_worker_regression: "PASS; npm test exit 0 with 227 unit/integration tests, 131 roadmap tests and 8 P00 checks; npm run build exit 0"
   e2e_full_resume: "PASS; Playwright correct runner completed 31/31 tests across durable runs, visual workflows, account isolation, settings scope, smoke/security and responsive UI; expected aborted-request and invalid-command logs did not fail tests"
   worker_authorized_tools_context: "PASS; durable worker now injects server-derived workspaceId/projectId and snapshot revisionDigest into FrozenRunInput; model request includes authorizedTools inventory and revision provenance; focused worker 5/5 and full npm test/build passed"
+  durable_repair: "PASS; one authorized repair is admitted by immutable run budget (maxModelCalls=2, maxRepairs=1), first invalid proposal is not persisted, repair.requested is journaled, second proposal compiles, focused worker/repair tests pass 11/11"
+  repair_regression_fix: "PASS; import preflight now derives accepted SQLite schema range from migrations (including v9); run-budget expectations updated for the authorized bounded repair; final npm test 228/228 unit/integration, roadmap 131/131, P00 8/8, build PASS"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"

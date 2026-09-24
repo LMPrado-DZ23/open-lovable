@@ -75,4 +75,12 @@ CREATE TRIGGER projects_require_workspace BEFORE INSERT ON projects WHEN NEW.wor
 CREATE TRIGGER projects_keep_workspace BEFORE UPDATE OF workspace_id ON projects
  WHEN OLD.workspace_id IS NOT NULL AND (NEW.workspace_id IS NULL OR NEW.workspace_id<>OLD.workspace_id)
  BEGIN SELECT RAISE(ABORT,'Workspace reassignment is not allowed'); END;
-`},{version:5,sql:identitySchema},{version:6,sql:durableRunSchema}, {version:7,sql:runIntegritySchema},{version:8,sql:approvalSchema}];
+`},{version:5,sql:identitySchema},{version:6,sql:durableRunSchema}, {version:7,sql:runIntegritySchema},{version:8,sql:approvalSchema},{version:9,sql:`
+-- Existing grants remain immutable. Future runs receive the bounded repair budget from migration 8.
+CREATE TABLE run_limits_repair_defaults(run_id TEXT PRIMARY KEY REFERENCES runs(id),limits TEXT NOT NULL) STRICT;
+INSERT INTO run_limits_repair_defaults SELECT run_id,limits FROM run_limits;
+DROP TABLE run_limits;
+ALTER TABLE run_limits_repair_defaults RENAME TO run_limits;
+CREATE TRIGGER run_limits_immutable_update BEFORE UPDATE ON run_limits BEGIN SELECT RAISE(ABORT,'Initial budget is immutable'); END;
+CREATE TRIGGER run_limits_immutable_delete BEFORE DELETE ON run_limits BEGIN SELECT RAISE(ABORT,'Initial budget is immutable'); END;
+` }];

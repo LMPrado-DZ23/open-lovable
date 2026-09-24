@@ -9,6 +9,7 @@ import {RunQueue} from './queue';
 import {ApprovalService} from '../approvals/service';
 import {modelBindingDigest} from './model-binding';
 import type {ClaimedRun,WorkerLease} from './types';
+import {runRepairLoop} from '../agent/repair';
 
 /** Server configuration, current session and original connection must still match admitted work. */
 function localGuard(queue:RunQueue,job:ClaimedRun):ProviderScope|undefined {
@@ -40,31 +41,31 @@ export async function runWorkerOnce(queue:RunQueue,worker:WorkerLease,stopSignal
  },1000);heartbeat.unref();
  try{
   let scope=localGuard(queue,job);await verifySession(job,signal);signal.throwIfAborted();scope=localGuard(queue,job);
-  let text=job.output;
+  let text=job.output,usage:Record<string,unknown>={},validated:Awaited<ReturnType<typeof validateRunResult>>|undefined;
   if(text===null){
-   const approval=new ApprovalService(queue);
+   const approval=new ApprovalService(queue),limits=queue.limitsFor(job.run.id,job.run.inputs.mode);
    const toolInput={...job.input,workspaceId:job.authority.workspaceId,projectId:job.run.project_id,revisionDigest:createHash('sha256').update(JSON.stringify(job.input.snapshot)).digest('hex')};
-   const result=await requestFrozenModel(job.run,toolInput,signal,{
-    scope,
-    limits:queue.limitsFor(job.run.id,job.run.inputs.mode),
-    assertLive:()=>{localGuard(queue,job);},
-    beforeModel:()=>{
-     if(job.authority.mode==='supabase'&&process.env.OPEN_LOVABLE_REQUIRE_CONNECTION_APPROVAL==='1'){
-      localGuard(queue,job);
-      // A connection approval is required before the first model call in production-like modes.
-      // The worker pauses and releases the lease; the HITL must resolve via the approval API.
-      const summary={provider:'gateway',endpoint:process.env.OPEN_LOVABLE_GATEWAY_URL||'https://gateway.invalid',credentialConfigured:Boolean(process.env.OPEN_LOVABLE_GATEWAY_API_KEY)};
-      approval.pause(job,'connection',summary);
-      throw new ProjectError('Connection approval required',402);
+   let modelCalls=0;
+   const request=async(prompt=job.run.prompt)=>{
+    const result=await requestFrozenModel({...job.run,prompt},toolInput,signal,{scope,limits,assertLive:()=>{localGuard(queue,job);},beforeModel:()=>{
+     modelCalls++;
+     if(modelCalls===1&&job.authority.mode==='supabase'&&process.env.OPEN_LOVABLE_REQUIRE_CONNECTION_APPROVAL==='1'){
+      localGuard(queue,job);const summary={provider:'gateway',endpoint:process.env.OPEN_LOVABLE_GATEWAY_URL||'https://gateway.invalid',credentialConfigured:Boolean(process.env.OPEN_LOVABLE_GATEWAY_API_KEY)};approval.pause(job,'connection',summary);throw new ProjectError('Connection approval required',402);
      }
-     queue.markModelStarted(job);
-    },
-    status:payload=>queue.event(job,'run.progress',payload)
-   });
-   queue.recordModelResult(job,result.text,result.usage);text=result.text;
+     if(modelCalls===1)queue.markModelStarted(job);else queue.event(job,'repair.requested',{attempt:modelCalls,reason:'deterministic validation failed'});
+    },status:payload=>queue.event(job,'run.progress',payload)});
+    usage=result.usage;text=result.text;return result.text;
+   };
+   await request();
+   let failure='';
+   const repair=await runRepairLoop({maxRepairs:job.run.inputs.mode==='build'?limits.maxRepairs:0,maxToolCalls:Math.max(1,(limits.maxRepairs+1)*3),deadlineMs:Math.max(1,job.deadlineAt-Date.now())},async()=>failure||'candidate validation pending',async()=>{queue.event(job,'run.progress',{phase:'repairing'});await request(`${job.run.prompt}\n\nReturn a corrected proposal. The previous proposal failed deterministic validation; preserve the requested behavior and return complete changed files.`);return 'repair proposal received';},async()=>{try{validated=await validateRunResult(job.run,toolInput,text||'',signal);failure='';return {passed:true,summary:'candidate validated'};}catch(error){failure=error instanceof Error?error.message:'candidate validation failed';return {passed:false,summary:'candidate rejected by deterministic validation'};}});
+   if(!repair.passed)throw new ProjectError(`Candidate validation failed after bounded repair: ${repair.reason}`);
+   queue.recordModelResult(job,text||'',usage);
+  } else {
+   queue.event(job,'run.progress',{phase:job.run.inputs.mode==='plan'?'planning':'compiling'});
+   validated=await validateRunResult(job.run,job.input,text,signal);
   }
-  queue.event(job,'run.progress',{phase:job.run.inputs.mode==='plan'?'planning':'compiling'});
-  const result=await validateRunResult(job.run,job.input,text,signal);
+  const result=validated!;
   await verifySession(job,signal);signal.throwIfAborted();localGuard(queue,job);
   if(result.kind==='plan')queue.completePlan(job,result.text);
   else queue.stage(job,result.snapshot,result.explanation,{entry:result.compiled.entry,sha256:result.compiled.sha256,warnings:result.compiled.warnings});

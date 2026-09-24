@@ -240,3 +240,13 @@ A suíte Playwright completa passou com 31/31 testes usando o runner correto, ab
 O worker durável agora injeta somente valores derivados no servidor — `workspaceId` da autoridade, `projectId` do run e `revisionDigest` do snapshot congelado — no `FrozenRunInput`. Isso ativa o inventário `authorizedTools` durante a chamada real ao modelo sem aceitar autoridade do browser. A regressão focal do worker passou 5/5; o gate integral de `npm test` e `npm run build` passou novamente.
 
 A homologação Auth/PostgreSQL/S3/provedores reais e a autorização de merge/produção continuam bloqueios externos explícitos.
+
+## P18/P10 - repair durável autorizado (2026-09-24)
+
+O orçamento de execução foi ampliado de forma explícita e limitada para `maxModelCalls=2` e `maxRepairs=1`, com teto de deployment `OPEN_LOVABLE_MAX_MODEL_CALLS` igual a 2 e `OPEN_LOVABLE_MAX_REPAIRS` igual a 1. O worker usa `runRepairLoop` somente para builds, registra `repair.requested`, mantém a primeira saída inválida fora do estado persistido e grava apenas a proposta que passa pela validação determinística e compilação. Runs retomados com saída já persistida continuam sem nova chamada implícita.
+
+O cenário de integração reproduz uma primeira resposta inválida e uma segunda resposta válida: duas chamadas, candidato compilado e estado `AWAITING_APPROVAL`. O teste focal passou 11/11.
+
+A primeira regressão integral revelou duas referências antigas: o preflight de importação aceitava somente schemas até v8 e o teste de orçamento esperava uma chamada. A causa foi corrigida pela faixa derivada de `migrations.length` (v9) e pelas assertions do novo orçamento autorizado. Gate final: `npm test` 228/228 unit/integration, `test:roadmap` 131/131, P00 8/8 e `npm run build` verde.
+
+Sem homologação em provedor real ou produção; esses gates continuam externos e não foram simulados.

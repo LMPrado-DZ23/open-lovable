@@ -12,14 +12,14 @@ import {RunQueue} from '../lib/runs/queue';
 import {modelBindingDigest} from '../lib/runs/model-binding';
 import type {RunAuthority,EnqueueRequest} from '../lib/runs/types';
 
-async function setup(t:{after(fn:()=>void|Promise<void>):void}){
+async function setup(t:{after(fn:()=>void|Promise<void>):void},invalidFirst=false){
  let calls=0,release=()=>{};let lastBody:any;let accepted=()=>{};const received=new Promise<void>(r=>accepted=r);
  const server=createServer(async(req,res)=>{
   if(req.url==='/v1/models'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({data:[{id:'fixture/coder'}]}));return;}
   assert.equal(req.headers.authorization,'Bearer worker-fixture-key');let raw='';for await(const c of req)raw+=c;
   calls++;accepted();const body=JSON.parse(raw);lastBody=body;res.writeHead(200,{'Content-Type':'text/event-stream'});
   if(raw.includes('MODEL_HOLD'))await new Promise<void>(r=>release=r);
-  const content='<file path="src/App.jsx">export default function App(){return <h1>Durable result</h1>}</file>Test proposal.';
+  const content=invalidFirst&&calls===1?'not a complete proposal':'<file path="src/App.jsx">export default function App(){return <h1>Durable result</h1>}</file>Test proposal.';
   const chunk={id:'worker-fixture',object:'chat.completion.chunk',created:1,model:body.model,choices:[{index:0,delta:{content},finish_reason:null}]};
   if(!res.destroyed){res.write('data: '+JSON.stringify(chunk)+'\n\n');res.end('data: '+JSON.stringify({...chunk,choices:[{index:0,delta:{},finish_reason:'stop'}],usage:{prompt_tokens:11,completion_tokens:22,total_tokens:33}})+'\n\ndata: [DONE]\n\n');}
  });server.listen(0,'127.0.0.1');await once(server,'listening');
@@ -41,6 +41,13 @@ test('worker executes one real HTTP model exchange, validates a candidate and pr
  assert.match(f.store.getRun('alice',f.request.projectId,run.id).candidate!.files['src/App.jsx'],/Durable result/);
  assert.equal((await f.work(f.queue,lease)).worked,false);assert.equal(f.calls(),1);
  const events=f.queue.events(f.authority,run.id,0).events;assert.ok(events.some(e=>e.type==='model.requested'));assert.ok(events.some(e=>e.type==='proposal.compiled'));
+});
+test('worker performs one authorized bounded repair after deterministic validation failure',async t=>{
+ const f=await setup(t,true),run=f.queue.enqueue(f.authority,f.request),lease=f.queue.acquireWorker('repair-worker')!;
+ const result=await f.work(f.queue,lease);assert.equal(result.worked,true);assert.equal(f.calls(),2);
+ assert.equal(f.queue.get(f.authority,run.id).state,'AWAITING_APPROVAL');
+ assert.match(f.store.getRun('alice',f.request.projectId,run.id).candidate!.files['src/App.jsx'],/Durable result/);
+ assert.ok(f.queue.events(f.authority,run.id,0).events.some(e=>e.type==='repair.requested'));
 });
 test('explicit cancellation during streaming prevents a late candidate even if the provider finishes',async t=>{
  const f=await setup(t),run=f.queue.enqueue(f.authority,{...f.request,prompt:'MODEL_HOLD'}),lease=f.queue.acquireWorker('fixture-worker')!;
