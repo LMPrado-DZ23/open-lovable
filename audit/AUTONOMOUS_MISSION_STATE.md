@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T11:35:20-03:00"
-last_progress_at: "2026-09-24T11:35:20-03:00"
+heartbeat_at: "2026-09-24T11:42:15-03:00"
+last_progress_at: "2026-09-24T11:42:15-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Implement P24 local Git synchronization contracts: signed webhook bytes, delivery deduplication, fast-forward checks and candidate revisions; mark GitHub App homologation external until authorized."
+next_action: "Audit P25 URL creation against shared history/images/drafts/approval and implement the missing local unification path; retain GitHub App homologation as BLOCKED_BY_EXTERNAL_DEPENDENCY."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -205,6 +205,9 @@ latest_gate_evidence:
   p22_full_regression: "PASS; npm test exit 0 with 40 roadmap tests and 8 P00 checks"
   p23_drafts_merge: "PASS 14/14 focused; drafts carry workspace/project/runtime/task provenance, line diffs are exposed, independent changes merge, same-line conflicts return 409 and never mutate main"
   p23_full_regression: "PASS; npm test exit 0 with 42 roadmap tests and 8 P00 checks"
+  p24_git_local: "PASS 3/3 focused plus integration auth gate; raw-byte HMAC, configured binding, delivery dedupe, fast-forward candidate and forced-update rejection"
+  p24_full_regression: "PASS; npm test exit 0 with 44 roadmap tests and 8 P00 checks"
+  p24_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no authorized GitHub App installation/repository was used and no force-push or external mutation was attempted"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
