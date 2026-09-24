@@ -36,8 +36,8 @@ state: EXECUTING
 status: CONTINUE
 iteration: 3
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T18:18:00-03:00"
-last_progress_at: "2026-09-24T18:18:00-03:00"
+heartbeat_at: "2026-09-24T18:32:00-03:00"
+last_progress_at: "2026-09-24T18:32:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -45,7 +45,7 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "e7e26910bdceec22cf85fc1f7046523d02d89963"
+  head: "0fb486ea0f6ace5a7c8d670f12a6d6e898b35752"
   uncommitted_changes: true
 watchdog:
   executor_pid: null
@@ -351,8 +351,9 @@ latest_gate_evidence:
   p10_worker_regression: "PASS; npm test exit 0 with 227 unit/integration tests, 131 roadmap tests and 8 P00 checks; npm run build exit 0"
   e2e_full_resume: "PASS; Playwright correct runner completed 31/31 tests across durable runs, visual workflows, account isolation, settings scope, smoke/security and responsive UI; expected aborted-request and invalid-command logs did not fail tests"
   worker_authorized_tools_context: "PASS; durable worker now injects server-derived workspaceId/projectId and snapshot revisionDigest into FrozenRunInput; model request includes authorizedTools inventory and revision provenance; focused worker 5/5 and full npm test/build passed"
-  durable_repair: "PASS; one authorized repair is admitted by immutable run budget (maxModelCalls=2, maxRepairs=1), first invalid proposal is not persisted, repair.requested is journaled, second proposal compiles, focused worker/repair tests pass 11/11"
-  repair_regression_fix: "PASS; import preflight now derives accepted SQLite schema range from migrations (including v9); run-budget expectations updated for the authorized bounded repair; final npm test 228/228 unit/integration, roadmap 131/131, P00 8/8, build PASS"
+  durable_repair: "PASS; repair is opt-in via OPEN_LOVABLE_MAX_MODEL_CALLS=2 and OPEN_LOVABLE_MAX_REPAIRS=1; default remains maxModelCalls=1/maxRepairs=0. With opt-in, first invalid proposal is not persisted, repair.requested is journaled, second proposal compiles; focused worker/repair tests pass"
+  repair_regression_fix: "PASS; import preflight derives accepted SQLite schema range from migrations (including v9), compatibility error text is preserved, and final npm test is 228/228 unit/integration, roadmap 131/131, P00 8/8, build PASS"
+  e2e_after_repair_optin: "PASS; after rebuilding stale Next output, Playwright completed 31/31 including the expected FIXTURE_INVALID failure-preserves-revision flow"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"

@@ -16,7 +16,7 @@ ALTER TABLE run_controls ADD COLUMN waiting_kind TEXT CHECK(waiting_kind IN ('co
 ALTER TABLE run_controls ADD COLUMN wait_until INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE run_controls ADD COLUMN pause_count INTEGER NOT NULL DEFAULT 0 CHECK(pause_count>=0 AND pause_count<=5);
 CREATE TABLE run_limits (run_id TEXT PRIMARY KEY REFERENCES runs(id),limits TEXT NOT NULL) STRICT;
- INSERT INTO run_limits SELECT c.run_id,CASE WHEN json_extract(r.inputs,'$.mode')='plan' THEN '{"maxOutputTokens":4000,"maxModelCalls":2,"timeoutMs":600000,"maxContextBytes":2097152,"maxOutputBytes":2097152,"maxSteps":1,"maxRepairs":1,"privacy":"configured"}' ELSE '{"maxOutputTokens":12000,"maxModelCalls":2,"timeoutMs":600000,"maxContextBytes":2097152,"maxOutputBytes":2097152,"maxSteps":1,"maxRepairs":1,"privacy":"configured"}' END FROM run_controls c JOIN runs r ON r.id=c.run_id;
+ INSERT INTO run_limits SELECT c.run_id,CASE WHEN json_extract(r.inputs,'$.mode')='plan' THEN '{"maxOutputTokens":4000,"maxModelCalls":1,"timeoutMs":600000,"maxContextBytes":2097152,"maxOutputBytes":2097152,"maxSteps":1,"maxRepairs":0,"privacy":"configured"}' ELSE '{"maxOutputTokens":12000,"maxModelCalls":1,"timeoutMs":600000,"maxContextBytes":2097152,"maxOutputBytes":2097152,"maxSteps":1,"maxRepairs":0,"privacy":"configured"}' END FROM run_controls c JOIN runs r ON r.id=c.run_id;
 CREATE TABLE run_approvals (
  id TEXT PRIMARY KEY,run_id TEXT NOT NULL REFERENCES runs(id),kind TEXT NOT NULL CHECK(kind IN ('connection','cost')),
  action TEXT NOT NULL,action_digest TEXT NOT NULL,input_digest TEXT NOT NULL,base_version INTEGER NOT NULL,

@@ -250,3 +250,9 @@ O cenário de integração reproduz uma primeira resposta inválida e uma segund
 A primeira regressão integral revelou duas referências antigas: o preflight de importação aceitava somente schemas até v8 e o teste de orçamento esperava uma chamada. A causa foi corrigida pela faixa derivada de `migrations.length` (v9) e pelas assertions do novo orçamento autorizado. Gate final: `npm test` 228/228 unit/integration, `test:roadmap` 131/131, P00 8/8 e `npm run build` verde.
 
 Sem homologação em provedor real ou produção; esses gates continuam externos e não foram simulados.
+
+## Correção de compatibilidade e gates finais do repair (2026-09-24)
+
+A primeira execução Playwright após a mudança falhou porque o artefato Next compilado ainda continha o comportamento anterior ao opt-in e o cenário `FIXTURE_INVALID` deixou de exibir a mensagem esperada. A correção foi tornar o repair explicitamente opt-in: sem variáveis de deployment, o orçamento permanece `maxModelCalls=1` e `maxRepairs=0`; somente com `OPEN_LOVABLE_MAX_MODEL_CALLS=2` e `OPEN_LOVABLE_MAX_REPAIRS=1` o worker pode fazer uma segunda chamada. O teste de integração do repair configura essas variáveis apenas no fixture autorizado.
+
+A mensagem de falha determinística original também é preservada quando o repair esgota ou detecta no-progress. Depois de reconstruir o artefato Next/worker, o E2E de projetos passou 5/5 e o gate completo passou: unit/integration 228/228, roadmap 131/131, P00 8/8, build verde e Playwright 31/31. Logs de `ECONNRESET` e comando inválido continuam pertencendo a cenários negativos/cancelamentos cobertos pelos testes.

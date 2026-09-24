@@ -59,7 +59,7 @@ export async function runWorkerOnce(queue:RunQueue,worker:WorkerLease,stopSignal
    await request();
    let failure='';
    const repair=await runRepairLoop({maxRepairs:job.run.inputs.mode==='build'?limits.maxRepairs:0,maxToolCalls:Math.max(1,(limits.maxRepairs+1)*3),deadlineMs:Math.max(1,job.deadlineAt-Date.now())},async()=>failure||'candidate validation pending',async()=>{queue.event(job,'run.progress',{phase:'repairing'});await request(`${job.run.prompt}\n\nReturn a corrected proposal. The previous proposal failed deterministic validation; preserve the requested behavior and return complete changed files.`);return 'repair proposal received';},async()=>{try{validated=await validateRunResult(job.run,toolInput,text||'',signal);failure='';return {passed:true,summary:'candidate validated'};}catch(error){failure=error instanceof Error?error.message:'candidate validation failed';return {passed:false,summary:'candidate rejected by deterministic validation'};}});
-   if(!repair.passed)throw new ProjectError(`Candidate validation failed after bounded repair: ${repair.reason}`);
+   if(!repair.passed)throw new ProjectError(failure||`Candidate validation failed after bounded repair: ${repair.reason}`);
    queue.recordModelResult(job,text||'',usage);
   } else {
    queue.event(job,'run.progress',{phase:job.run.inputs.mode==='plan'?'planning':'compiling'});
