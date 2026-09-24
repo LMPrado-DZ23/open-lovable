@@ -6,6 +6,7 @@ import {appConfig} from '@/config/app.config';
 import AccountBar from '@/components/account/AccountBar';
 import {useAccount} from '@/components/account/client';
 import AIModelSelect from '@/components/AIModelSelect';
+import CapabilityDisclosure from '@/components/onboarding/CapabilityDisclosure';
 import {projectRequest} from '@/lib/projects/client';
 import type {Project} from '@/lib/projects/store';
 
@@ -28,6 +29,7 @@ export default function ProjectsPage(){
     <div className="min-w-0"><p className="mb-[8px] text-[13px] font-medium">Modelo inicial</p><AIModelSelect label="Modelo do projeto" value={model} onValueChange={setModel} disabled={busy||loading||!canCreate}/></div>
     <button type="submit" disabled={busy||loading||!canCreate||!name.trim()} className="rounded-md bg-[#272721] px-[24px] py-[13px] text-[14px] font-medium text-white disabled:opacity-40">{busy?'Criando…':'Criar projeto'}</button>
    </form>
+   <CapabilityDisclosure items={[{id:'research',label:'Pesquisa',description:'Consulte fontes autorizadas quando o projeto precisar de contexto adicional.',status:'available'},{id:'operate',label:'Operar',description:'Conecte ferramentas somente depois de revisar escopos e permissões.',status:'available'},{id:'mobile',label:'Mobile',description:'Prepare uma saída responsiva sem alterar o projeto salvo automaticamente.',status:'available'},{id:'lab',label:'Laboratório',description:'Experimente recursos avançados sem misturar protótipos à versão publicada.',status:'available'}]}/>
    <section aria-label="Projetos salvos"><div className="mb-[16px] flex items-baseline justify-between"><h2 className="text-[18px] font-semibold">Projetos salvos</h2><span className="text-[12px] text-[#727268]">{loading?'Consultando…':`${projects.length} projeto${projects.length===1?'':'s'}`}</span></div>
     {loading?<p role="status" className="py-[30px] text-[14px] text-[#6a6a63]">Carregando seus projetos…</p>:projects.length===0?<div className="border-y border-dashed border-[#d9d9d0] py-[48px]"><h3 className="text-[20px] font-medium">Nenhum projeto salvo ainda</h3><p className="mt-[8px] text-[14px] text-[#727268]">Dê um nome acima para começar. Depois, descreva uma ideia ou importe o código existente.</p></div>:<div className="divide-y divide-[#e1e1d9] border-y border-[#deded6]">{projects.map(project=><Link key={project.id} href={'/projects/'+project.id} className="group flex min-w-0 flex-wrap items-center justify-between gap-[16px] py-[22px] hover:bg-white"><div className="min-w-0"><h3 className="break-words text-[18px] font-medium group-hover:text-[#a34920]">{project.name}</h3><p className="mt-[6px] break-all text-[12px] text-[#77776e]">Revisão {project.version} · {new Date(project.updated_at).toLocaleString('pt-BR')}</p></div><span className="text-[13px] font-medium">Abrir projeto →</span></Link>)}</div>}
    </section>
