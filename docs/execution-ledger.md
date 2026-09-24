@@ -262,3 +262,9 @@ A mensagem de falha determinística original também é preservada quando o repa
 A inspeção somente leitura confirmou que não havia execuções remotas porque o workflow aceitava push apenas em `main` ou eventos de pull request. O gatilho foi ampliado de forma reversível para `main` e `feat/**`, sem criar PR ou fazer merge. O push do SHA `bebb527d572c229ab8fc2518eb6bcbf79c2de2e6` disparou o workflow `Verify security foundation`, run `36062680684`, atualmente `queued`; nenhuma conclusão externa foi inferida.
 
 Enquanto o runner remoto aguarda, foram executados localmente os jobs adicionais equivalentes: `check:admission`, `security:audit`, `build:worker` e a suíte de portabilidade/controle-plane com 57/57 testes aprovados. Os gates locais principais continuam verdes: 228 unit/integration, 131 roadmap, 8 P00, build e 31 Playwright.
+
+## Correção e aprovação do CI PostgreSQL (2026-09-24)
+
+O CI remoto `36062884808` revelou uma falha real no job `postgres-contracts`: o teste de upgrade v1 esperava quatro registros de migração, enquanto o catálogo vigente já possui cinco, incluindo `POSTGRES_ADMIN_SQL`. A assertion foi corrigida para usar `POSTGRES_MIGRATIONS.length` e comparar a sequência completa de digests, preservando a verificação de histórico imutável.
+
+A correção passou localmente em lint, typecheck e diff check e foi publicada no commit `23bd6e0472a590cd75b745356a19c4f06298f94c`. O novo GitHub Actions run `36063966841` terminou com `success` no SHA correto. Este é o primeiro CI remoto bem-sucedido para a branch após a correção; não há mais falha conhecida nesse job. Homologação de provedores, produção e merge continuam dependências externas separadas.
