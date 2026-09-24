@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T12:09:25-03:00"
-last_progress_at: "2026-09-24T12:09:25-03:00"
+heartbeat_at: "2026-09-24T12:13:15-03:00"
+last_progress_at: "2026-09-24T12:13:15-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue F08 at P32 with ACP/harness negotiation isolated from MCP: explicit protocol/version/capability binding, no shared grants, and cancellation/lease safety."
+next_action: "Continue the DAG at P55 with structured harness contracts: start/resume/events/cancel/artifacts/result, negotiated protocol, run/project/draft mapping, disconnect reconciliation and no token passthrough."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -229,6 +229,9 @@ latest_gate_evidence:
   p31_mcp: "PASS 3/3 focused; negotiated protocol and schema digest bind read-only tools, mutating tools require matching approval, and filesystem/prompt-injection/token-passthrough metadata is rejected"
   p31_full_regression: "PASS; npm test exit 0 with 62 roadmap tests and 8 P00 checks"
   p31_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external MCP server or OAuth authorization was used"
+  p32_adapters: "PASS 3/3 focused; Figma/docs/Sentry manifests expose scopes and schemas, references are project/account/release traceable, redaction blocks secrets, and unavailable/wrong-scope resources are rejected"
+  p32_full_regression: "PASS; npm test exit 0 with 65 roadmap tests and 8 P00 checks"
+  p32_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no third-party connector account or cost authorization was used"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
