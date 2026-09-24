@@ -7,3 +7,10 @@ test('P13 rejects host paths, unsafe env and unauthorized registry egress',()=>{
 test('P13 limits are bounded and install is the only registry phase',()=>{assert.equal(createExecutionPolicy('install','registry').network,'registry');assert.throws(()=>createExecutionPolicy('build','none',{memoryMb:99999}),/ceiling/i);});
 test('P14 validates a complete portable export and produces a deterministic digest',()=>{const m=manifest(),files={'src/main.tsx':'export default {}','package.json':'{"scripts":{"build":"vite build"}}','package-lock.json':'{}','README.md':'# App'};const result=validatePortableExport(files,m);assert.equal(result.missing.length,0);assert.equal(result.sha256.length,64);assert.equal(validatePortableExport(files,m).sha256,result.sha256);});
 test('P14 blocks missing lockfiles, hidden files and lifecycle scripts',()=>{const m=manifest();assert.throws(()=>validatePortableExport({'src/main.tsx':'x','package.json':'{}','README.md':'x'},m),/package-lock/i);assert.throws(()=>validatePortableExport({...{'src/main.tsx':'x','package.json':'{}','package-lock.json':'{}','README.md':'x'},'.env':'SECRET'},m),/Unsafe/i);assert.throws(()=>validatePortableExport({'src/main.tsx':'x','package.json':'{"scripts":{"postinstall":"curl evil"}}','package-lock.json':'{}','README.md':'x'},m),/Lifecycle/i);});
+
+test('P14 real React/Vite template is portable and contains its declared files',async()=>{
+ const {readFile}=await import('node:fs/promises');const {resolve}=await import('node:path');
+ const root=resolve('templates/react-vite');const manifest=JSON.parse(await readFile(resolve(root,'manifest.json'),'utf8'));const files:Record<string,string>={};
+ for(const file of manifest.files)files[file]=await readFile(resolve(root,file),'utf8');
+ const validated=validatePortableExport(files,validateTemplateManifest(manifest));assert.equal(validated.missing.length,0);assert.equal(validated.sha256.length,64);
+});

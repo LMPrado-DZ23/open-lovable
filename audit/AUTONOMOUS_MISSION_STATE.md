@@ -78,6 +78,7 @@ completed_tasks:
   - "P11 capability evidence identifies unsupported/unknown tools and exposes explicit alternatives without silent fallback"
   - "P11 restart/fencing requeues only pre-effect work and marks started uncertain work interrupted"
   - "P12 RuntimeFactory now adapts the existing SandboxFactory providers through the canonical RuntimeAdapter"
+  - "P14 React/Vite template includes real package lockfile, build/test scripts, and clean build evidence"
   - "Review branch pushed; draft PR creation blocked by GitHub integration permission"
 pending_tasks:
   - "P10 HTTP/UI approval pause/resume journey"
@@ -171,6 +172,7 @@ latest_gate_evidence:
   p11_restart: "PASS 9/9; pre-effect requeue, worker epoch fencing, started-request interruption, capability and budget gates"
   p12_factory: "PASS 4/4; lint/typecheck PASS; provider adapter remains unhomologated externally"
   p13_runner: "PASS 2/2; lint/typecheck PASS; actual host/container homologation remains pending"
+  p14_template: "PASS 7/7; clean npm ci + vite build + smoke test; generated dist excluded from source"
   full_regression_p11: "PASS; npm test exit 0"
   full_regression_log_p11: "/tmp/mission-full-test-p11.log"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
