@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T11:54:10-03:00"
-last_progress_at: "2026-09-24T11:54:10-03:00"
+heartbeat_at: "2026-09-24T11:57:45-03:00"
+last_progress_at: "2026-09-24T11:57:45-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Implement P28 generated-app auth/RLS/CRUD manifest and policy-test contracts with tenant isolation and direct-call denial; keep real Supabase staging homologation blocked."
+next_action: "Implement P29 app runtime bindings for private storage, versioned functions, authorized realtime channels and idempotent jobs; keep external bucket/function deployment blocked."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -217,6 +217,9 @@ latest_gate_evidence:
   p27_migrations: "PASS 3/3 focused; schema digest detects drift, additive changes execute with bounded timeouts, destructive/RLS/grant/role SQL is blocked and production requires approval plus backup"
   p27_full_regression: "PASS; npm test exit 0 with 52 roadmap tests and 8 P00 checks"
   p27_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no staging database was modified"
+  p28_generated_app_policies: "PASS 3/3 focused; manifest declares separate app auth flows, tenant reads are scoped, ownership and optimistic concurrency protect writes, and tenant mutation/IDOR are rejected"
+  p28_full_regression: "PASS; npm test exit 0 with 55 roadmap tests and 8 P00 checks"
+  p28_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no real auth email or Supabase staging database was used"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
