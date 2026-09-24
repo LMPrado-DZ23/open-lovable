@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T10:53:40-03:00"
-last_progress_at: "2026-09-24T10:53:40-03:00"
+heartbeat_at: "2026-09-24T10:58:10-03:00"
+last_progress_at: "2026-09-24T10:58:10-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Connect the source-linked visual editor to candidate PatchSet/apply flow, then verify full-stack login/data isolation in browser; keep cloud/provider homologation and final merge blocked honestly."
+next_action: "Verify the source-linked visual editor and login/data isolation in the real browser, then wire remaining repair/verification consumers and audit package states; keep cloud/provider homologation and final merge blocked honestly."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -188,6 +188,8 @@ latest_gate_evidence:
   worker_regression: "PASS 4/4; compiled worker cancellation, uncertain outcome, persisted response recovery and live lease wait"
   tools_vertical: "PASS; frozen run input carries workspace/project/revision provenance and generation performs authorized read-only list_files preflight"
   regular_pipeline_serialization: "PASS; npm test exit 0 with --test-concurrency=1 for root and roadmap suites; avoids process.env/singleton interference"
+  visual_patch_http: "PASS 9/9; source editor sends expected hash/base revision, server applies atomic PatchSet and creates a new revision"
+  visual_patch_full_regression: "PASS; npm test exit 0 after visual PatchSet integration"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---

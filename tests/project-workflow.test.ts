@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,createHash } from 'node:crypto';
 import { zipSync, strToU8, unzipSync, strFromU8 } from 'fflate';
 import { projectStore } from '../lib/projects/store';
 
@@ -123,3 +123,4 @@ test('candidate export returns a provenance manifest without accepting the revis
  assert.equal(manifest.source,'candidate');assert.equal(manifest.runId,run.id);assert.equal(manifest.projectVersion,1);assert.match(strFromU8(files['src/App.jsx']),/Candidate/);
  assert.equal((await (await get('?id='+p.id)).json()).project.version,1);
 });
+test('visual source edit applies an authorized PatchSet and creates a new revision',async t=>{const {post,get,create}=await setup(t);const p=await create('Visual patch');const current=(await (await get('?id='+p.id)).json()).project;const path='src/App.jsx',old=current.snapshot.files[path]||'';const expected=createHash('sha256').update(old).digest('hex');const response=await post({action:'patch',id:p.id,version:current.version,baseRevision:String(current.version),operations:[{kind:old?'update':'create',path,content:'export default function App(){return <h1>Visual edit</h1>}'}],expectedHashes:old?{[path]:expected}:{}});assert.equal(response.status,200);const body=await response.json();assert.equal(body.diffDigest.length,64);assert.equal(body.project.version,current.version+1);const after=(await (await get('?id='+p.id)).json()).project;assert.match(after.snapshot.files[path],/Visual edit/);});
