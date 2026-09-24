@@ -5,6 +5,7 @@ import {ProjectError,ProjectStore,validateSnapshot} from '../projects/store';
 import {ReferenceImageStore} from '../projects/images';
 import {assertNoSecrets,redactSecretText} from '../security/secret-content';
 import {READ_ROLES,WRITE_ROLES} from '../persistence/validation';
+import {checkStoredLimits,resolveRunLimits,type RunLimits,RunBudgetError} from '../budgets/run-limits';
 import type {RunAccess,RunAuthority,EnqueueRequest,FrozenRunInput,ClaimedRun,WorkerLease,RunSummary,RunEvent} from './types';
 
 const LEASE_MS=20000,MAX_FROZEN_BYTES=24*1024*1024;
@@ -99,6 +100,7 @@ export class RunQueue {
    const used=Number(this.store.db.prepare('SELECT coalesce(sum(length(CAST(frozen_input AS BLOB))+coalesce(length(CAST(output AS BLOB)),0)),0) AS n FROM run_controls WHERE workspace_id=?').get(authority.workspaceId)?.n);
    if(used+Buffer.byteLength(encoded)>256*1024*1024)throw new ProjectError('Execution context storage budget exceeded',413);
    this.store.db.prepare('INSERT INTO run_controls(run_id,workspace_id,actor_id,authority,frozen_input,input_digest,request_digest,request_id,trace_id,deadline_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(run.id,authority.workspaceId,authority.actorId,JSON.stringify(authority),encoded,runDigest(frozen),intent,randomUUID(),randomBytes(16).toString('hex'),this.clock()+10*60000,new Date(this.clock()).toISOString());
+   this.store.db.prepare('INSERT INTO run_limits(run_id,limits) VALUES(?,?)').run(run.id,JSON.stringify(resolveRunLimits(undefined,request.mode)));
    this.append(this.control(run.id),'run.queued',{mode:run.inputs.mode,baseVersion:run.base_version,model:run.model});
    return this.get(authority,run.id);
   });
@@ -210,12 +212,13 @@ export class RunQueue {
  }
  heartbeat(job:ClaimedRun):void {this.assertLease(job);this.store.db.prepare("UPDATE runs SET lease_until=? WHERE id=? AND state='RUNNING'").run(this.clock()+LEASE_MS,job.run.id);}
  event(job:ClaimedRun,type:string,payload:Record<string,unknown>):void {this.store.transaction(()=>{const c=this.assertLease(job);this.append(c,type,payload);if(typeof payload.phase==='string')this.store.db.prepare('UPDATE run_controls SET phase=? WHERE run_id=?').run(payload.phase.slice(0,64),job.run.id);});}
- /** Persist effect intent before any provider call; lost responses are not retried automatically. */
- markModelStarted(job:ClaimedRun):void {this.store.transaction(()=>{const c=this.assertLease(job);if(c.model_started||c.output!==null)throw new ProjectError('Model request already started or result recorded',409);this.store.db.prepare("UPDATE run_controls SET model_started=1,phase='generating',outcome='MODEL_OUTCOME_UNCERTAIN' WHERE run_id=?").run(job.run.id);this.append(c,'model.requested',{model:job.run.model});});}
+ /** Persist effect intent and reserve the approved call budget before any provider call. */
+ private limits(runId:string,mode:'build'|'plan'):RunLimits {const row=this.store.db.prepare('SELECT limits FROM run_limits WHERE run_id=?').get(runId) as {limits?:string}|undefined;return row?checkStoredLimits(JSON.parse(row.limits!),mode):checkStoredLimits({},mode);}
+ markModelStarted(job:ClaimedRun):void {this.store.transaction(()=>{const c=this.assertLease(job);if(c.model_started||c.output!==null)throw new ProjectError('Model request already started or result recorded',409);const limits=this.limits(job.run.id,job.run.inputs.mode);if(limits.maxModelCalls<1)throw new RunBudgetError('Model-call budget exhausted before dispatch.');this.store.db.prepare("UPDATE run_controls SET model_started=1,phase='generating',outcome='MODEL_OUTCOME_UNCERTAIN' WHERE run_id=?").run(job.run.id);this.append(c,'model.requested',{model:job.run.model,budgetReserved:{maxModelCalls:limits.maxModelCalls,maxOutputTokens:limits.maxOutputTokens}});});}
  recordModelResult(job:ClaimedRun,text:string,usage:Record<string,unknown>):void {
   assertNoSecrets(text);if(!text||Buffer.byteLength(text)>2*1024*1024)throw new ProjectError('Model output size is invalid',413);
   const data=JSON.stringify(usage);assertNoSecrets(data);if(data.length>8192)throw new ProjectError('Usage payload too large');
-  this.store.transaction(()=>{const c=this.assertLease(job);if(!c.model_started||c.output!==null)throw new ProjectError('Unexpected repeated model result',409);this.store.db.prepare("UPDATE run_controls SET output=?,usage=?,outcome='MODEL_RESULT_RECORDED',phase='validating' WHERE run_id=?").run(text,data,job.run.id);this.append(c,'model.responded',{characters:text.length,usage});});
+  this.store.transaction(()=>{const c=this.assertLease(job);if(!c.model_started||c.output!==null)throw new ProjectError('Unexpected repeated model result',409);const limits=this.limits(job.run.id,job.run.inputs.mode),outputTokens=typeof usage.outputTokens==='number'?usage.outputTokens:null,totalTokens=typeof usage.totalTokens==='number'?usage.totalTokens:null;if(outputTokens!==null&&outputTokens>limits.maxOutputTokens)throw new RunBudgetError('Reported model output exceeded the approved token budget.');const outcome=outputTokens===null||totalTokens===null?'MODEL_USAGE_UNKNOWN':'MODEL_RESULT_RECORDED';this.store.db.prepare("UPDATE run_controls SET output=?,usage=?,outcome=?,phase='validating' WHERE run_id=?").run(text,data,outcome,job.run.id);this.append(c,'model.responded',{characters:text.length,usage,usageState:outcome});});
  }
  stage(job:ClaimedRun,snapshot:unknown,explanation:string,evidence:Record<string,unknown>):void {
   this.store.transaction(()=>{const c=this.assertLease(job);this.store.stageRun(job.owner,job.run.project_id,job.run.id,snapshot,explanation);this.store.db.prepare("UPDATE run_controls SET phase='approval',outcome='CANDIDATE_COMPILED' WHERE run_id=?").run(job.run.id);this.append(c,'proposal.compiled',{...evidence,state:'AWAITING_APPROVAL',applicationTested:false});});

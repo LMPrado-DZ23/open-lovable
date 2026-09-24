@@ -50,7 +50,7 @@ watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Checkpoint P12-P19 local contracts and continue to control-plane integration and full-stack vertical acceptance."
+current_task: "Checkpoint P11 dispatch enforcement and continue P06 consumers plus P07-P10 real HTTP/worker journeys."
 current_failure: "The previous session stopped after a partial P06/P10/P11 increment; full project is not complete."
 current_strategy: "Use a vertical P12 slice: scoped RuntimeRef/capabilities, lease expiry/fencing and adapter delegation; prove tenant isolation and unavailable capabilities with tests before touching routes."
 plan:
@@ -71,6 +71,7 @@ completed_tasks:
   - "P15 independent verification evidence slice"
   - "P16 authorized tools and P17 atomic PatchSet slices"
   - "P18 bounded repair loop and P19 approved plan digest slices"
+  - "P11 budget reservation and usage reconciliation in real RunQueue dispatch"
 pending_tasks:
   - "P12 runtime contract and lease slice"
   - "All remaining packages and full-flow acceptance"
@@ -103,6 +104,8 @@ commands_and_tests:
   - "npx --no-install tsx --import ./tests/setup.mjs --test tests/roadmap/p15.test.ts: PASS 3/3"
   - "npx --no-install tsx --import ./tests/setup.mjs --test tests/roadmap/p16-p17.test.ts: PASS 4/4"
   - "npx --no-install tsx --import ./tests/setup.mjs --test tests/roadmap/p18-p19.test.ts: PASS 4/4"
+  - "npm run lint: PASS; npm run typecheck: PASS; accumulated P11-P19 focused suite: PASS 20/20"
+  - "npm test: PASS after enqueue budget persistence; lint was fixed and re-run to PASS"
 evidence:
   - claim: "Previous checkpoint is a development increment, not full completion"
     command_or_observation: "pasted_content.txt and execution ledger read"
@@ -119,6 +122,11 @@ evidence:
     result: "PASS; P13/P14 4/4, P15 3/3, P16/P17 4/4, P18/P19 4/4"
     timestamp: "2026-09-24T08:17:52-03:00"
     artifact_or_log: "tests/roadmap/p13-p14.test.ts, tests/roadmap/p15.test.ts, tests/roadmap/p16-p17.test.ts, tests/roadmap/p18-p19.test.ts"
+  - claim: "P11 budget is persisted at enqueue and enforced in RunQueue before provider dispatch; missing usage remains explicit"
+    command_or_observation: "tests/roadmap/p11-dispatch.test.ts and accumulated focused gate"
+    result: "PASS; zero-call deployment ceiling prevents model.requested and missing usage yields MODEL_USAGE_UNKNOWN"
+    timestamp: "2026-09-24T08:23:59-03:00"
+    artifact_or_log: "lib/runs/queue.ts; tests/roadmap/p11-dispatch.test.ts"
 artifacts:
   - "/home/ubuntu/open-lovable-exec/docs/evidence/manus-p06-p10-p11-20260924.json"
 delegated_agents: []
@@ -127,6 +135,6 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Commit the P13-P19 local slices, then integrate them into the real generation/worker/API paths and continue P06/P07-P11 PostgreSQL/dispatch closure."
+next_action: "Commit P11 dispatch enforcement, then wire ArtifactStore/quotas into real image/export/candidate consumers and add HTTP-to-worker approval/budget journeys."
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
