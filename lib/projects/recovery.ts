@@ -154,8 +154,9 @@ async function restoreBundle(bundle:string,masterKey:Uint8Array,destination:stri
    budget.check();const restored=new DatabaseSync(plain);
    try{
     restored.exec('BEGIN IMMEDIATE');
+    restored.exec("UPDATE run_controls SET worker_id=NULL,phase='interrupted',outcome='RECOVERY_REVIEW_REQUIRED' WHERE run_id IN (SELECT id FROM runs WHERE state IN ('QUEUED','RUNNING'))");
     runsInvalidated=Number(restored.prepare("UPDATE runs SET state='INTERRUPTED',lease_until=0,error='Restored execution requires a new authorization; no automatic replay.' WHERE state IN ('QUEUED','RUNNING')").run().changes);
-    restored.exec("DELETE FROM worker_leases; UPDATE run_controls SET worker_id=NULL,phase='interrupted',outcome='RECOVERY_REVIEW_REQUIRED' WHERE run_id IN (SELECT id FROM runs WHERE state='INTERRUPTED'); COMMIT");
+    restored.exec('DELETE FROM worker_leases; COMMIT');
    }finally{restored.close();}
   }
   const restoredDatabaseDigest=await fileDigest(plain,budget.maxBytes,budget.signal);

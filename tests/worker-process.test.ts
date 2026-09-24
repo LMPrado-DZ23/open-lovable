@@ -61,3 +61,9 @@ test('after process loss a persisted model response resumes compilation without 
  assert.equal(f.queue.events(f.authority,run.id).events.filter(e=>e.type==='model.requested').length,1);
  assert.equal(f.store.getProject('process-test',run.projectId).version,1);
 });
+
+test('starting immediately after an abandoned lease waits without stealing live work',{timeout:35000},async t=>{
+ const f=await setup(t);assert.ok(f.queue.acquireWorker('abandoned-predecessor'));
+ const start=Date.now(),replacement=f.launch();assert.equal(await replacement.exit,0,replacement.logs());
+ assert.ok(Date.now()-start>=18000,'Replacement must wait for the predecessor lease');assert.equal(f.calls(),0);
+});
