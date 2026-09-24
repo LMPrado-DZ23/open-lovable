@@ -75,6 +75,7 @@ completed_tasks:
   - "P06 ReferenceImageStore upload now consumes central QuotaService; external ArtifactRef migration remains open"
   - "P06 ExportBundle is available for project and awaiting-approval candidate exports with manifest/checksums"
   - "P10 journal exposes pending connection/cost approvals with server-bound digest/nonce and explicit approve/deny actions"
+  - "P11 capability evidence identifies unsupported/unknown tools and exposes explicit alternatives without silent fallback"
   - "Review branch pushed; draft PR creation blocked by GitHub integration permission"
 pending_tasks:
   - "P10 HTTP/UI approval pause/resume journey"
@@ -163,5 +164,6 @@ latest_gate_evidence:
   full_unit_and_roadmap: "PASS; npm test exit 0"
   browser: "PASS 5/5; npx --no-install playwright test tests/e2e/projects.spec.ts --reporter=line"
   browser_log: "/tmp/mission-e2e-p06-p10-2.log"
+  p11: "PASS 7/7; lint/typecheck PASS; capability endpoint now returns explicit evidence when model/capability are requested"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
