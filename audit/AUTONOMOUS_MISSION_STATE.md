@@ -167,5 +167,7 @@ latest_gate_evidence:
   browser_log: "/tmp/mission-e2e-p06-p10-2.log"
   p11: "PASS 7/7; lint/typecheck PASS; capability endpoint now returns explicit evidence when model/capability are requested"
   p11_restart: "PASS 9/9; pre-effect requeue, worker epoch fencing, started-request interruption, capability and budget gates"
+  full_regression_p11: "PASS; npm test exit 0"
+  full_regression_log_p11: "/tmp/mission-full-test-p11.log"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
