@@ -8,7 +8,7 @@ test('real JSX and CSS compile without running application code on the host',asy
  const compile=await compiler();
  const result=await compile({files:{'src/App.jsx':"import './style.css'; globalThis.__projectHostTouched=true; export default function App(){return <button className='text-xl' onClick={()=>alert('ok')}>Ready</button>}",'src/style.css':'button { padding: 12px; }'},assets:{}},'test-channel');
  assert.match(result.html,/Ready/);assert.match(result.html,/Content-Security-Policy/);
- assert.match(result.html,/connect-src 'none'/);assert.match(result.html,/test-channel/);
+ assert.match(result.html,/connect-src 'none'/);assert.match(result.html,/test-channel/);assert.match(result.html,/candidate!=='null'/);assert.match(result.html,/:'\*'/);
  assert.equal((globalThis as any).__projectHostTouched,undefined);
  assert.equal(result.sha256.length,64);
 });
