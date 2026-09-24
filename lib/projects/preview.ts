@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import postcss from 'postcss';
 import tailwindcss from 'tailwindcss';
 import { ProjectError, validateSnapshot, type ProjectSnapshot } from './store';
+import {buildSourceMap,instrumentJsx,type SourceMap} from '../visual/source-map';
 
 export const previewPackages=['react','react-dom','lucide-react','react-icons','framer-motion','motion','clsx','classnames','tailwind-merge','lodash-es'] as const;
 const extensions=['','.tsx','.jsx','.ts','.js','.css','.json','/index.tsx','/index.jsx','/index.ts','/index.js'];
@@ -18,8 +19,9 @@ function lookup(snapshot:ProjectSnapshot,path:string):string {
 }
 
 /** Compiles virtual files only. Project npm scripts/configs are never evaluated on the host. */
-export async function compileProject(input:unknown,channel:string=randomUUID()):Promise<{html:string;sha256:string;entry:string;warnings:string[]}> {
- const snapshot=validateSnapshot(input);
+export async function compileProject(input:unknown,channel:string=randomUUID(),instrument=false):Promise<{html:string;sha256:string;entry:string;warnings:string[];sourceMap?:SourceMap}> {
+ let snapshot=validateSnapshot(input);let sourceMap:SourceMap|undefined;
+ if(instrument){const revisionDigest=createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');sourceMap=buildSourceMap(snapshot.files,revisionDigest,channel);snapshot=validateSnapshot({...snapshot,files:instrumentJsx(snapshot.files,sourceMap)});}
  if(!/^[a-zA-Z0-9_-]{1,128}$/.test(channel))throw new ProjectError('Invalid preview channel');
  const app=['src/App.tsx','src/App.jsx','src/App.ts','src/App.js','App.tsx','App.jsx'].find(path=>Object.hasOwn(snapshot.files,path));
  const main=['src/main.tsx','src/main.jsx','src/index.tsx','src/index.jsx'].find(path=>Object.hasOwn(snapshot.files,path));
@@ -88,8 +90,9 @@ export async function compileProject(input:unknown,channel:string=randomUUID()):
  if(js.length+css.length>12*1024*1024)throw new ProjectError('Compiled preview exceeds 12 MiB');
  const safeJS=js.replace(/<\/script/gi,'<\\/script');
  const safeCSS=css.replace(/<\/style/gi,'<\\/style');
- const report=`const channel=${JSON.stringify(channel)};const report=(type,detail)=>parent.postMessage({source:'open-lovable-preview',channel,type,detail},'*');addEventListener('error',event=>report('error',String(event.message).slice(0,500)));addEventListener('unhandledrejection',event=>report('error',String(event.reason).slice(0,500)));addEventListener('load',()=>setTimeout(()=>{const root=document.getElementById('root');report(root&&root.childElementCount?'rendered':'empty',root?root.innerText.slice(0,200):'Root absent')},100));`;
+ const mapScript=`const sourceMapData=${JSON.stringify(sourceMap||null)};`;
+ const report=`const channel=${JSON.stringify(channel)};const targetOrigin=(()=>{try{return document.referrer?new URL(document.referrer).origin:location.origin}catch{return location.origin}})();const report=(type,detail)=>parent.postMessage({source:'open-lovable-preview',channel,type,detail},targetOrigin);${mapScript}addEventListener('error',event=>report('error',String(event.message).slice(0,500)));addEventListener('unhandledrejection',event=>report('error',String(event.reason).slice(0,500)));addEventListener('click',event=>{const node=event.target instanceof Element?event.target.closest('[data-open-lovable-element]'):null;const id=node?.getAttribute('data-open-lovable-element');const match=id&&sourceMapData?.elements.find((element)=>element.elementId===id);if(match)report('select',match)});addEventListener('load',()=>setTimeout(()=>{const root=document.getElementById('root');report(root&&root.childElementCount?'rendered':'empty',root?root.innerText.slice(0,200):'Root absent')},100));`;
  const csp="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
  const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${safeCSS}</style><script>${report}</script></head><body><div id="root"></div><script>${safeJS}</script></body></html>`;
- return {html,sha256:createHash('sha256').update(html).digest('hex'),entry:main||app!,warnings:result.warnings.map(warning=>warning.text).slice(0,10)};
+ return {html,sha256:createHash('sha256').update(html).digest('hex'),entry:main||app!,warnings:result.warnings.map(warning=>warning.text).slice(0,10),...(sourceMap?{sourceMap}: {})};
 }

@@ -50,7 +50,7 @@ export async function GET(request:Request){
    const channel=params.get('channel')||'';if(!/^[a-zA-Z0-9_-]{1,128}$/.test(channel))throw new ProjectError('Invalid preview channel');
    const runID=params.get('runID');const snapshot=runID?store.getRun(owner,projectID,runID).candidate:project.snapshot;
    if(!snapshot)throw new ProjectError('This run has no preview candidate',409);
-   const compiled=await compileProject(snapshot,channel);
+   const compiled=await compileProject(snapshot,channel,true);
    if(request.signal.aborted)return new Response(null,{status:499});
    guard(projectID);
    return json(compiled);
@@ -110,7 +110,7 @@ export async function POST(request:Request){
    case 'preview':{
     const project=store.getProject(owner,body.id);const snapshot=body.runID?store.getRun(owner,body.id,body.runID).candidate:project.snapshot;
     if(!snapshot)throw new ProjectError('This run has no preview candidate',409);
-    const compiled=await compileProject(snapshot,body.channel);guard(body.id);return json(compiled);
+    const compiled=await compileProject(snapshot,body.channel,true);guard(body.id);return json(compiled);
    }
    case 'document':return json({documents:store.addDocument(owner,body.id,body.name,body.content)});
    case 'verify':{const project=store.getProject(owner,body.id);const candidate=body.runID?store.getRun(owner,body.id,body.runID).candidate:null;if(body.runID&&!candidate)throw new ProjectError('This run has no candidate to verify',409);const snapshot=candidate||project.snapshot;const gate=requireReleaseReady(body.report as VerificationReport,runDigest(snapshot));return json({gate,runID:body.runID||null});}
