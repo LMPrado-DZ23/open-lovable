@@ -197,3 +197,14 @@ Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the
 - Navegador: após instalar o browser Playwright ausente, E2E real `27/27` passou. Foram observados os avisos conhecidos de Next.js `ECONNRESET/aborted` durante navegações; nenhum handler global foi adicionado para escondê-los. Um log de erro de input inválido do endpoint `run-command-v2` pertence ao cenário negativo esperado.
 - Segurança/escopo: nenhum segredo, banco real, produção, gasto, merge ou publicação foi usado. PostgreSQL hospedado, S3 e homologação de modelos reais continuam gates externos separados.
 - Próxima dependência exata: completar P06 com adapter S3 privado e testes PostgreSQL correspondentes; depois ligar UI de aprovação/orçamento e continuar P12/P13 conforme DAG. Este checkpoint não é release comercial.
+
+## Manus 2026-09-24 - auditoria final contínua após P67
+
+- HEAD verificado e publicado: `4988533cc45c88068d3eaae70e3c96b7f2039ef8`, branch `feat/manus-p06-p10-p11-20260924`; worktree limpo após publicação.
+- Correções internas: seleção de arquivo agora usa conteúdo gerado/cache autorizado do sandbox; árvore de arquivos da geração usa botões nativos com teclado, `aria-expanded`, `aria-pressed` e labels; utilitário Pixi removeu `@ts-nocheck` e trata WebGL/WebGPU; preview compilado usa origem HTTP/HTTPS válida ou `*` para sandbox opaco `origin=null`.
+- Auditoria de isolamento: testes node `9/9` passaram (auth, identidade derivada no servidor, mutações de projeto e revogação de imagens); Playwright de escopo `1/1` passou.
+- Auditoria de acessibilidade: controle de pasta/arquivo não-interativo corrigido; lint e typecheck sem warnings/erros; regressão completa verde.
+- Preview/E2E: testes focais `15/15`; depois de reconstruir o build, fluxos de projeto e visual desktop/mobile `8/8` passaram sem crashes `postMessage`.
+- Gates: `npm test` passou com `226` testes unit/integration, `131` roadmap e `8` P00; lint, typecheck e build web/worker passaram; `npm audit --omit=dev --audit-level=high` encontrou `0` vulnerabilidades.
+- Bloqueios honestos: Auth real descartável sem configuração, PostgreSQL/S3/provedores externos, mobile nativo, PBX/SIP, datasets/hardware/modelos, produção e merge final permanecem `BLOCKED_BY_EXTERNAL_DEPENDENCY` ou `BLOCKED_BY_EXTERNAL_PERMISSION`; nenhum foi simulado.
+- Decisão: estado do produto continua `NOT_READY / BLOCKED` para release comercial, apesar dos gates locais verdes. Não declarar paridade externa nem 100% comercial.

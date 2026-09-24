@@ -1,6 +1,6 @@
 # Capability Ledger — Open Lovable V2/V2.1
 
-**Assessment revision:** `fbbd27f86fd3a41e87dd4f771b4b5905ce56427f`
+**Assessment revision:** `4988533cc45c88068d3eaae70e3c96b7f2039ef8`
 **Assessment scope:** local contracts and automated evidence only.
 **Release status:** **NOT READY / BLOCKED**. This document does not claim production parity.
 
@@ -15,8 +15,8 @@
 | Mobile output | Partial | Roadmap suite P64 | Native toolchain, emulator/device, signing and store distribution were not run. |
 | Voice channel and real business operations | Blocked | No external call or channel was attempted | Requires PBX/SIP, consent, licensing, authorized numbers and explicit approval. |
 
-The ledger deliberately distinguishes **implemented local behavior** from **homologated external behavior**. A passing local test cannot certify a third-party provider, production deployment, payment, communication, domain, store, or hardware workflow. Any capability without local evidence must remain partial, incomplete, or explicitly `BLOCKED_BY_EXTERNAL_DEPENDENCY`; no denominator is reduced to manufacture a 100% result.
+The ledger deliberately distinguishes **implemented local behavior** from **homologated external behavior**. A passing local test cannot certify a third-party provider, production deployment, payment, communication, domain, store, or hardware workflow. The final internal audit also verified tenant-scope tests (`9/9` unit and `1/1` Playwright), accessibility fixes, preview E2E (`8/8`), dependency audit (`0` high/critical findings), and full local gates (`226` unit/integration, `131` roadmap, `8` P00). Any capability without local evidence must remain partial, incomplete, or explicitly `BLOCKED_BY_EXTERNAL_DEPENDENCY`; no denominator is reduced to manufacture a 100% result.
 
 ## Required next gates
 
-The project still requires final product, engineering, security/privacy/accessibility audits, hosted PostgreSQL/S3/provider homologation where applicable, and authorized release review. Merge to `main`, production publication, real billing, external communications, domain/TLS changes, and store distribution remain outside the current authorization scope.
+The internal product, engineering, security/privacy and accessibility audit gates are green for this branch. The project still requires hosted PostgreSQL/S3/provider homologation where applicable and authorized release review. Merge to `main`, production publication, real billing, external communications, domain/TLS changes, and store distribution remain outside the current authorization scope.

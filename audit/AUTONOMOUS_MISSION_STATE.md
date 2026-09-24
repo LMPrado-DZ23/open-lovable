@@ -51,8 +51,8 @@ watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Final internal audit: run complete regression after preview-origin fix and reconcile final release evidence; external Auth/cloud homologation remains blocked."
-current_failure: "No current code failure; mission remains incomplete because external homologations and final independent audits are not closed."
+current_task: "Internal audit gates complete; remain in honest blocked state awaiting authorized external homologation and release review."
+current_failure: "No current code failure; mission remains incomplete because hosted/provider homologations, native/voice/model evidence, and authorized release review are not closed."
 current_strategy: "Use evidence-driven vertical slices, then run independent security, product and accessibility audits; never treat local fixtures as external homologation."
 plan:
   - "Recover and baseline commit 05875be."
@@ -89,9 +89,9 @@ completed_tasks:
   - "P49-P67 local contract slices and final internal build gates published through 4fa3b2b"
   - "Generation file selection fix and visual-file-content contract integrated with 226 unit tests green"
 pending_tasks:
-  - "Independent security audit and fix loop over current HEAD"
-  - "Independent product/functional audit of the three end-to-end journeys"
-  - "Independent accessibility/responsive audit and evidence"
+  - "Hosted PostgreSQL/S3/provider homologation with authorized disposable credentials"
+  - "Native mobile, PBX/SIP/voice, model/hardware/dataset and external connector homologations"
+  - "Final authorized release review, merge and production publication"
   - "Hosted PostgreSQL, external providers, native mobile, PBX/SIP and model homologations"
   - "Final release review and authorized merge/publication"
 dependencies:
