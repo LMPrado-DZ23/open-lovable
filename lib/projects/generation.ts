@@ -8,6 +8,7 @@ import { assertCompleteFileBlocks, normalizeProjectPath } from '@/lib/security/i
 import { redactSecretText, safeLogger } from '@/lib/security/secret-content';
 import { ProjectError, type ProjectSnapshot, type ProjectRun, type ProjectStore, validateSnapshot } from './store';
 import { compileProject, previewPackages } from './preview';
+import type {RunLimits} from '../budgets/run-limits';
 
 /** Applies complete generated file blocks to a copy; the saved revision is never mutated here. */
 export function proposedSnapshot(base:ProjectSnapshot,text:string):{snapshot:ProjectSnapshot;explanation:string} {
@@ -33,7 +34,7 @@ export function captureRunInput(store:ProjectStore,owner:string,run:ProjectRun):
  const project=store.getProject(owner,run.project_id);
  return {snapshot:project.snapshot,references:store.documents(owner,project.id).map(doc=>({name:doc.name,content:doc.content})),history:store.messages(owner,project.id).filter(message=>message.role!=='system').slice(-12).map(message=>({role:message.role as 'user'|'assistant',content:message.content})),images:new ReferenceImageStore(store).forRun(owner,project.id,run.id)};
 }
-export interface ModelRunHooks {scope?:ProviderScope;assertLive:()=>void;beforeModel:()=>void;status:(payload:Record<string,unknown>)=>void;}
+export interface ModelRunHooks {scope?:ProviderScope;limits?:RunLimits;assertLive:()=>void;beforeModel:()=>void;status:(payload:Record<string,unknown>)=>void;}
 /** Inference is shared by inline compatibility and the worker; this function never writes project state. */
 export async function requestFrozenModel(run:ProjectRun,input:FrozenRunInput,signal:AbortSignal,hooks:ModelRunHooks):Promise<{text:string;usage:Record<string,unknown>}> {
  signal.throwIfAborted();hooks.assertLive();
@@ -46,7 +47,8 @@ export async function requestFrozenModel(run:ProjectRun,input:FrozenRunInput,sig
  const textInput=`AUTHORIZED PROJECT DATA:\n${context}\n\nCURRENT REQUEST:\n${run.prompt}\n\nIMAGE ROLES (same order as attachments):\n${visualContext}`;
  const content:Extract<ModelMessage,{role:'user'}>['content']=images.length?[{type:'text',text:textInput},...images.map(image=>({type:'image' as const,image:new Uint8Array(Buffer.from(image.data,'base64')),mediaType:image.mime}))]:textInput;
  signal.throwIfAborted();hooks.assertLive();hooks.beforeModel();
- const result=streamText({model:model.model,system:(run.inputs.mode==='plan'?PLAN_GUIDANCE:system)+(images.length?'\n'+VISUAL_GUIDANCE:''),messages:[...input.history,{role:'user',content}],maxOutputTokens:run.inputs.mode==='plan'?4000:12000,maxRetries:0,abortSignal:signal,onError:({error})=>safeLogger.error('Project model stream failed',error)});
+ const maxOutputTokens=hooks.limits?.maxOutputTokens??(run.inputs.mode==='plan'?4000:12000);
+ const result=streamText({model:model.model,system:(run.inputs.mode==='plan'?PLAN_GUIDANCE:system)+(images.length?'\n'+VISUAL_GUIDANCE:''),messages:[...input.history,{role:'user',content}],maxOutputTokens,maxRetries:0,abortSignal:signal,onError:({error})=>safeLogger.error('Project model stream failed',error)});
  let text='',lastProgress=0;
  for await(const event of result.fullStream){
   if(event.type==='error')throw event.error;

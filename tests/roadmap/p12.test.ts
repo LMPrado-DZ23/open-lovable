@@ -14,3 +14,4 @@ test('P12 factory adapts an existing provider without introducing a second sandb
  const adapter=runtime.createAdapter();
  assert.equal(typeof adapter.create,'function');assert.equal(typeof adapter.execute,'function');
 });
+test('P12 forged sandbox identity is denied before adapter call',async()=>{const now=1000,calls:string[]=[],service=new RuntimeService(adapter(calls,()=>now),undefined,()=>now),ref=await service.create(identity());const forged={...ref,sandboxId:'other-sandbox'};await assert.rejects(()=>service.health(forged,'actor_a'),/authoritative/i);assert.deepEqual(calls,['create:p_a']);});

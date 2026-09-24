@@ -40,7 +40,7 @@ export async function runWorkerOnce(queue:RunQueue,worker:WorkerLease,stopSignal
   let scope=localGuard(queue,job);await verifySession(job,signal);signal.throwIfAborted();scope=localGuard(queue,job);
   let text=job.output;
   if(text===null){
-   const result=await requestFrozenModel(job.run,job.input,signal,{scope,assertLive:()=>{localGuard(queue,job);},beforeModel:()=>queue.markModelStarted(job),status:payload=>queue.event(job,'run.progress',payload)});
+   const result=await requestFrozenModel(job.run,job.input,signal,{scope,limits:queue.limitsFor(job.run.id,job.run.inputs.mode),assertLive:()=>{localGuard(queue,job);},beforeModel:()=>queue.markModelStarted(job),status:payload=>queue.event(job,'run.progress',payload)});
    queue.recordModelResult(job,result.text,result.usage);text=result.text;
   }
   queue.event(job,'run.progress',{phase:job.run.inputs.mode==='plan'?'planning':'compiling'});

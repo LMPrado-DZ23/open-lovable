@@ -94,14 +94,15 @@ export class RunQueue {
    const references=this.store.documents(owner,project.id).map(row=>({name:row.name,content:row.content}));
    const context=JSON.stringify({files:project.snapshot.files,assetPaths:Object.keys(project.snapshot.assets),references});
    if(Buffer.byteLength(context)>2*1024*1024)throw new ProjectError('Project context exceeds 2 MiB; reduce references or split the task.',413);
+   const limits=resolveRunLimits(undefined,request.mode);
    const run=this.store.beginRun(owner,project.id,request.requestKey,request.prompt,request.model,request.baseVersion,{mode:request.mode,imageIDs:request.imageIDs,queued:true});
    const images=new ReferenceImageStore(this.store).forRun(owner,project.id,run.id).map(({id,name,role,mime,width,height,sha256,data})=>({id,name,role,mime,width,height,sha256,data}));
    const frozen:FrozenRunInput={snapshot:project.snapshot,history,references,images},encoded=JSON.stringify(frozen);
    if(Buffer.byteLength(encoded)>MAX_FROZEN_BYTES)throw new ProjectError('Frozen input exceeds its storage budget',413);
    const used=Number(this.store.db.prepare('SELECT coalesce(sum(length(CAST(frozen_input AS BLOB))+coalesce(length(CAST(output AS BLOB)),0)),0) AS n FROM run_controls WHERE workspace_id=?').get(authority.workspaceId)?.n);
    if(used+Buffer.byteLength(encoded)>256*1024*1024)throw new ProjectError('Execution context storage budget exceeded',413);
-   this.store.db.prepare('INSERT INTO run_controls(run_id,workspace_id,actor_id,authority,frozen_input,input_digest,request_digest,request_id,trace_id,deadline_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(run.id,authority.workspaceId,authority.actorId,JSON.stringify(authority),encoded,runDigest(frozen),intent,randomUUID(),randomBytes(16).toString('hex'),this.clock()+10*60000,new Date(this.clock()).toISOString());
-   this.store.db.prepare('INSERT INTO run_limits(run_id,limits) VALUES(?,?)').run(run.id,JSON.stringify(resolveRunLimits(undefined,request.mode)));
+   this.store.db.prepare('INSERT INTO run_controls(run_id,workspace_id,actor_id,authority,frozen_input,input_digest,request_digest,request_id,trace_id,deadline_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(run.id,authority.workspaceId,authority.actorId,JSON.stringify(authority),encoded,runDigest(frozen),intent,randomUUID(),randomBytes(16).toString('hex'),this.clock()+limits.timeoutMs,new Date(this.clock()).toISOString());
+   this.store.db.prepare('INSERT INTO run_limits(run_id,limits) VALUES(?,?)').run(run.id,JSON.stringify(limits));
    this.append(this.control(run.id),'run.queued',{mode:run.inputs.mode,baseVersion:run.base_version,model:run.model});
    return this.get(authority,run.id);
   });
@@ -145,6 +146,7 @@ export class RunQueue {
    if(before.state==='SUCCEEDED')throw new ProjectError('Completed work cannot be cancelled; use a new revision.',409);
    if(['QUEUED','RUNNING','AWAITING_APPROVAL'].includes(before.state)){
     this.store.cancelRun(owner,String(c.project_id),runId);
+    this.store.db.prepare("UPDATE run_approvals SET state='invalidated',resolved_at=? WHERE run_id=? AND state='pending'").run(this.clock(),runId);
     this.store.db.prepare("UPDATE run_controls SET phase='cancelled',outcome=? WHERE run_id=?").run(c.model_started?'CANCELLED_AFTER_MODEL_START':'CANCELLED_BEFORE_MODEL_START',runId);
     this.append(c,'run.cancelled',{state:'CANCELLED',modelStarted:Boolean(c.model_started)});
    }return this.get(authority,runId);
@@ -165,12 +167,13 @@ export class RunQueue {
  /** Safe recovery distinguishes a durable response from an uncertain remote request. */
  reconcile():void {
   this.store.transaction(()=>{
-   const rows=this.store.db.prepare("SELECT c.*,r.project_id,r.state FROM run_controls c JOIN runs r ON r.id=c.run_id WHERE (r.state='QUEUED' AND c.deadline_at<=?) OR (r.state='RUNNING' AND (r.lease_until<=? OR NOT EXISTS(SELECT 1 FROM worker_leases w WHERE w.name='agent' AND w.worker_id=c.worker_id AND w.epoch=c.worker_epoch AND w.expires_at>?))) LIMIT 100").all(this.clock(),this.clock(),this.clock());
+   const rows=this.store.db.prepare("SELECT c.*,r.project_id,r.state,r.lease_until AS run_lease_until FROM run_controls c JOIN runs r ON r.id=c.run_id WHERE (r.state='QUEUED' AND c.deadline_at<=?) OR (r.state='AWAITING_INPUT' AND (c.wait_until<=? OR c.deadline_at<=?)) OR (r.state='RUNNING' AND (r.lease_until<=? OR NOT EXISTS(SELECT 1 FROM worker_leases w WHERE w.name='agent' AND w.worker_id=c.worker_id AND w.epoch=c.worker_epoch AND w.expires_at>?))) LIMIT 100").all(this.clock(),this.clock(),this.clock(),this.clock(),this.clock());
    for(const c of rows){
-    const expired=Number(c.deadline_at)<=this.clock(),safe=!c.model_started||c.output!==null;
+    const waiting=String(c.state)==='AWAITING_INPUT',expired=Number(c.deadline_at)<=this.clock()||waiting&&Number(c.wait_until)<=this.clock(),safe=!c.model_started||c.output!==null;
     const state=expired?'FAILED':safe?'QUEUED':'INTERRUPTED',outcome=expired?'DEADLINE_EXCEEDED':safe?(c.output?'MODEL_RESULT_RECORDED':'NOT_STARTED'):'MODEL_OUTCOME_UNCERTAIN';
     assertTransition(String(c.state) as import('../projects/store').RunState,state as import('../projects/store').RunState);this.store.db.prepare('UPDATE runs SET state=?,error=?,lease_until=0,updated_at=? WHERE id=?').run(state,state==='INTERRUPTED'?'The worker stopped after a model request. Review before retrying; no automatic second call.':expired?'Execution deadline exceeded.':'',new Date(this.clock()).toISOString(),String(c.run_id));
-    this.store.db.prepare('UPDATE run_controls SET worker_id=NULL,phase=?,outcome=? WHERE run_id=?').run(state==='QUEUED'?'queued':'interrupted',outcome,String(c.run_id));
+    this.store.db.prepare('UPDATE run_controls SET worker_id=NULL,waiting_kind=NULL,wait_until=0,phase=?,outcome=? WHERE run_id=?').run(state==='QUEUED'?'queued':'interrupted',outcome,String(c.run_id));
+    if(waiting)this.store.db.prepare("UPDATE run_approvals SET state='expired',resolved_at=? WHERE run_id=? AND state='pending'").run(this.clock(),String(c.run_id));
     this.append(c,'run.'+(state==='QUEUED'?'requeued':'interrupted'),{state,outcome});
    }
   });
@@ -184,8 +187,8 @@ export class RunQueue {
    let authority:RunAuthority,input:FrozenRunInput;
    try{
     authority=authoritySchema.parse(JSON.parse(String(c.authority)));
-    const grant=this.store.db.prepare("SELECT authority FROM run_grants WHERE run_id=? ORDER BY sequence DESC LIMIT 1").get(String(c.run_id)) as {authority?:string}|undefined;
-    if(grant?.authority) authority=authoritySchema.parse(JSON.parse(grant.authority));
+    const grant=this.store.db.prepare("SELECT authority,deadline_at FROM run_grants WHERE run_id=? ORDER BY sequence DESC LIMIT 1").get(String(c.run_id)) as {authority?:string;deadline_at?:number}|undefined;
+    if(grant?.authority){if(Number(grant.deadline_at)<=this.clock())throw new ProjectError('Execution grant expired',409);authority=authoritySchema.parse(JSON.parse(grant.authority));}
     if(authority.workspaceId!==c.workspace_id||authority.actorId!==c.actor_id)throw new ProjectError('Stored authority mismatch',503);
     input=frozenInput(String(c.frozen_input),c.input_digest);
    }catch{
@@ -214,12 +217,12 @@ export class RunQueue {
  heartbeat(job:ClaimedRun):void {this.assertLease(job);this.store.db.prepare("UPDATE runs SET lease_until=? WHERE id=? AND state='RUNNING'").run(this.clock()+LEASE_MS,job.run.id);}
  event(job:ClaimedRun,type:string,payload:Record<string,unknown>):void {this.store.transaction(()=>{const c=this.assertLease(job);this.append(c,type,payload);if(typeof payload.phase==='string')this.store.db.prepare('UPDATE run_controls SET phase=? WHERE run_id=?').run(payload.phase.slice(0,64),job.run.id);});}
  /** Persist effect intent and reserve the approved call budget before any provider call. */
- private limits(runId:string,mode:'build'|'plan'):RunLimits {const row=this.store.db.prepare('SELECT limits FROM run_limits WHERE run_id=?').get(runId) as {limits?:string}|undefined;return row?checkStoredLimits(JSON.parse(row.limits!),mode):checkStoredLimits({},mode);}
- markModelStarted(job:ClaimedRun):void {this.store.transaction(()=>{const c=this.assertLease(job);if(c.model_started||c.output!==null)throw new ProjectError('Model request already started or result recorded',409);const limits=this.limits(job.run.id,job.run.inputs.mode);if(limits.maxModelCalls<1)throw new RunBudgetError('Model-call budget exhausted before dispatch.');this.store.db.prepare("UPDATE run_controls SET model_started=1,phase='generating',outcome='MODEL_OUTCOME_UNCERTAIN' WHERE run_id=?").run(job.run.id);this.append(c,'model.requested',{model:job.run.model,budgetReserved:{maxModelCalls:limits.maxModelCalls,maxOutputTokens:limits.maxOutputTokens}});});}
+ public limitsFor(runId:string,mode:'build'|'plan'):RunLimits {const row=this.store.db.prepare('SELECT limits FROM run_limits WHERE run_id=?').get(runId) as {limits?:string}|undefined;return row?checkStoredLimits(JSON.parse(row.limits!),mode):checkStoredLimits({},mode);}
+  markModelStarted(job:ClaimedRun):void {this.store.transaction(()=>{const c=this.assertLease(job);if(c.model_started||c.output!==null)throw new ProjectError('Model request already started or result recorded',409);const limits=this.limitsFor(job.run.id,job.run.inputs.mode);if(limits.maxModelCalls<1)throw new RunBudgetError('Model-call budget exhausted before dispatch.');this.store.db.prepare("UPDATE run_controls SET model_started=1,phase='generating',outcome='MODEL_OUTCOME_UNCERTAIN' WHERE run_id=?").run(job.run.id);this.append(c,'model.requested',{model:job.run.model,budgetReserved:{maxModelCalls:limits.maxModelCalls,maxOutputTokens:limits.maxOutputTokens}});});}
  recordModelResult(job:ClaimedRun,text:string,usage:Record<string,unknown>):void {
   assertNoSecrets(text);if(!text||Buffer.byteLength(text)>2*1024*1024)throw new ProjectError('Model output size is invalid',413);
   const data=JSON.stringify(usage);assertNoSecrets(data);if(data.length>8192)throw new ProjectError('Usage payload too large');
-  this.store.transaction(()=>{const c=this.assertLease(job);if(!c.model_started||c.output!==null)throw new ProjectError('Unexpected repeated model result',409);const limits=this.limits(job.run.id,job.run.inputs.mode),outputTokens=typeof usage.outputTokens==='number'?usage.outputTokens:null,totalTokens=typeof usage.totalTokens==='number'?usage.totalTokens:null;if(outputTokens!==null&&outputTokens>limits.maxOutputTokens)throw new RunBudgetError('Reported model output exceeded the approved token budget.');const outcome=outputTokens===null||totalTokens===null?'MODEL_USAGE_UNKNOWN':'MODEL_RESULT_RECORDED';this.store.db.prepare("UPDATE run_controls SET output=?,usage=?,outcome=?,phase='validating' WHERE run_id=?").run(text,data,outcome,job.run.id);this.append(c,'model.responded',{characters:text.length,usage,usageState:outcome});});
+  this.store.transaction(()=>{const c=this.assertLease(job);if(!c.model_started||c.output!==null)throw new ProjectError('Unexpected repeated model result',409);const limits=this.limitsFor(job.run.id,job.run.inputs.mode),outputTokens=typeof usage.outputTokens==='number'?usage.outputTokens:null,totalTokens=typeof usage.totalTokens==='number'?usage.totalTokens:null;if(outputTokens!==null&&outputTokens>limits.maxOutputTokens)throw new RunBudgetError('Reported model output exceeded the approved token budget.');const outcome=outputTokens===null||totalTokens===null?'MODEL_USAGE_UNKNOWN':'MODEL_RESULT_RECORDED';this.store.db.prepare("UPDATE run_controls SET output=?,usage=?,outcome=?,phase='validating' WHERE run_id=?").run(text,data,outcome,job.run.id);this.append(c,'model.responded',{characters:text.length,usage,usageState:outcome});});
  }
  stage(job:ClaimedRun,snapshot:unknown,explanation:string,evidence:Record<string,unknown>):void {
   this.store.transaction(()=>{const c=this.assertLease(job);this.store.stageRun(job.owner,job.run.project_id,job.run.id,snapshot,explanation);this.store.db.prepare("UPDATE run_controls SET phase='approval',outcome='CANDIDATE_COMPILED' WHERE run_id=?").run(job.run.id);this.append(c,'proposal.compiled',{...evidence,state:'AWAITING_APPROVAL',applicationTested:false});});

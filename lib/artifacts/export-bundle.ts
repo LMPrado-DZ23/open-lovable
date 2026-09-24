@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {zipSync} from 'fflate';
+import {zipSync,unzipSync,strFromU8} from 'fflate';
 import {assertNoSecrets} from '../security/secret-content';
 import type {ProjectSnapshot} from '../projects/store';
 
@@ -39,7 +39,7 @@ export function exportProjectBundle(snapshot:ProjectSnapshot,source:ExportBundle
   const manifest:ExportBundleManifest={manifestVersion:1,...source,createdAt,files};
   const manifestText=JSON.stringify(manifest,null,2)+'\n';
   assertNoSecrets(manifestText);
-  entries['manifest.json']=Buffer.from(manifestText,'utf8');
+  entries['__open_lovable__/manifest.json']=Buffer.from(manifestText,'utf8');
   return {bytes:zipSync(entries,{level:3}),manifest};
 }
 
@@ -58,6 +58,15 @@ export function verifyExportBundle(snapshot:ProjectSnapshot,manifest:ExportBundl
   for(const [path,encoded] of Object.entries(snapshot.assets))expected.add(`${path}:asset:${hash(Buffer.from(encoded,'base64'))}`);
   const actual=new Set(manifest.files.map(file=>`${file.path}:${file.kind}:${file.sha256}`));
   if(expected.size!==actual.size||[...expected].some(item=>!actual.has(item)))throw new Error('Export bundle does not match the source snapshot');
+}
+
+export function verifyExportBundleBytes(bytes:Uint8Array,snapshot:ProjectSnapshot,manifest:ExportBundleManifest):void {
+  if(bytes.byteLength<22)throw new Error('Export bundle is empty or truncated');
+  const entries=unzipSync(bytes),embedded=entries['__open_lovable__/manifest.json'];
+  if(!embedded||strFromU8(embedded)!==JSON.stringify(manifest,null,2)+'\n')throw new Error('Export bundle manifest is missing or divergent');
+  verifyExportBundle(snapshot,manifest);
+  const expected=[...Object.entries(snapshot.files).map(([path,content])=>[path,Buffer.from(content,'utf8')] as const),...Object.entries(snapshot.assets).map(([path,encoded])=>[path,Buffer.from(encoded,'base64')] as const)];
+  for(const [path,data] of expected){const entry=entries[path];if(!entry||entry.byteLength!==data.byteLength||hash(entry)!==hash(data))throw new Error('Export bundle bytes do not match the source snapshot');}
 }
 
 export function exportBundleFileName(projectId:string,runId?:string):string {

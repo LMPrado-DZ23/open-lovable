@@ -44,7 +44,6 @@ export class SandboxFactory {
   /** The runtime contract is an adapter over the existing provider, never a second sandbox mechanism. */
   static createRuntimeFactory(provider?: string, config?: SandboxProviderConfig): RuntimeFactory {
     const selectedProvider = (provider || process.env.SANDBOX_PROVIDER || 'e2b').toLowerCase();
-    const sandbox = this.create(selectedProvider, config);
-    return {createAdapter: () => providerRuntimeAdapter(sandbox, selectedProvider)};
+    return {createAdapter: () => providerRuntimeAdapter(() => this.create(selectedProvider, config), selectedProvider)};
   }
 }

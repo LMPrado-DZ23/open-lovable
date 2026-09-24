@@ -33,10 +33,10 @@ budget:
   api_or_cost_limit: "free/local fixtures only unless explicit approval"
 rollback_plan: "Every code step is committed on the development branch; restore to 05875bef7ef8f3f43a84195df7f6df05abc3e379 or the last verified commit. Database tests use disposable roots; no destructive production migration is permitted."
 state: EXECUTING
-iteration: 1
+iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T09:34:22-03:00"
-last_progress_at: "2026-09-24T09:34:22-03:00"
+heartbeat_at: "2026-09-24T10:46:00-03:00"
+last_progress_at: "2026-09-24T10:46:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Inspect existing P10 approval UI/routes and add a real pause/resume flow test bound to approval digest, lease and worker state; preserve external approval blockers explicitly."
+next_action: "Integrate the authorized tools/patch/repair flow into the real generation path, then connect visual source editing and full-stack auth/data acceptance; do not mark P06-P19 complete until consumers and browser evidence exist."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -183,6 +183,9 @@ latest_gate_evidence:
   full_regression_p11: "PASS; npm test exit 0"
   full_regression_log_p11: "/tmp/mission-full-test-p11.log"
   p10_http: "PASS 13/13; lint/typecheck PASS; route GET exposes digest/nonce and POST resumes only matching approval"
+  audit_fix_loop: "PASS; npm test exit 0; lint/typecheck PASS; 36 roadmap tests are now included in regular npm test"
+  audit_fix_scope: "A01 persisted timeout/tokens forwarded to provider; A02 grant expiry/cancel/reconcile; A03 authoritative RuntimeRef/provider isolation; A04 namespaced manifest and ZIP byte verification; A05 canonical content-sensitive patch digest; A06 symlink/corruption-safe artifact store; A07 PostgreSQL migration 5; A08 regular pipeline; A11 zero-budget repair; A12 unknown capability state"
+  worker_regression: "PASS 4/4; compiled worker cancellation, uncertain outcome, persisted response recovery and live lease wait"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
