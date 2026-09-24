@@ -6,9 +6,10 @@ import { readJsonObject, ClientInputError } from '@/lib/security/input-validatio
 import { SecretContentError, redactSecretText, safeLogger } from '@/lib/security/secret-content';
 import { ProviderConfigError } from '@/lib/ai/provider-catalog';
 import { ProjectError } from '@/lib/projects/store';
-import { importProjectZip, exportProjectZip } from '@/lib/projects/archive';
+import { importProjectZip } from '@/lib/projects/archive';
 import { compileProject } from '@/lib/projects/preview';
 import { streamProjectRun } from '@/lib/projects/generation';
+import { exportProjectBundle, exportBundleFileName } from '@/lib/artifacts/export-bundle';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -50,8 +51,13 @@ export async function GET(request:Request){
    return json(compiled);
   }
   if(params.get('action')==='export'){
-   const bytes=exportProjectZip(project.snapshot);
-   return new Response(new Uint8Array(bytes),{headers:{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="project-${project.id}.zip"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+   const runID=params.get('runID');
+   const runIDValue=runID&&id.safeParse(runID).success?runID:undefined;
+   if(runID&&!runIDValue)throw new ProjectError('Invalid export run');
+   const run=runIDValue?store.getRun(owner,projectID,runIDValue):null;
+   if(runIDValue&&(!run?.candidate||run.state!=='AWAITING_APPROVAL'))throw new ProjectError('This run has no exportable candidate',409);
+   const bundle=exportProjectBundle(run?.candidate||project.snapshot,{projectId:project.id,projectVersion:run?.base_version||project.version,runId:run?.id,baseVersion:run?.base_version,source:run?.candidate?'candidate':'project'});
+   return new Response(new Uint8Array(bundle.bytes),{headers:{'Content-Type':'application/zip','Content-Disposition':`attachment; filename="${exportBundleFileName(project.id,run?.id)}"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
   }
   let write=true,manageConnections=true;
   try{guard(projectID,true);}catch(error){if(error instanceof ProjectError&&error.status===403)write=false;else throw error;}

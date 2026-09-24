@@ -112,3 +112,14 @@ test('cancelling the response cancels the durable run and retains all saved sour
  for(let tries=0;tries<50;tries++){state=await(await get('?id='+p.id)).json();if(state.runs[0].state==='CANCELLED')break;await new Promise(resolve=>setTimeout(resolve,20));}
  assert.equal(state.runs[0].state,'CANCELLED');assert.equal(state.project.version,2);assert.deepEqual(state.project.snapshot,first);
 });
+
+test('candidate export returns a provenance manifest without accepting the revision',async t=>{
+ const {post,get,create}=await setup(t);
+ await aiFixture(t,'<file path="src/App.jsx">export default function App(){return <h1>Candidate</h1>}</file>');
+ const p=await create('Candidate export');const runResponse=await post({action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Create candidate',model:'gateway/test/coder'});assert.match(await runResponse.text(),/AWAITING_APPROVAL/);
+ const state=await (await get('?id='+p.id)).json(),run=state.runs[0];
+ const exported=await get('?id='+p.id+'&action=export&runID='+run.id);assert.equal(exported.status,200);assert.match(exported.headers.get('content-disposition')||'',/candidate/);
+ const files=unzipSync(new Uint8Array(await exported.arrayBuffer())),manifest=JSON.parse(strFromU8(files['manifest.json']));
+ assert.equal(manifest.source,'candidate');assert.equal(manifest.runId,run.id);assert.equal(manifest.projectVersion,1);assert.match(strFromU8(files['src/App.jsx']),/Candidate/);
+ assert.equal((await (await get('?id='+p.id)).json()).project.version,1);
+});

@@ -35,24 +35,24 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: CHECKPOINTING
 iteration: 1
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T08:11:36-03:00"
-last_progress_at: "2026-09-24T08:13:22-03:00"
+heartbeat_at: "2026-09-24T08:56:05-03:00"
+last_progress_at: "2026-09-24T08:56:05-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
-  branch: "fix/p09-reviewed-recovery-scope-20260924"
+  branch: "feat/manus-p06-p10-p11-20260924"
   upstream: "origin"
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "05875bef7ef8f3f43a84195df7f6df05abc3e379"
-  uncommitted_changes: true
+  head: "4745a7122bca910cc920c18e142c2d55599f97ee"
+  uncommitted_changes: false
 watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Checkpoint P06 image quota consumer and continue P06 export/candidate consumers plus P07-P10 real HTTP/worker journeys."
+current_task: "Close P10 HTTP/UI approval pause/resume journey after completing the P06 ExportBundle consumer."
 current_failure: "The previous session stopped after a partial P06/P10/P11 increment; full project is not complete."
-current_strategy: "Use a vertical P12 slice: scoped RuntimeRef/capabilities, lease expiry/fencing and adapter delegation; prove tenant isolation and unavailable capabilities with tests before touching routes."
+current_strategy: "Use vertical slices: integrate existing P06 services into hot consumers, close HTTP/worker approval journeys, then add governance improvements with tests and evidence."
 plan:
   - "Recover and baseline commit 05875be."
   - "Close control plane P06/P07-P11, including real dispatch enforcement and PostgreSQL contracts."
@@ -73,9 +73,11 @@ completed_tasks:
   - "P18 bounded repair loop and P19 approved plan digest slices"
   - "P11 budget reservation and usage reconciliation in real RunQueue dispatch"
   - "P06 ReferenceImageStore upload now consumes central QuotaService; external ArtifactRef migration remains open"
+  - "P06 ExportBundle is available for project and awaiting-approval candidate exports with manifest/checksums"
   - "Review branch pushed; draft PR creation blocked by GitHub integration permission"
 pending_tasks:
-  - "P12 runtime contract and lease slice"
+  - "P10 HTTP/UI approval pause/resume journey"
+  - "P11 restart/timeout/concurrency budget acceptance"
   - "All remaining packages and full-flow acceptance"
 dependencies:
   - "PostgreSQL disposable service for real hosted contracts"
@@ -141,6 +143,11 @@ evidence:
     result: "PASS 214/214"
     timestamp: "2026-09-24T08:34:04-03:00"
     artifact_or_log: "/tmp/final-full-test-3.log"
+  - claim: "Project and candidate exports contain verified provenance manifests without accepting candidates"
+    command_or_observation: "tests/export-bundle.test.ts tests/project-workflow.test.ts"
+    result: "PASS; ExportBundle 3/3 and project workflow 8/8 in focused run"
+    timestamp: "2026-09-24T08:56:05-03:00"
+    artifact_or_log: "lib/artifacts/export-bundle.ts; app/api/projects/route.ts; tests/export-bundle.test.ts; tests/project-workflow.test.ts"
 artifacts:
   - "/home/ubuntu/open-lovable-exec/docs/evidence/manus-p06-p10-p11-20260924.json"
 delegated_agents: []
@@ -149,6 +156,6 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Obtain GitHub permission to create the draft PR (branch is already pushed), then wire P06 export/candidate consumers and add HTTP-to-worker approval/budget journeys; keep unmigrated P06 classes explicit."
+next_action: "Inspect existing P10 approval UI/routes and add a real pause/resume flow test bound to approval digest, lease and worker state; preserve external approval blockers explicitly."
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
