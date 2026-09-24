@@ -13,6 +13,7 @@ import { exportProjectBundle, exportBundleFileName } from '@/lib/artifacts/expor
 import { applyPatchSet } from '@/lib/revisions/patches';
 import { requireReleaseReady } from '@/lib/verification/release-gate';
 import type { VerificationReport } from '@/lib/verification/evidence';
+import {buildTextVisualEdit} from '@/lib/visual/edits';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -21,6 +22,7 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('create'),name:z.string().min(1).max(120),model:z.string().max(240)}).strict(),
  z.object({action:z.literal('save'),id,version,snapshot:z.unknown(),label:z.string().min(1).max(200)}).strict(),
  z.object({action:z.literal('patch'),id,version,baseRevision:z.string().min(1).max(128),operations:z.array(z.object({kind:z.enum(['create','update','delete']),path:z.string().min(1).max(500),content:z.string().optional()}).strict()).min(1).max(200),expectedHashes:z.record(z.string().regex(/^[a-f0-9]{64}$/))}).strict(),
+ z.object({action:z.literal('visualEdit'),id,version,baseRevision:z.string().min(1).max(128),element:z.object({runtimeId:z.string().min(1).max(128),revisionDigest:z.string().regex(/^[a-f0-9]{64}$/),elementId:z.string().regex(/^[a-f0-9]{32}$/),file:z.string().min(1).max(500),start:z.number().int().min(0),end:z.number().int().gt(0),tag:z.string().min(1).max(80),sourceHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),value:z.string().max(2000)}).strict(),
  z.object({action:z.literal('import'),id,version,archive:z.string().max(16*1024*1024)}).strict(),
  z.object({action:z.literal('restore'),id,version,revisionID:id}).strict(),
  z.object({action:z.literal('generate'),id,version,requestKey:z.string().min(8).max(128),prompt:z.string().min(1).max(32768),model:z.string().min(1).max(240),mode:z.enum(['build','plan']).optional(),imageIDs:z.array(id).max(4).optional(),confirmVision:z.boolean().optional()}).strict(),
@@ -83,6 +85,7 @@ export async function POST(request:Request){
    case 'create':return json({project:await repository.create(workspace,body.name,body.model)},201);
    case 'save':return json({project:await repository.save(context(body.id),body.version,body.snapshot,body.label)});
    case 'patch':{const project=store.getProject(owner,body.id);const result=applyPatchSet(project.snapshot,{baseRevision:body.baseRevision,operations:body.operations,expectedHashes:body.expectedHashes},String(project.version));const saved=await repository.save(context(body.id),body.version,result.snapshot,'Edição visual: '+result.changed.join(', '));return json({project:saved,changed:result.changed,diffDigest:result.diffDigest});}
+   case 'visualEdit':{const project=store.getProject(owner,body.id);const patch=buildTextVisualEdit(project.snapshot,body.element,body.value,body.baseRevision);const result=applyPatchSet(project.snapshot,patch,String(project.version));const saved=await repository.save(context(body.id),body.version,result.snapshot,'Edição visual assistida: '+body.element.tag);return json({project:saved,changed:result.changed,diffDigest:result.diffDigest});}
    case 'import':{
     store.getProject(owner,body.id);const imported=importProjectZip(body.archive);
     return json({project:await repository.save(context(body.id),body.version,imported.snapshot,'Imported ZIP'),excluded:imported.excluded});
