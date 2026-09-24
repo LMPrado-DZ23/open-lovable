@@ -16,33 +16,17 @@ declare global {
 export async function POST(request: Request) {
   const accessDenied = await authorizeOperatorRequest(request);
   if (accessDenied) return accessDenied;
+  let createdSandboxId: string | undefined;
   try {
     console.log('[create-ai-sandbox-v2] Creating sandbox...');
     
-    // Clean up all existing sandboxes
-    console.log('[create-ai-sandbox-v2] Cleaning up existing sandboxes...');
-    await sandboxManager.terminateAll();
-    
-    // Also clean up legacy global state
-    if (global.activeSandboxProvider) {
-      try {
-        await global.activeSandboxProvider.terminate();
-      } catch (e) {
-        console.error('Failed to terminate legacy global sandbox:', e);
-      }
-      global.activeSandboxProvider = null;
-    }
-    
-    // Clear existing files tracking
-    if (global.existingFiles) {
-      global.existingFiles.clear();
-    } else {
-      global.existingFiles = new Set<string>();
-    }
+    // A new project/tab is additive. Existing sandboxes remain addressable by ID.
+    // The manager, rather than process-global state, is the source of truth.
 
     // Create new sandbox using factory
     const provider = SandboxFactory.create();
     const sandboxInfo = await provider.createSandbox();
+    createdSandboxId = sandboxInfo.sandboxId;
     
     console.log('[create-ai-sandbox-v2] Setting up Vite React app...');
     await provider.setupViteApp();
@@ -85,7 +69,7 @@ export async function POST(request: Request) {
     console.error('[create-ai-sandbox-v2] Error:', error);
     
     // Clean up on error
-    await sandboxManager.terminateAll();
+    if (createdSandboxId) await sandboxManager.terminateSandbox(createdSandboxId);
     if (global.activeSandboxProvider) {
       try {
         await global.activeSandboxProvider.terminate();
