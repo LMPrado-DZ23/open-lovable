@@ -158,5 +158,10 @@ risks:
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
 next_action: "Inspect existing P10 approval UI/routes and add a real pause/resume flow test bound to approval digest, lease and worker state; preserve external approval blockers explicitly."
+latest_gate_evidence:
+  build: "PASS; npm run build"
+  full_unit_and_roadmap: "PASS; npm test exit 0"
+  browser: "PASS 5/5; npx --no-install playwright test tests/e2e/projects.spec.ts --reporter=line"
+  browser_log: "/tmp/mission-e2e-p06-p10-2.log"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
