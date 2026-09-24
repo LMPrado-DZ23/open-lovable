@@ -171,3 +171,15 @@ Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the
 - The known Next aborted-request diagnostics remain. Rechecked upstream PR94658 (open); did not copy its broad ignore-error patch or switch to a custom server that would change optimization/deployment contracts solely to hide logs.
 
 - Clean local verification completed: 203 code/API/integration tests + 8 evidence tests, 30 E2E, lint/types, web and worker build, npm audit. Log bytes/digests checked independently in docs/evidence/p07-p09-local.json. This is the single-node P07/P08/P09 slice; distributed/typed HITL/cost control still require their own completion. Final-head PostgreSQL/portability CI and independent review pending publication.
+
+## Independent review corrections after ad758af
+
+- Reproduced the project-settings navigation loss of projectId in a browser with two authorized workspaces; link now carries the project scope instead of relying on session selection.
+- CodeRabbit comments 4089010145 and 4089010164 verified with RED tests: restore/import erased historical uncertain outcomes, and immediate restart failed during an abandoned lease. Limited invalidation to pending rows and bounded startup wait without lease theft.
+- Added SQLite recovery, immediate-start process and PostgreSQL import regressions; preserve original checks. Browser plugin absent; installed Playwright validates the actual account flow.
+- P10/P11 prototype retained separately in wip/p10-p11-approved-execution-20260924. Its attempted queue integration was refused before execution. This correction branch has no unfinished approval migration or missing-module tests. This is source isolation, not a removal of tests from the prototype.
+- No production data, real provider keys, paid inference, main merge or deployment. Full gates and final SHA CI remain to be checked before claiming this increment verified.
+
+- One early browser verification overlapped the running build and failed before startup due to the absent prerender manifest. This was an orchestration error, not evidence about the fixed feature. Re-run all gates sequentially after build completion; retain the failed log.
+
+- Clean verification of the independent correction tree completed: 205 code/API/integration tests + 8 evidence tests, 31 browser tests, lint, typecheck, web/worker build and zero npm advisories returned. The strengthened scope test additionally saved the connection through the real UI and verified the other workspace was unchanged. Source digests and logs are recorded in docs/evidence/p09-review-corrections.json. PostgreSQL-specific regression and new-head CI must still be read before certification.

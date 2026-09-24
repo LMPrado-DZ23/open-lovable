@@ -15,6 +15,8 @@ Na aba Execucoes, selecione um pedido para consultar sua linha do tempo, modelo,
 
 O supervisor inicia o worker antes do servidor e encerra apenas seus dois processos filhos se algum falha. Nao encerra outros Node, servidores ou servicos do computador. Variaveis explicitas de processo prevalecem sobre os arquivos .env locais convencionais, iguais para web e worker. Segredos nunca sao impressos no diagnostico.
 
+Apos uma queda sem encerramento gracioso, a inicializacao aguarda ate 22 segundos pela expiracao da lease anterior. Uma lease de worker ativo nao e tomada. O supervisor aguarda ate 35 segundos pelo inicio do worker; encerrar durante a espera nao revoga a lease de outro processo.
+
 ## Fluxo e limites
 
 Admissao congela o snapshot, referencias, imagens, historico relevante, modelo e autorizacao. Uma chave idempotente identifica o comando e nao dispara inferencia repetida em reconexao. Mudanca de credencial, destino, papel, sessao, perfil ou politica de rede exige nova autorizacao; nao ha fallback de modelo silencioso.
@@ -32,7 +34,7 @@ O worker salva a intencao antes de chamar o modelo. Uma resposta completa e pers
 - Perda da lease: o worker antigo nao pode publicar nem mesmo um diagnostico tardio como estado atual.
 - Registro de entrada corrompido: falha de integridade isolada naquela tarefa, sem derrubar a fila de outros projetos.
 - Encerramento gracioso: recoloca apenas trabalho seguro na fila; chamadas incertas permanecem interrompidas.
-- Restaurar/importar banco: preserva o inventario e invalida sessoes, convites e tarefas pendentes no novo destino. Nunca reativa automaticamente inferencia paga de um backup.
+- Restaurar/importar banco: preserva o inventario e invalida sessoes, convites e tarefas pendentes no novo destino. Nunca reativa automaticamente inferencia paga de um backup. Resultados que ja eram incertos antes da copia mantem MODEL_OUTCOME_UNCERTAIN; apenas tarefas que ainda estavam pendentes recebem RECOVERY_REVIEW_REQUIRED.
 
 ## APIs e compatibilidade
 

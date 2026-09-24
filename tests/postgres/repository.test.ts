@@ -125,3 +125,26 @@ test('P05 migration 2 upgrades a real v1 database without rewriting its migratio
   assert.equal(rows.length,4);assert.equal(rows[3].digest,POSTGRES_MIGRATIONS[3].digest);assert.equal(rows[2].digest,POSTGRES_MIGRATIONS[2].digest);assert.equal(rows[0].applied_at,'2026-01-01');assert.equal(rows[0].digest,POSTGRES_SCHEMA_DIGEST);assert.equal(rows[1].digest,POSTGRES_MIGRATIONS[1].digest);
  }finally{await target.end();await admin.query('DROP DATABASE "'+dbName+'"');}
 });
+
+test('PostgreSQL import preserves previously uncertain outcomes while invalidating newly pending work',async()=>{
+ const {ProjectStore}=await import('../../lib/projects/store');const {SqliteProjectRepository}=await import('../../lib/persistence/sqlite');
+ const {RunQueue}=await import('../../lib/runs/queue');const {importSqliteSnapshot}=await import('../../lib/persistence/import-sqlite');
+ const {mkdtempSync,rmSync,readFileSync}=await import('node:fs');const {join}=await import('node:path');const {tmpdir}=await import('node:os');
+ const root=mkdtempSync(join(tmpdir(),'pg-uncertain-source-')),file=join(root,'state.sqlite3'),key=randomBytes(32),source=new ProjectStore(file);
+ const dbName='ol_test_uncertain_'+randomUUID().replaceAll('-',''),targetURL=new URL(url!);targetURL.pathname='/'+dbName;
+ let target:Pool|undefined,created=false;
+ try{
+  const repository=new SqliteProjectRepository(source),ctx=repository.individualContext('alice'),project=await repository.create(ctx,'Uncertain history','gateway/model');
+  const authority={workspaceId:ctx.principal.workspaceId,actorId:ctx.principal.actorId,memberVersion:1,mode:'individual' as const,sessionId:null,origin:'http://127.0.0.1:3100',settingsOwner:'alice',allowLoopback:true,modelBinding:'a'.repeat(64),policyVersion:1};
+  const request={projectId:project.id,baseVersion:1,requestKey:randomUUID(),prompt:'Historical request',model:'gateway/model',mode:'build' as const,imageIDs:[],confirmCost:true};
+  let now=Date.now();const queue=new RunQueue(source,()=>now),uncertain=queue.enqueue(authority,request),worker=queue.acquireWorker('crashed')!,job=queue.claim(worker)!;
+  queue.markModelStarted(job);now+=21000;queue.reconcile();assert.equal(queue.get(authority,uncertain.id).outcome,'MODEL_OUTCOME_UNCERTAIN');
+  const pending=queue.enqueue(authority,{...request,requestKey:randomUUID()});source.close();const original=readFileSync(file);
+  await admin.query('CREATE DATABASE "'+dbName+'"');created=true;target=new Pool({connectionString:targetURL.toString(),max:2});await migratePostgres(target,{runtimeRole});
+  const report=await importSqliteSnapshot(file,key,target);assert.equal(report.runsInvalidated,1);assert.equal(report.activation,'NOT_PERFORMED');
+  const controls=(await target.query('SELECT run_id,outcome FROM open_lovable.run_controls')).rows;
+  assert.equal(controls.find(row=>row.run_id===uncertain.id)?.outcome,'MODEL_OUTCOME_UNCERTAIN');
+  assert.equal(controls.find(row=>row.run_id===pending.id)?.outcome,'RECOVERY_REVIEW_REQUIRED');
+  assert.equal((await target.query("SELECT count(*) AS n FROM open_lovable.runs WHERE state='INTERRUPTED'")).rows[0].n,'2');assert.deepEqual(readFileSync(file),original);
+ }finally{source.close();await target?.end();if(created)await admin.query('DROP DATABASE "'+dbName+'"');rmSync(root,{recursive:true,force:true});key.fill(0);}
+});

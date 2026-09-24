@@ -52,3 +52,20 @@ test('restoring a control-plane snapshot never restarts a previously queued run'
 test('the complete control-plane table inventory includes queue records and cannot drop them on import',()=>{
  const store=new ProjectStore(':memory:');try{const tables=store.db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(r=>String(r.name));assert.deepEqual([...IMPORT_TABLES].sort(),tables.sort());}finally{store.close();}
 });
+
+test('recovery retains uncertain historical outcomes and invalidates only pending work',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'run-uncertainty-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+ const store=new ProjectStore(join(root,'source','state.sqlite3'));try{
+  const repository=new SqliteProjectRepository(store),ctx=repository.individualContext('alice'),project=await repository.create(ctx,'Retain uncertainty','gateway/model');
+  const authority:RunAuthority={workspaceId:ctx.principal.workspaceId,actorId:ctx.principal.actorId,memberVersion:1,mode:'individual',sessionId:null,origin:'http://127.0.0.1:3100',settingsOwner:'alice',allowLoopback:true,modelBinding:'a'.repeat(64),policyVersion:1};
+  const request={projectId:project.id,baseVersion:1,requestKey:randomUUID(),prompt:'Original request',model:'gateway/model',mode:'build' as const,imageIDs:[],confirmCost:true};
+  let now=Date.now();const queue=new RunQueue(store,()=>now),uncertain=queue.enqueue(authority,request),worker=queue.acquireWorker('crashed')!,job=queue.claim(worker)!;
+  queue.markModelStarted(job);now+=21000;queue.reconcile();assert.equal(queue.get(authority,uncertain.id).outcome,'MODEL_OUTCOME_UNCERTAIN');
+  const pending=queue.enqueue(authority,{...request,requestKey:randomUUID()}),key=randomBytes(32),bundle=join(root,'backup');
+  await createRecoveryBundle(store,key,bundle);const result=await restoreRecoveryBundle(bundle,key,join(root,'restored'));assert.equal(result.runsInvalidated,1);
+  const restored=new ProjectStore(join(root,'restored','state.sqlite3'));try{
+   const after=new RunQueue(restored);assert.equal(after.get(authority,uncertain.id).outcome,'MODEL_OUTCOME_UNCERTAIN');assert.equal(after.get(authority,pending.id).outcome,'RECOVERY_REVIEW_REQUIRED');
+   assert.equal(store.getRun('alice',project.id,pending.id).state,'QUEUED');
+  }finally{restored.close();}
+ }finally{store.close();}
+});
