@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T14:34:00-03:00"
-last_progress_at: "2026-09-24T14:34:00-03:00"
+heartbeat_at: "2026-09-24T14:38:00-03:00"
+last_progress_at: "2026-09-24T14:38:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue P49 with an honest versioned capability ledger over implemented packages, evidence SHAs and explicit external blockers; do not declare release complete while mandatory gaps remain."
+next_action: "Run final internal audit across security, tenant isolation, release evidence, accessibility and build gates; keep release NOT_READY/BLOCKED until unresolved internal findings are fixed and external blockers remain explicit."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -314,6 +314,9 @@ latest_gate_evidence:
   p67_model_experiments: "PASS 2/2 focused; experiments require model/hardware/dataset/license/baseline metadata, isolated approval and budget flags, and otherwise remain blocked with a reproducible manifest digest"
   p67_full_regression: "PASS; npm test exit 0 with 127 roadmap tests, 225 unit/integration tests and 8 P00 checks"
   p67_external_lab: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no customer dataset, model weights, hardware benchmark or promotion was used"
+  p49_capability_ledger: "PASS 2/2 focused; every assessed capability requires evidence or an explicit blocker, releaseReady is false when partial/incomplete/blocked records exist, and ledger revision/digest are immutable"
+  p49_full_regression: "PASS; npm test exit 0 with 129 roadmap tests, 225 unit/integration tests and 8 P00 checks"
+  p49_release_state: "NOT_READY / BLOCKED; local contracts are substantially implemented, but hosted infrastructure, external providers, production/pilot, native mobile, voice and model homologations remain unavailable or unauthorized"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
