@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T13:51:00-03:00"
-last_progress_at: "2026-09-24T13:51:00-03:00"
+heartbeat_at: "2026-09-24T13:54:00-03:00"
+last_progress_at: "2026-09-24T13:54:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue P51-P53 with local objective/repository/context/memory governance contracts; keep external model and provider homologation blocked."
+next_action: "Continue P56 with bounded DAG delegation, shared budget, draft-only writes and conflict-safe merge planning; keep real model/provider homologation blocked."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -277,6 +277,10 @@ latest_gate_evidence:
   p50_admission: "PASS 2/2 focused; exact immutable source, complete license and artifact digests, reviewed approval and maintenance status are required; changed revisions, restricted paths and missing licenses fail closed"
   p50_full_regression: "PASS; npm test exit 0 with 102 roadmap tests and 8 P00 checks"
   p50_external_legal_review: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no new third-party component was admitted and no legal/commercial review was requested"
+  p51_traceability: "PASS 1/1 focused; approved requirement digests trace objective, criteria, plan, patches, tests and revision; stale tests and foreign workspaces do not satisfy coverage"
+  p52_repo_context: "PASS 1/1 focused; context selection is tenant/revision scoped, relevance ordered, budget bounded, hashed and reports omitted files"
+  p53_governance: "PASS 1/1 focused; reviewed skills are immutable and permission-scoped, memory is project-scoped with provenance, and shell hooks are denied"
+  p51_p53_full_regression: "PASS; npm test exit 0 with 105 roadmap tests and 8 P00 checks"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
