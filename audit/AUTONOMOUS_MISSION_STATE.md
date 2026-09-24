@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T12:16:40-03:00"
-last_progress_at: "2026-09-24T12:16:40-03:00"
+heartbeat_at: "2026-09-24T12:35:55-03:00"
+last_progress_at: "2026-09-24T12:35:55-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -44,7 +44,7 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "7bececb7e00db1e5e61ffc37ab86bf059526945a"
+  head: "c2a49289dcc3dabd527027259d988e6f6787e341"
   uncommitted_changes: false
 watchdog:
   executor_pid: null
@@ -230,8 +230,9 @@ latest_gate_evidence:
   p31_full_regression: "PASS; npm test exit 0 with 62 roadmap tests and 8 P00 checks"
   p31_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external MCP server or OAuth authorization was used"
   p32_adapters: "PASS 3/3 focused; Figma/docs/Sentry manifests expose scopes and schemas, references are project/account/release traceable, redaction blocks secrets, and unavailable/wrong-scope resources are rejected"
-  p32_full_regression: "PASS; npm test exit 0 with 65 roadmap tests and 8 P00 checks"
+  p32_full_regression: "PASS; current npm test exit 0 with 69 roadmap tests, 225 unit/integration tests and 8 P00 checks"
   p32_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no third-party connector account or cost authorization was used"
+  p32_async_adapters: "PASS 2/2 focused; async Figma/Sentry adapters preserve workspace/project provenance, redact error credentials, and reject wrong project/non-operational context"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
