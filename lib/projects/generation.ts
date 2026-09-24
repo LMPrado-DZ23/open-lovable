@@ -1,3 +1,4 @@
+import type {ProviderScope} from '../settings/store';
 import { streamText, type ModelMessage } from 'ai';
 import {ReferenceImageStore} from './images';
 import {VISUAL_GUIDANCE,PLAN_GUIDANCE} from './visual-guidance';
@@ -27,7 +28,7 @@ export function proposedSnapshot(base:ProjectSnapshot,text:string):{snapshot:Pro
 }
 
 /** Generates against a durable snapshot, not the legacy global sandbox/conversation. */
-export function streamProjectRun(store:ProjectStore,owner:string,run:ProjectRun,requestSignal:AbortSignal):Response {
+export function streamProjectRun(store:ProjectStore,owner:string,run:ProjectRun,requestSignal:AbortSignal,access?:{scope?:ProviderScope;assertLive:()=>void}):Response {
  const execution=new AbortController();let outputClosed=false;
  const signal=AbortSignal.any([requestSignal,execution.signal,AbortSignal.timeout(10*60*1000)]);
  const body=new ReadableStream<Uint8Array>({
@@ -35,13 +36,14 @@ export function streamProjectRun(store:ProjectStore,owner:string,run:ProjectRun,
    const send=(event:unknown)=>{if(!outputClosed)controller.enqueue(new TextEncoder().encode('data: '+JSON.stringify(event)+'\n\n'));};
    const execute=async()=>{
     const heartbeat=setInterval(()=>{
-     try{if(!store.heartbeat(owner,run.project_id,run.id))execution.abort();}
+     try{access?.assertLive();if(!store.heartbeat(owner,run.project_id,run.id))execution.abort();}
      catch{execution.abort();}
     },1000);heartbeat.unref();
     try{
+     access?.assertLive();
      send({type:'status',runID:run.id,state:'RUNNING',phase:'planning'});
      const project=store.getProject(owner,run.project_id);
-     const model=await getProviderForModel(run.model,signal);
+     const model=await getProviderForModel(run.model,signal,access?.scope);
      const history=store.messages(owner,project.id).filter(message=>message.role!=='system').slice(-12).map(message=>({role:message.role as 'user'|'assistant',content:message.content}));
      const context=JSON.stringify({files:project.snapshot.files,assetPaths:Object.keys(project.snapshot.assets),references:store.documents(owner,project.id).map(doc=>({name:doc.name,content:doc.content}))});
      if(Buffer.byteLength(context)>2*1024*1024)throw new ProjectError('Project context exceeds 2 MiB. Reduce references or split the task before generating.');
@@ -61,7 +63,7 @@ export function streamProjectRun(store:ProjectStore,owner:string,run:ProjectRun,
        if(Date.now()-lastProgress>1000){send({type:'status',runID:run.id,state:'RUNNING',phase:'generating',characters:text.length});lastProgress=Date.now();}
       }
      }
-     signal.throwIfAborted();
+     signal.throwIfAborted();access?.assertLive();
      if(run.inputs.mode==='plan'){
       const completed=store.completePlan(owner,project.id,run.id,text);
       send({type:'plan-complete',runID:run.id,state:completed.state,mode:'plan',codeChanged:false});return;
@@ -69,7 +71,7 @@ export function streamProjectRun(store:ProjectStore,owner:string,run:ProjectRun,
      const proposal=proposedSnapshot(project.snapshot,text);
      send({type:'status',runID:run.id,state:'RUNNING',phase:'compiling'});
      const compiled=await compileProject(proposal.snapshot);
-     signal.throwIfAborted();
+     signal.throwIfAborted();access?.assertLive();
      store.event(owner,project.id,run.id,'proposal.compiled',{entry:compiled.entry,sha256:compiled.sha256,warnings:compiled.warnings});
      const staged=store.stageRun(owner,project.id,run.id,proposal.snapshot,proposal.explanation);
      send({type:'complete',runID:run.id,state:staged.state,compiled:true,applicationTested:false});

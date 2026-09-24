@@ -1,4 +1,6 @@
 "use client";
+import AccountBar from '@/components/account/AccountBar';
+import {scopedProjectURL} from '@/lib/projects/scope-url';
 import ProviderSettingsForm from '@/components/ProviderSettingsForm';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -20,7 +22,7 @@ export default function AISettingsPage() {
     const controller=new AbortController();active.current=controller;
     setBusy(true);setProbe(null);
     try {
-      const response=await fetch('/api/ai-model-test',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({model:selected,confirmTokenUse:true})});
+      const response=await fetch(scopedProjectURL('/api/ai-model-test'),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({model:selected,confirmTokenUse:true})});
       const result=await response.json() as Probe;
       if(!controller.signal.aborted) setProbe(result);
     } catch {
@@ -29,6 +31,7 @@ export default function AISettingsPage() {
   }
   const canTest=consent && !busy && !loading && models.some(model=>model.id===selected && model.configured);
   return <main className="min-h-screen bg-[#f7f7f5] text-[#232323]">
+    <AccountBar workspaceId={catalog?.workspaceId}/>
     <div className="mx-auto max-w-[1100px] px-[20px] py-[32px] md:px-[32px]">
       <header className="mb-[32px] flex flex-wrap items-center justify-between gap-[16px] border-b border-[#deded9] pb-[20px]">
         <Link href="/" className="text-[15px] font-semibold">Open Lovable <span className="ml-[12px] font-normal text-[#686862]">Voltar ao construtor</span></Link>
@@ -51,11 +54,12 @@ export default function AISettingsPage() {
             <div><dt className="text-[#77776e]">Credencial no servidor</dt><dd>{gateway?.credentialConfigured ? 'Configurada; valor não exibido' : 'Não configurada'}</dd></div>
           </dl>
           {gateway?.error && <p role="alert" className="mt-[16px] break-words text-[13px] text-red-700">{gateway.error}</p>}
+          {catalog?.profile==='supabase'?<p className="mt-[24px] border-t border-[#ededE8] pt-[16px] text-[12px] leading-relaxed text-[#686862]">As conexões pertencem ao workspace indicado acima. Credenciais globais do operador não são herdadas. Um endpoint local só pode ser usado quando a instalação permite explicitamente.</p>:
           <div className="mt-[24px] border-t border-[#ededE8] pt-[16px] text-[12px] leading-relaxed text-[#686862]">
             <p className="mb-[8px] font-medium">Configuração no ambiente do servidor</p>
             <code className="block break-all">OPEN_LOVABLE_GATEWAY_URL</code><code className="block break-all">OPEN_LOVABLE_GATEWAY_API_KEY</code><code className="block break-all">OPEN_LOVABLE_GATEWAY_MODELS</code>
             <p className="mt-[12px]">Use o formulario acima para salvar uma conexao cifrada, ou configure as variaveis no servidor. Consulte docs/classe-a-plus-integration.md. Um endpoint local pode encaminhar modelos para a nuvem; a interface não o rotula como inferência privada.</p>
-          </div>
+          </div>}
         </section>
         <section className="rounded-lg border border-[#deded9] bg-white p-[24px]" aria-labelledby="test-heading">
           <h2 id="test-heading" className="mb-[14px] text-[19px] font-semibold">Testar o modelo selecionado</h2>

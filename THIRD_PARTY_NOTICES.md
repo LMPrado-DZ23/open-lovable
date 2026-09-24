@@ -18,3 +18,7 @@ Lovable product documentation is a behavioral reference only. No proprietary Lov
 ## PostgreSQL client dependency admission (P04)
 
 The pinned pg driver and 13 newly resolved transitive/type packages are recorded in docs/admission/candidates.json with registry integrity, actual file checksums, exact versions and license evidence. Full license notices are retained in docs/notices/postgres. No package lifecycle script was executed during admission. Their code remains an npm dependency, not a copied second application framework.
+
+## Supabase Auth CI integration
+
+The separately executed test-only Auth container is pinned in `docs/admission/auth-ci-image.json`. Its upstream MIT notice is preserved at `docs/notices/supabase-auth/LICENSE.txt`. It is not bundled as the production identity service.

@@ -27,7 +27,7 @@ async function main():Promise<void>{
    console.log(JSON.stringify({success:true,operation:'backup-verified',schemaVersion:report.schemaVersion,databaseDigest:report.databaseDigest}));
   }else{
    const report=await restoreRecoveryBundle(options.get('--bundle')!,key,options.get('--destination')!);
-   console.log(JSON.stringify({success:true,operation:'restored-to-new-directory',schemaVersion:report.schemaVersion,databaseDigest:report.databaseDigest}));
+   console.log(JSON.stringify({success:true,operation:'restored-to-new-directory',schemaVersion:report.schemaVersion,databaseDigest:report.databaseDigest,restoredDatabaseDigest:report.restoredDatabaseDigest,sessionsInvalidated:report.sessionsInvalidated,invitationsInvalidated:report.invitationsInvalidated}));
   }
  }finally{key.fill(0);}
 }

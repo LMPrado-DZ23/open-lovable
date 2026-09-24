@@ -7,9 +7,9 @@ import type {Pool,PoolClient} from 'pg';
 import {assertSafeDataAncestors} from '../security/data-paths';
 import {createRecoveryBudget,inspectRecoverySnapshot} from '../projects/recovery';
 import {ProjectError} from '../projects/store';
-import {POSTGRES_SCHEMA_VERSION,POSTGRES_SCHEMA_DIGEST} from './postgres-schema';
+import {POSTGRES_SCHEMA_VERSION,assertPostgresHistory} from './postgres-schema';
 
-export const IMPORT_TABLES=['workspaces','workspace_members','projects','revisions','runs','messages','run_events','provider_settings','project_documents','execution_claims','project_images'] as const;
+export const IMPORT_TABLES=['workspaces','workspace_members','projects','revisions','runs','messages','run_events','provider_settings','project_documents','execution_claims','project_images','identity_actors','auth_sessions','workspace_invites','identity_rate_limits','identity_audit'] as const;
 /** Columns come only from a known schema table and still pass strict identifier validation. */
 export function importColumns(db:DatabaseSync,table:typeof IMPORT_TABLES[number]):string[]{
  if(!IMPORT_TABLES.includes(table))throw new ProjectError('Unexpected source table');
@@ -19,7 +19,7 @@ export function importColumns(db:DatabaseSync,table:typeof IMPORT_TABLES[number]
 }
 export interface ImportReport {
  sourceSchemaVersion:number;targetSchemaVersion:number;sourceSnapshotDigest:string;
- tables:Record<string,{rows:number;digest:string}>;activation:'NOT_PERFORMED';
+ tables:Record<string,{rows:number;digest:string}>;activation:'NOT_PERFORMED';sessionsInvalidated:number;invitationsInvalidated:number;
 }
 function canonical(value:unknown):string{
  if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';
@@ -37,7 +37,7 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
   temporary=mkdtempSync(join(realpathSync(tmpdir()),'open-lovable-import-'));const snapshot=join(temporary,'snapshot.sqlite3');
   const input=new DatabaseSync(source,{readOnly:true});
   try{
-   if(input.prepare('PRAGMA user_version').get()?.user_version!==4)throw new ProjectError('Import requires an explicitly upgraded SQLite schema version 4');
+   if(![4,5].includes(Number(input.prepare('PRAGMA user_version').get()?.user_version)))throw new ProjectError('Import requires an explicitly upgraded SQLite schema version 4 or 5');
    const pageSize=Number(input.prepare('PRAGMA page_size').get()?.page_size);
    if(pageSize*Number(input.prepare('PRAGMA page_count').get()?.page_count)>budget.maxBytes)throw new ProjectError('Import size budget exceeded',413);
    await backup(input,snapshot,{rate:100,progress:({totalPages})=>{budget.check();if(totalPages*pageSize>budget.maxBytes)throw new ProjectError('Import size budget exceeded',413);}});
@@ -53,12 +53,13 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
    const role=await client.query('SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user');
    if(!role.rows[0]?.rolsuper&&!role.rows[0]?.rolbypassrls)throw new ProjectError('Import requires a separate privileged operator connection',403);
    const schema=await client.query('SELECT version,digest FROM open_lovable.schema_migrations ORDER BY version');
-   if(schema.rowCount!==1||schema.rows[0].version!==POSTGRES_SCHEMA_VERSION||schema.rows[0].digest!==POSTGRES_SCHEMA_DIGEST)throw new ProjectError('PostgreSQL schema is not the approved import target',409);
+   try{assertPostgresHistory(schema.rows);}catch{throw new ProjectError('PostgreSQL schema is not the approved import target',409);}
    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('open-lovable-import-v1',0))");
    await client.query('LOCK TABLE '+IMPORT_TABLES.map(table=>'open_lovable.'+table).join(',')+' IN EXCLUSIVE MODE');
    for(const table of IMPORT_TABLES){budget.check();if((await client.query(`SELECT 1 FROM open_lovable.${table} LIMIT 1`)).rowCount)throw new ProjectError('Import target must be empty; existing data were preserved',409);}
    const tables:ImportReport['tables']={};
    for(const table of IMPORT_TABLES){
+    if(!Object.hasOwn(certified.tables,table))continue;
     budget.check();const columns=importColumns(db,table);
     const rowHashes:string[]=[];let batch:unknown[][]=[],batchBytes=0,totalRows=0;
     const flush=async()=>{
@@ -81,8 +82,13 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
     tables[table]=expected;
    }
    await client.query("SELECT setval(pg_get_serial_sequence('open_lovable.run_events','sequence'),GREATEST(COALESCE((SELECT max(sequence) FROM open_lovable.run_events),1),1),EXISTS(SELECT 1 FROM open_lovable.run_events))");
+   await client.query("SELECT setval(pg_get_serial_sequence('open_lovable.identity_audit','sequence'),GREATEST(COALESCE((SELECT max(sequence) FROM open_lovable.identity_audit),1),1),EXISTS(SELECT 1 FROM open_lovable.identity_audit))");
+   // Verify exact copied inventories first; capabilities are intentionally invalidated before activation.
+   const now=Date.now();
+   const sessions=await client.query("UPDATE open_lovable.auth_sessions SET revoked_at=$1,encrypted='',refresh_lease=NULL,refresh_until=0 WHERE revoked_at IS NULL OR encrypted<>''",[now]);
+   const invitations=await client.query('UPDATE open_lovable.workspace_invites SET cancelled_at=$1 WHERE consumed_at IS NULL AND cancelled_at IS NULL',[now]);
    budget.check();await client.query('COMMIT');
-   return {sourceSchemaVersion:certified.schemaVersion,targetSchemaVersion:POSTGRES_SCHEMA_VERSION,sourceSnapshotDigest:digest.digest('hex'),tables,activation:'NOT_PERFORMED'};
+   return {sourceSchemaVersion:certified.schemaVersion,targetSchemaVersion:POSTGRES_SCHEMA_VERSION,sourceSnapshotDigest:digest.digest('hex'),tables,activation:'NOT_PERFORMED',sessionsInvalidated:sessions.rowCount||0,invitationsInvalidated:invitations.rowCount||0};
   }catch(error){try{await client.query('ROLLBACK');}catch{client.release(true);released=true;}throw error;}
   finally{if(!released)client.release();db.close();}
  }finally{key.fill(0);if(temporary)rmSync(temporary,{recursive:true,force:true});}

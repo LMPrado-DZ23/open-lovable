@@ -1,4 +1,5 @@
 "use client";
+import {scopedProjectURL} from '@/lib/projects/scope-url';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Provider='gateway'|'openai'|'anthropic'|'google'|'groq';
@@ -16,7 +17,7 @@ export default function ProviderSettingsForm({onSaved}:{onSaved:()=>void}) {
  const load=useCallback(async(signal?:AbortSignal)=>{
   setLoading(true);
   try {
-   const response=await fetch('/api/provider-settings',{cache:'no-store',signal});const data=await response.json();
+   const response=await fetch(scopedProjectURL('/api/provider-settings'),{cache:'no-store',signal});const data=await response.json();
    if(!response.ok||!Array.isArray(data.providers))throw new Error(data.error||'Falha ao carregar as conexões.');
    if(!signal?.aborted)setRows(data.providers);
   }catch(caught){if(!signal?.aborted)setError(caught instanceof Error?caught.message:'Falha ao carregar as conexões.');}
@@ -28,7 +29,7 @@ export default function ProviderSettingsForm({onSaved}:{onSaved:()=>void}) {
   event.preventDefault();if(busy||loading||managed||!row)return;
   const controller=new AbortController();saving.current=controller;setBusy(true);setError('');setMessage('');
   try {
-   const response=await fetch('/api/provider-settings',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,version:row.version,enabled,baseURL:url,apiKey:key,clearKey,models:models.split('\n').map(id=>id.trim()).filter(Boolean)})});
+   const response=await fetch(scopedProjectURL('/api/provider-settings'),{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,version:row.version,enabled,baseURL:url,apiKey:key,clearKey,models:models.split('\n').map(id=>id.trim()).filter(Boolean)})});
    const result=await response.json();if(!response.ok)throw new Error(result.error||'Não foi possivel salvar.');
    if(controller.signal.aborted)return;
    setKey('');setClearKey(false);await load(controller.signal);setMessage('Conexão salva com criptografia no servidor. Teste o modelo antes de usá-lo.');onSaved();

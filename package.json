@@ -22,7 +22,8 @@
     "check:admission": "tsx scripts/admission-check.ts",
     "recovery": "tsx scripts/recovery.ts",
     "test:postgres": "tsx --import ./tests/setup.mjs --test tests/postgres/*.test.ts",
-    "postgres:admin": "tsx scripts/postgres.ts"
+    "postgres:admin": "tsx scripts/postgres.ts",
+    "test:auth-server": "tsx --import ./tests/setup.mjs --test tests/identity-server/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.1",
