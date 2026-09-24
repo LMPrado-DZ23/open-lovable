@@ -139,3 +139,21 @@
 - Correct the disposable database role search_path for this database only. Do not replace upstream Auth with mocks or weaken password/OTP assertions. The existing two real Auth tests remain the gate on the new commit.
 
 - Real GoTrue tests passed after correcting the disposable search path (run 35936172963). A separate macOS test exposed timestamp ties in conversation retrieval: same-millisecond messages were reversed. Added deterministic 120-message regression, observed RED, then ordered by timestamp plus SQLite insertion rowid. No assertion removed from recovery. Cross-database durable ordering is an additional versioned contract, not a claim about UUID chronology.
+
+## P07/P08/P09 - first durable execution slice
+
+Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the request-bound legacy generation API while the Studio moves to explicit versioned enqueue/observe/cancel operations.
+
+- Ruling: implement the runnable single-node SQLite worker first. Add versioned PostgreSQL schemas/import coverage, but do not claim a distributed PostgreSQL worker or hosted activation until its adapter and identity stores are integrated and tested.
+- The canonical run owns state. A control record binds immutable source/context, actor/workspace/session, model connection fingerprint, request/trace IDs, deadline and fencing token. The journal uses per-run sequence IDs, not a globally exposed counter.
+- Ruling: migration 6 needs to widen the historical runs CHECK constraint. Rebuild only this table inside a transaction, check all foreign keys before commit, and restore enforcement on every exit. Never edit migrations 1-5. Production upgrade requires a verified P03 backup; tests use synthetic databases only.
+- No subscriber owns the worker lifecycle. Disconnect stops observation, not execution. Cancellation is explicit and fenced. Unknown model effects after a crash are interrupted for review, never silently reissued; a persisted complete model result may resume validation without another model call.
+- Preflight: P05 actor/session revocation must be revalidated before provider access and candidate consolidation; P03/P04 must copy the new control/journal tables and invalidate pending work after restore/import. Credentials stay outside stored model inputs/events. Queue operation must use the same credential scope as the Studio.
+
+## P07-P09 checkpoint - not accepted
+
+- See docs/durable-runs-status.md for current implementation and exact remaining work.
+- Two test-edit operations were refused before execution and not rerouted. The corresponding test files remain unchanged from those refusal points.
+- Complete current tests: 184/185 passed; the nested-route discovery gate remains failed. The new browser cases have setup faults and do not yet demonstrate the intended disconnect behavior. UI integration is not delivered.
+- The last green published application is 13f89db / PR #6; its real upstream Auth, PostgreSQL, Ubuntu/main, Windows and macOS jobs passed in CI 35937107948.
+- No merge, production cutover or inference with a paid/user model. Runtime scripts and new migrations in this worktree are development state and must not be mistaken for the green P05 revision.

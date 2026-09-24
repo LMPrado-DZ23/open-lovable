@@ -111,6 +111,6 @@ test('P05 migration 2 upgrades a real v1 database without rewriting its migratio
   await target.query('INSERT INTO open_lovable.schema_migrations VALUES(1,$1,$2)',[POSTGRES_SCHEMA_DIGEST,'2026-01-01']);
   await migratePostgres(target,{runtimeRole});await migratePostgres(target,{runtimeRole});
   const rows=(await target.query('SELECT version,digest,applied_at FROM open_lovable.schema_migrations ORDER BY version')).rows;
-  assert.equal(rows.length,2);assert.equal(rows[0].applied_at,'2026-01-01');assert.equal(rows[0].digest,POSTGRES_SCHEMA_DIGEST);assert.equal(rows[1].digest,POSTGRES_MIGRATIONS[1].digest);
+  assert.equal(rows.length,3);assert.equal(rows[2].digest,POSTGRES_MIGRATIONS[2].digest);assert.equal(rows[0].applied_at,'2026-01-01');assert.equal(rows[0].digest,POSTGRES_SCHEMA_DIGEST);assert.equal(rows[1].digest,POSTGRES_MIGRATIONS[1].digest);
  }finally{await target.end();await admin.query('DROP DATABASE "'+dbName+'"');}
 });

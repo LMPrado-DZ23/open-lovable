@@ -20,3 +20,8 @@ export function readSessionCookie(header:string|null,origin:string):string {
  if(matches.length!==1)return '';
  const value=matches[0].slice(name.length+1);return /^[A-Za-z0-9_-]{43}$/.test(value)?value:'';
 }
+
+/** Only exact versioned run operations are added; legacy sandbox endpoints stay forbidden in account mode. */
+export function accountApiAllowed(path:string):boolean {
+ return ACCOUNT_API_PATHS.has(path)||path==='/api/v1/projects'||path==='/api/v1/runs'||/^\/api\/v1\/runs\/[0-9a-f-]{36}(?:\/(?:events|cancel|accept))?$/.test(path);
+}

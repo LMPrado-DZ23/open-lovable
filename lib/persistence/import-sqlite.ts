@@ -9,7 +9,7 @@ import {createRecoveryBudget,inspectRecoverySnapshot} from '../projects/recovery
 import {ProjectError} from '../projects/store';
 import {POSTGRES_SCHEMA_VERSION,assertPostgresHistory} from './postgres-schema';
 
-export const IMPORT_TABLES=['workspaces','workspace_members','projects','revisions','runs','messages','run_events','provider_settings','project_documents','execution_claims','project_images','identity_actors','auth_sessions','workspace_invites','identity_rate_limits','identity_audit'] as const;
+export const IMPORT_TABLES=['workspaces','workspace_members','projects','revisions','runs','messages','run_events','provider_settings','project_documents','execution_claims','project_images','identity_actors','auth_sessions','workspace_invites','identity_rate_limits','identity_audit','run_controls','run_journal','worker_leases'] as const;
 /** Columns come only from a known schema table and still pass strict identifier validation. */
 export function importColumns(db:DatabaseSync,table:typeof IMPORT_TABLES[number]):string[]{
  if(!IMPORT_TABLES.includes(table))throw new ProjectError('Unexpected source table');
@@ -19,7 +19,7 @@ export function importColumns(db:DatabaseSync,table:typeof IMPORT_TABLES[number]
 }
 export interface ImportReport {
  sourceSchemaVersion:number;targetSchemaVersion:number;sourceSnapshotDigest:string;
- tables:Record<string,{rows:number;digest:string}>;activation:'NOT_PERFORMED';sessionsInvalidated:number;invitationsInvalidated:number;
+ tables:Record<string,{rows:number;digest:string}>;activation:'NOT_PERFORMED';sessionsInvalidated:number;invitationsInvalidated:number;runsInvalidated:number;
 }
 function canonical(value:unknown):string{
  if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';
@@ -37,7 +37,7 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
   temporary=mkdtempSync(join(realpathSync(tmpdir()),'open-lovable-import-'));const snapshot=join(temporary,'snapshot.sqlite3');
   const input=new DatabaseSync(source,{readOnly:true});
   try{
-   if(![4,5].includes(Number(input.prepare('PRAGMA user_version').get()?.user_version)))throw new ProjectError('Import requires an explicitly upgraded SQLite schema version 4 or 5');
+   if(![4,5,6].includes(Number(input.prepare('PRAGMA user_version').get()?.user_version)))throw new ProjectError('Import requires an explicitly upgraded SQLite schema version 4, 5 or 6');
    const pageSize=Number(input.prepare('PRAGMA page_size').get()?.page_size);
    if(pageSize*Number(input.prepare('PRAGMA page_count').get()?.page_count)>budget.maxBytes)throw new ProjectError('Import size budget exceeded',413);
    await backup(input,snapshot,{rate:100,progress:({totalPages})=>{budget.check();if(totalPages*pageSize>budget.maxBytes)throw new ProjectError('Import size budget exceeded',413);}});
@@ -87,8 +87,11 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
    const now=Date.now();
    const sessions=await client.query("UPDATE open_lovable.auth_sessions SET revoked_at=$1,encrypted='',refresh_lease=NULL,refresh_until=0 WHERE revoked_at IS NULL OR encrypted<>''",[now]);
    const invitations=await client.query('UPDATE open_lovable.workspace_invites SET cancelled_at=$1 WHERE consumed_at IS NULL AND cancelled_at IS NULL',[now]);
+   const runs=await client.query("UPDATE open_lovable.runs SET state='INTERRUPTED',lease_until=0,error='Imported execution requires a new authorization; no automatic replay.' WHERE state IN ('QUEUED','RUNNING')");
+   await client.query('DELETE FROM open_lovable.worker_leases');
+   await client.query("UPDATE open_lovable.run_controls SET outcome='RECOVERY_REVIEW_REQUIRED',phase='interrupted',worker_id=NULL WHERE run_id IN (SELECT id FROM open_lovable.runs WHERE state='INTERRUPTED')");
    budget.check();await client.query('COMMIT');
-   return {sourceSchemaVersion:certified.schemaVersion,targetSchemaVersion:POSTGRES_SCHEMA_VERSION,sourceSnapshotDigest:digest.digest('hex'),tables,activation:'NOT_PERFORMED',sessionsInvalidated:sessions.rowCount||0,invitationsInvalidated:invitations.rowCount||0};
+   return {sourceSchemaVersion:certified.schemaVersion,targetSchemaVersion:POSTGRES_SCHEMA_VERSION,sourceSnapshotDigest:digest.digest('hex'),tables,activation:'NOT_PERFORMED',sessionsInvalidated:sessions.rowCount||0,invitationsInvalidated:invitations.rowCount||0,runsInvalidated:runs.rowCount||0};
   }catch(error){try{await client.query('ROLLBACK');}catch{client.release(true);released=true;}throw error;}
   finally{if(!released)client.release();db.close();}
  }finally{key.fill(0);if(temporary)rmSync(temporary,{recursive:true,force:true});}

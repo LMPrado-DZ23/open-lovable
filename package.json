@@ -4,15 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack --hostname 127.0.0.1",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node scripts/start-studio.mjs --dev",
+    "build": "next build && npm run build:worker",
+    "start": "node scripts/start-studio.mjs",
     "lint": "eslint . --max-warnings 0",
     "test:api": "tsx --import ./tests/setup.mjs --test tests/api.test.ts tests/access.test.ts",
     "test:code": "tsx --import ./tests/setup.mjs --test tests/providers.test.ts tests/validation.test.ts tests/export.test.ts",
     "test:all": "npm test",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --import ./tests/setup.mjs --test tests/*.test.ts && npm run test:roadmap",
+    "test": "npm run build:worker && tsx --import ./tests/setup.mjs --test tests/*.test.ts && npm run test:roadmap",
     "test:integration": "tsx --import ./tests/setup.mjs --test tests/integration.test.ts",
     "test:e2e": "playwright test",
     "check": "npm run check:admission && npm run lint && npm run typecheck && npm test && npm run build",
@@ -23,7 +23,12 @@
     "recovery": "tsx scripts/recovery.ts",
     "test:postgres": "tsx --import ./tests/setup.mjs --test tests/postgres/*.test.ts",
     "postgres:admin": "tsx scripts/postgres.ts",
-    "test:auth-server": "tsx --import ./tests/setup.mjs --test tests/identity-server/*.test.ts"
+    "test:auth-server": "tsx --import ./tests/setup.mjs --test tests/identity-server/*.test.ts",
+    "dev:web": "next dev --turbopack --hostname 127.0.0.1",
+    "build:worker": "node scripts/build-worker.mjs",
+    "start:web": "next start",
+    "worker": "node .open-lovable-build/agent-worker.cjs",
+    "worker:dev": "node --import tsx workers/agent-worker.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.1",

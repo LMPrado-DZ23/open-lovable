@@ -16,7 +16,8 @@ test('P05 legacy schema 4 stays inspectable without pretending to contain identi
 });
 test('P05 PostgreSQL schema history has an additive identity migration with a distinct digest',async()=>{
  const schema=await import('../lib/persistence/postgres-schema') as Record<string,any>;
- assert.equal(schema.POSTGRES_MIGRATIONS?.length,2);
+ assert.equal(schema.POSTGRES_MIGRATIONS?.length,3);
+ assert.equal(schema.POSTGRES_MIGRATIONS[2].version,3);assert.match(schema.POSTGRES_MIGRATIONS[2].sql,/run_controls/);
  assert.equal(schema.POSTGRES_MIGRATIONS[0].sql,schema.POSTGRES_SCHEMA_SQL);
  assert.equal(schema.POSTGRES_MIGRATIONS[0].digest,schema.POSTGRES_SCHEMA_DIGEST);
  assert.match(schema.POSTGRES_MIGRATIONS[1].sql,/auth_sessions/);

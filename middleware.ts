@@ -1,6 +1,6 @@
 import {NextResponse,type NextRequest} from 'next/server';
 import {authorizeOperatorRequest,getTrustedAppOrigin} from './lib/security/operator-access';
-import {authMode,ACCOUNT_API_PATHS,accountPageAllowed,readSessionCookie} from './lib/identity/config';
+import {authMode,accountApiAllowed,accountPageAllowed,readSessionCookie} from './lib/identity/config';
 /** This edge gate controls routing only; each account API validates the actual server session. */
 export async function middleware(request:NextRequest) {
  let mode:'individual'|'supabase';try{mode=authMode();}catch{return NextResponse.json({error:'Authentication profile is invalid.'},{status:503});}
@@ -10,7 +10,7 @@ export async function middleware(request:NextRequest) {
   let origin:string;try{origin=getTrustedAppOrigin(request);}catch{return NextResponse.json({error:'Application origin is invalid.'},{status:503});}
   const path=request.nextUrl.pathname;
   if(path.startsWith('/api/')){
-   if(!ACCOUNT_API_PATHS.has(path))return NextResponse.json({error:'This operation belongs to the isolated individual profile.'},{status:403});
+   if(!accountApiAllowed(path))return NextResponse.json({error:'This operation belongs to the isolated individual profile.'},{status:403});
   }else{
    if(!accountPageAllowed(path))return NextResponse.json({error:'This page is not available in the account profile.'},{status:403});
    const publicPage=path==='/login'||path==='/auth/confirm'||path==='/invite';
