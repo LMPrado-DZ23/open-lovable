@@ -137,3 +137,5 @@
 - The prior response failures did not lose f16516a or PR #6. Worktree and remote branch inspected clean.
 - CI 35933981080: PostgreSQL and application suites passed; real upstream Auth failed before login because its unqualified identities lookup used public instead of auth. PostgreSQL log showed relation identities does not exist although the upstream migrations created auth tables.
 - Correct the disposable database role search_path for this database only. Do not replace upstream Auth with mocks or weaken password/OTP assertions. The existing two real Auth tests remain the gate on the new commit.
+
+- Real GoTrue tests passed after correcting the disposable search path (run 35936172963). A separate macOS test exposed timestamp ties in conversation retrieval: same-millisecond messages were reversed. Added deterministic 120-message regression, observed RED, then ordered by timestamp plus SQLite insertion rowid. No assertion removed from recovery. Cross-database durable ordering is an additional versioned contract, not a claim about UUID chronology.

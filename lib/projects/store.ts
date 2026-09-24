@@ -249,7 +249,7 @@ export class ProjectStore {
  }
  messages(owner:string,id:string):Array<{id:string;role:string;content:string;created_at:string}> {
   this.getProject(owner,id);
-  return this.db.prepare('SELECT id,role,content,created_at FROM (SELECT * FROM messages WHERE project_id=? ORDER BY created_at DESC LIMIT 100) ORDER BY created_at').all(id) as any;
+  return this.db.prepare('SELECT id,role,content,created_at FROM (SELECT rowid AS message_order,* FROM messages WHERE project_id=? ORDER BY created_at DESC,rowid DESC LIMIT 100) ORDER BY created_at,message_order').all(id) as any;
  }
  event(owner:string,id:string,runID:string,type:string,payload:unknown):void {
   this.getRun(owner,id,runID);
