@@ -27,6 +27,7 @@ import {
 } from '@/lib/icons';
 import { motion } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
+import { resolveSelectedFileContent } from '@/lib/visual/file-content';
 
 interface SandboxData {
   sandboxId: string;
@@ -1340,11 +1341,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                           }}
                           showLineNumbers={true}
                         >
-                          {(() => {
-                            // Find the file content from generated files
-                            const file = generationProgress.files.find(f => f.path === selectedFile);
-                            return file?.content || '// File content will appear here';
-                          })()}
+                          {resolveSelectedFileContent(selectedFile, generationProgress.files, sandboxFiles)}
                         </SyntaxHighlighter>
                       </div>
                     </div>
@@ -2240,7 +2237,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
 
   const handleFileClick = async (filePath: string) => {
     setSelectedFile(filePath);
-    // TODO: Add file content fetching logic here
+    if (generationProgress.files.some(file => file.path === filePath) || sandboxFiles[filePath] || sandboxFiles[filePath.replace(/^\//, '')]) return;
+    await fetchSandboxFiles();
   };
 
   const getFileIcon = (fileName: string) => {

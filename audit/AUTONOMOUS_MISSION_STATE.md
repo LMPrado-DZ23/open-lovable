@@ -33,10 +33,11 @@ budget:
   api_or_cost_limit: "free/local fixtures only unless explicit approval"
 rollback_plan: "Every code step is committed on the development branch; restore to 05875bef7ef8f3f43a84195df7f6df05abc3e379 or the last verified commit. Database tests use disposable roots; no destructive production migration is permitted."
 state: EXECUTING
-iteration: 2
+status: CONTINUE
+iteration: 3
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T14:47:00-03:00"
-last_progress_at: "2026-09-24T14:47:00-03:00"
+heartbeat_at: "2026-09-24T15:02:00-03:00"
+last_progress_at: "2026-09-24T15:02:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -44,15 +45,15 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "c2a49289dcc3dabd527027259d988e6f6787e341"
+  head: "4fa3b2bd3a203d98bfab5274640146cb0e4f710a"
   uncommitted_changes: false
 watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Close P08/P09 durable execution acceptance and then continue through remaining DAG slices."
-current_failure: "No current code failure; mission remains incomplete because the full P00-P67 acceptance matrix is not closed."
-current_strategy: "Use vertical slices: integrate existing P06 services into hot consumers, close HTTP/worker approval journeys, then add governance improvements with tests and evidence."
+current_task: "Final internal audit: validate tenant isolation across critical API routes and perform accessibility/responsive check on new mission-center components."
+current_failure: "No current code failure; mission remains incomplete because external homologations and final independent audits are not closed."
+current_strategy: "Use evidence-driven vertical slices, then run independent security, product and accessibility audits; never treat local fixtures as external homologation."
 plan:
   - "Recover and baseline commit 05875be."
   - "Close control plane P06/P07-P11, including real dispatch enforcement and PostgreSQL contracts."
@@ -85,16 +86,19 @@ completed_tasks:
   - "P08/P09 regression fixed: safe RUNNING->QUEUED reconciliation is allowed and compiled worker process tests pass 4/4"
   - "Full npm test regression after rebuild passes with exit 0; 219 tests observed"
   - "Review branch pushed; draft PR creation remains blocked by GitHub integration permission"
+  - "P49-P67 local contract slices and final internal build gates published through 4fa3b2b"
+  - "Generation file selection fix and visual-file-content contract integrated with 226 unit tests green"
 pending_tasks:
-  - "P10 browser-level approval pause/resume journey"
-  - "P08/P09 hosted PostgreSQL and concurrency acceptance"
-  - "P13 external Linux/container homologation"
-  - "P11 timeout/concurrency acceptance and external model homologation"
-  - "All remaining packages and full-flow acceptance"
+  - "Independent security audit and fix loop over current HEAD"
+  - "Independent product/functional audit of the three end-to-end journeys"
+  - "Independent accessibility/responsive audit and evidence"
+  - "Hosted PostgreSQL, external providers, native mobile, PBX/SIP and model homologations"
+  - "Final release review and authorized merge/publication"
 dependencies:
   - "PostgreSQL disposable service for real hosted contracts"
   - "Private S3-compatible service for P06 acceptance"
   - "Authorized real model/cloud/SMTP/DNS credentials for external homologation"
+  - "Independent auditors or equivalent review evidence for final security/product/accessibility gates"
 blockers: []
 approvals_pending: []
 hypotheses:
@@ -322,6 +326,7 @@ latest_gate_evidence:
   final_build: "PASS; npm run build compiled Next web and agent worker"
   final_secret_scan: "REVIEWED; pattern scan matched only intentional synthetic fixture/test strings (fixture tokens and a redaction test), no real credential was found"
   final_audit_state: "IN_PROGRESS; internal gates green, external homologation and release authorization still open"
+  generation_file_selection: "PASS; resolveSelectedFileContent helper prefers generated output, falls back to authorized sandbox cache and avoids empty placeholders"
   p63_voice_contract: "PASS 2/2 focused; sessions require authorized E.164 destination, consent for recording, bounded timeout/budget, workspace/project-scoped handoff and idempotent callbacks"
   p63_full_regression: "PASS; npm test exit 0 with 131 roadmap tests, 225 unit/integration tests and 8 P00 checks"
   p63_external_voice: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no PBX/SIP, phone number, audio device, transcription provider or real call was used"
