@@ -183,3 +183,17 @@ Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the
 - One early browser verification overlapped the running build and failed before startup due to the absent prerender manifest. This was an orchestration error, not evidence about the fixed feature. Re-run all gates sequentially after build completion; retain the failed log.
 
 - Clean verification of the independent correction tree completed: 205 code/API/integration tests + 8 evidence tests, 31 browser tests, lint, typecheck, web/worker build and zero npm advisories returned. The strengthened scope test additionally saved the connection through the real UI and verified the other workspace was unchanged. Source digests and logs are recorded in docs/evidence/p09-review-corrections.json. PostgreSQL-specific regression and new-head CI must still be read before certification.
+
+
+## Manus 2026-09-24 - P06/P10/P11 execution checkpoint
+
+- Base verificada: `0153fe9cafd639e84f9532a08590e1850452fdc9`, branch `fix/p09-reviewed-recovery-scope-20260924`, clone separado em `open-lovable-exec`; WIP `7cddb143378fb11083ed7ecf1f2a61275c85fb16` apenas revisado, não mesclado.
+- Runtime: Node `22.18.0` e npm `10.9.3` usados nos gates finais. O runtime default `22.13.0` foi registrado como incompatível com o engine declarado e não sustenta os gates finais.
+- Baseline reproduzido: admission, lint, types, build web/worker e audit passaram; a primeira execução em Node 22.13 falhou em dependências `node:sqlite` e a suíte histórica terminou 177/196. Após Node 22.18 e correções de inventário/preflight, a suíte completa passou com `205/205` testes.
+- P10: migration SQLite 8 aditiva com `run_approvals`, `run_grants`, `run_limits`, estado `AWAITING_INPUT`, grants append-only, nonce/digest/ator/revisão/conexão/expiração verificados; `ApprovalService` pausa sem manter worker, invalida decisões antigas, nega/rejeita replay e retoma via grant canônico. Rota autenticada `/api/v1/runs/[runId]/approval` adicionada.
+- P11: limites técnicos fail-closed para tokens, chamadas, timeout, contexto, saída e reparos; tetos de deployment e privacidade `configured` são testados sem inferir `LOCAL_ONLY`, preço ou consumo não reportado.
+- P06 slice local: `ArtifactRef`/manifesto e `LocalArtifactStore` privado por workspace/projeto com digest SHA-256, integridade, path guard e limite de 32 MiB; `QuotaService` cobre classes source/reference/candidate/log/capture/research/release e retenção. S3 privado e homologação externa permanecem pendentes; não há claim de integração S3.
+- Testes focais: P10/P11 `7/7`; P06+P10+P11 `9/9`. Gates finais: lint `0`, typecheck `0`, `npm test` `0`, build web/worker `0`, audit `0`.
+- Navegador: após instalar o browser Playwright ausente, E2E real `27/27` passou. Foram observados os avisos conhecidos de Next.js `ECONNRESET/aborted` durante navegações; nenhum handler global foi adicionado para escondê-los. Um log de erro de input inválido do endpoint `run-command-v2` pertence ao cenário negativo esperado.
+- Segurança/escopo: nenhum segredo, banco real, produção, gasto, merge ou publicação foi usado. PostgreSQL hospedado, S3 e homologação de modelos reais continuam gates externos separados.
+- Próxima dependência exata: completar P06 com adapter S3 privado e testes PostgreSQL correspondentes; depois ligar UI de aprovação/orçamento e continuar P12/P13 conforme DAG. Este checkpoint não é release comercial.

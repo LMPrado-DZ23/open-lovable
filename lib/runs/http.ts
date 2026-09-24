@@ -11,6 +11,8 @@ import {ProviderConfigError} from '../ai/provider-catalog';
 import {compileProject} from '../projects/preview';
 import {RunQueue} from './queue';
 import {modelBindingDigest} from './model-binding';
+import {ApprovalService} from '../approvals/service';
+import type {ApprovalResolution,ConnectionSummary} from '../approvals/types';
 import type {RunAccess,RunAuthority,EnqueueRequest} from './types';
 type Access=Exclude<Awaited<ReturnType<typeof studioAccess>>,Response>;
 const id=z.string().uuid();
@@ -62,7 +64,7 @@ export async function listRuns(request:Request):Promise<Response>{
 /** Authenticate before locating an execution; a foreign ID never grants project access. */
 async function located(request:Request){
  const auth=await authenticateStudio(request);if(auth instanceof Response)return auth;
- const match=new URL(request.url).pathname.match(/^\/api\/v1\/runs\/([0-9a-f-]{36})(?:\/(?:events|cancel|accept|export))?$/);
+ const match=new URL(request.url).pathname.match(/^\/api\/v1\/runs\/([0-9a-f-]{36})(?:\/(?:events|cancel|accept|export|approval))?$/);
  if(!match||!id.safeParse(match[1]).success)throw new ProjectError('Run not found',404);
  const runId=match[1];
  const row=projectStore().db.prepare('SELECT r.project_id FROM runs r JOIN run_controls c ON c.run_id=r.id WHERE r.id=?').get(runId);
@@ -131,4 +133,19 @@ export async function exportRun(request:Request):Promise<Response>{const trace=c
  z.object({}).strict().parse(await readJsonObject(request,1024));
  const data=found.queue.exportJournal(found.principal,found.runId);
  return new Response(JSON.stringify(data,null,2)+'\n',{headers:{'Content-Type':'application/json; charset=utf-8','Content-Disposition':`attachment; filename="run-${found.runId}.json"`,'Cache-Control':'no-store','Vary':'Cookie, Authorization','X-Content-Type-Options':'nosniff','X-Request-ID':trace.requestId,'X-Trace-ID':trace.traceId}});
-}catch(error){return failure(error,trace);}}
+ }catch(error){return failure(error,trace);}}
+
+export async function readApproval(request:Request):Promise<Response>{const trace=correlation();try{
+ const found=await located(request);if(found instanceof Response)return found;
+ const run=found.queue.get(found.principal,found.runId);
+ return json(new ApprovalService(found.queue).status(authority(found.access,request,run.model),found.runId),trace);
+ }catch(error){return failure(error,trace);}}
+
+export async function resolveApproval(request:Request):Promise<Response>{const trace=correlation();try{
+ const found=await located(request);if(found instanceof Response)return found;
+ const run=found.queue.get(found.principal,found.runId),current=authority(found.access,request,run.model);
+ const body=z.object({approvalId:id,actionDigest:z.string().regex(/^[a-f0-9]{64}$/),nonce:z.string().regex(/^[a-f0-9]{32}$/),decision:z.enum(['approve','deny']),connection:z.object({provider:z.string().min(1).max(120),endpoint:z.string().url().max(2048),credentialConfigured:z.boolean()}).strict()}).strict().parse(await readJsonObject(request,10000));
+ found.access.guard(found.projectId,true);
+ const result=new ApprovalService(found.queue).resolve(current,found.runId,body as ApprovalResolution,current,body.connection as ConnectionSummary);
+ return json({approval:result,run:found.queue.get(found.principal,found.runId)},trace);
+ }catch(error){return failure(error,trace);}}

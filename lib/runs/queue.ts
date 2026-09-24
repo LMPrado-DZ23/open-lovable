@@ -181,6 +181,8 @@ export class RunQueue {
    let authority:RunAuthority,input:FrozenRunInput;
    try{
     authority=authoritySchema.parse(JSON.parse(String(c.authority)));
+    const grant=this.store.db.prepare("SELECT authority FROM run_grants WHERE run_id=? ORDER BY sequence DESC LIMIT 1").get(String(c.run_id)) as {authority?:string}|undefined;
+    if(grant?.authority) authority=authoritySchema.parse(JSON.parse(grant.authority));
     if(authority.workspaceId!==c.workspace_id||authority.actorId!==c.actor_id)throw new ProjectError('Stored authority mismatch',503);
     input=frozenInput(String(c.frozen_input),c.input_digest);
    }catch{

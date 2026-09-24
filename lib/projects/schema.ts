@@ -1,3 +1,4 @@
+import {approvalSchema} from '../approvals/schema';
 import {runIntegritySchema} from '../runs/integrity-schema';
 import {durableRunSchema} from '../runs/schema';
 import {identitySchema} from '../identity/schema';
@@ -74,4 +75,4 @@ CREATE TRIGGER projects_require_workspace BEFORE INSERT ON projects WHEN NEW.wor
 CREATE TRIGGER projects_keep_workspace BEFORE UPDATE OF workspace_id ON projects
  WHEN OLD.workspace_id IS NOT NULL AND (NEW.workspace_id IS NULL OR NEW.workspace_id<>OLD.workspace_id)
  BEGIN SELECT RAISE(ABORT,'Workspace reassignment is not allowed'); END;
-`},{version:5,sql:identitySchema},{version:6,sql:durableRunSchema}, {version:7,sql:runIntegritySchema}];
+`},{version:5,sql:identitySchema},{version:6,sql:durableRunSchema}, {version:7,sql:runIntegritySchema},{version:8,sql:approvalSchema}];
