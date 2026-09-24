@@ -87,9 +87,9 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
    const now=Date.now();
    const sessions=await client.query("UPDATE open_lovable.auth_sessions SET revoked_at=$1,encrypted='',refresh_lease=NULL,refresh_until=0 WHERE revoked_at IS NULL OR encrypted<>''",[now]);
    const invitations=await client.query('UPDATE open_lovable.workspace_invites SET cancelled_at=$1 WHERE consumed_at IS NULL AND cancelled_at IS NULL',[now]);
+   await client.query("UPDATE open_lovable.run_controls SET outcome='RECOVERY_REVIEW_REQUIRED',phase='interrupted',worker_id=NULL WHERE run_id IN (SELECT id FROM open_lovable.runs WHERE state IN ('QUEUED','RUNNING'))");
    const runs=await client.query("UPDATE open_lovable.runs SET state='INTERRUPTED',lease_until=0,error='Imported execution requires a new authorization; no automatic replay.' WHERE state IN ('QUEUED','RUNNING')");
    await client.query('DELETE FROM open_lovable.worker_leases');
-   await client.query("UPDATE open_lovable.run_controls SET outcome='RECOVERY_REVIEW_REQUIRED',phase='interrupted',worker_id=NULL WHERE run_id IN (SELECT id FROM open_lovable.runs WHERE state='INTERRUPTED')");
    budget.check();await client.query('COMMIT');
    return {sourceSchemaVersion:certified.schemaVersion,targetSchemaVersion:POSTGRES_SCHEMA_VERSION,sourceSnapshotDigest:digest.digest('hex'),tables,activation:'NOT_PERFORMED',sessionsInvalidated:sessions.rowCount||0,invitationsInvalidated:invitations.rowCount||0,runsInvalidated:runs.rowCount||0};
   }catch(error){try{await client.query('ROLLBACK');}catch{client.release(true);released=true;}throw error;}

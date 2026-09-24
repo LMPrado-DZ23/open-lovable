@@ -171,3 +171,10 @@ Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the
 - The known Next aborted-request diagnostics remain. Rechecked upstream PR94658 (open); did not copy its broad ignore-error patch or switch to a custom server that would change optimization/deployment contracts solely to hide logs.
 
 - Clean local verification completed: 203 code/API/integration tests + 8 evidence tests, 30 E2E, lint/types, web and worker build, npm audit. Log bytes/digests checked independently in docs/evidence/p07-p09-local.json. This is the single-node P07/P08/P09 slice; distributed/typed HITL/cost control still require their own completion. Final-head PostgreSQL/portability CI and independent review pending publication.
+
+## P10/P11 continuation from ad758af
+
+- Existing linked worktree confirmed clean. Preserve previous branches and main. No production or paid-provider actions.
+- First reproduce the project-settings scope concern and two CodeRabbit review items (restore provenance and worker crash restart); fix with regressions before the next domains.
+- Browser plugin not available; use the installed Playwright runner. Preserve current warm light/copper design and explicit error states.
+- Planned slice: typed pause/resume controls and finite run budgets, integrated in the existing canonical queue. Generic future tools are not exposed merely by defining approval types.

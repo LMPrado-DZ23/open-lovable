@@ -1,0 +1,26 @@
+import {z} from 'zod';
+import {ProjectError} from '../projects/store';
+/** Technical ceilings, not a fabricated monetary quotation or a claim of local-only egress. */
+export const runLimitsSchema=z.object({
+ maxOutputTokens:z.number().int().min(64).max(12000),maxModelCalls:z.number().int().min(0).max(1),
+ timeoutMs:z.number().int().min(5000).max(600000),maxContextBytes:z.number().int().min(1024).max(2097152),
+ maxOutputBytes:z.number().int().min(1024).max(2097152),maxSteps:z.literal(1),maxRepairs:z.literal(0),privacy:z.literal('configured'),
+}).strict();
+export const runLimitsInputSchema=runLimitsSchema.partial().strict();
+export type RunLimits=z.infer<typeof runLimitsSchema>;
+export type RunLimitsInput=z.infer<typeof runLimitsInputSchema>;
+export class RunBudgetError extends ProjectError {constructor(message='Execution budget requires a new explicit approval.'){super(message,409);this.name='RunBudgetError';}}
+function ceiling(name:string,fallback:number,min:number):number{
+ const raw=process.env[name];if(raw===undefined||raw==='')return fallback;
+ if(!/^\d+$/.test(raw))throw new ProjectError('Invalid deployment execution budget.',503);
+ const value=Number(raw);if(!Number.isSafeInteger(value)||value<min||value>fallback)throw new ProjectError('Invalid deployment execution budget.',503);return value;
+}
+export function resolveRunLimits(input:unknown,mode:'build'|'plan'):RunLimits {
+ const override=runLimitsInputSchema.parse(input??{});
+ const output=ceiling('OPEN_LOVABLE_MAX_OUTPUT_TOKENS',12000,64),timeout=ceiling('OPEN_LOVABLE_MAX_RUN_TIMEOUT_MS',600000,5000);
+ const calls=ceiling('OPEN_LOVABLE_MAX_MODEL_CALLS',1,0);
+ const result=runLimitsSchema.parse({maxOutputTokens:Math.min(output,mode==='plan'?4000:12000),maxModelCalls:calls,timeoutMs:timeout,maxContextBytes:2097152,maxOutputBytes:2097152,maxSteps:1,maxRepairs:0,privacy:'configured',...override});
+ if(result.maxOutputTokens>output||result.timeoutMs>timeout||result.maxModelCalls>calls)throw new RunBudgetError('Requested limits exceed the current server ceilings.');
+ return result;
+}
+export function checkStoredLimits(value:unknown,mode:'build'|'plan'):RunLimits{return resolveRunLimits(runLimitsSchema.parse(value),mode);}

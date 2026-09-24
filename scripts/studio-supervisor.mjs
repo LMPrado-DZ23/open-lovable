@@ -44,7 +44,7 @@ export async function startStudioProcesses({worker,web,env,inheritOutput=true}){
  const agent=launch(worker);
  try{
   await new Promise((resolve,reject)=>{
-   const timer=setTimeout(()=>{cleanup();reject(new Error('Worker startup timed out'));},20000);
+   const timer=setTimeout(()=>{cleanup();reject(new Error('Worker startup timed out'));},35000);
    const message=value=>{if(value?.type==='worker.ready'){cleanup();resolve();}};
    const failed=()=>{cleanup();reject(new Error('Worker failed during startup'));};
    const cleanup=()=>{clearTimeout(timer);agent.off('message',message);agent.off('exit',failed);agent.off('error',failed);};

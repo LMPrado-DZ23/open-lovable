@@ -14,7 +14,7 @@ export interface ProjectSnapshot { files: Record<string,string>; assets: Record<
 export interface Project {
  id:string; owner:string; name:string; model:string; version:number; snapshot:ProjectSnapshot; created_at:string; updated_at:string;
 }
-export type RunState='QUEUED'|'RUNNING'|'AWAITING_APPROVAL'|'SUCCEEDED'|'FAILED'|'CANCELLED'|'INTERRUPTED';
+export type RunState='QUEUED'|'RUNNING'|'AWAITING_INPUT'|'AWAITING_APPROVAL'|'SUCCEEDED'|'FAILED'|'CANCELLED'|'INTERRUPTED';
 export interface RunInputs {mode:'build'|'plan';images:Array<{id:string;sha256:string}>;}
 export interface RunOptions {mode?:'build'|'plan';imageIDs?:string[];queued?:boolean;}
 export interface ProjectRun {
@@ -76,7 +76,7 @@ export class ProjectStore {
    this.db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
    for(const migration of migrations.filter(item=>item.version>version)) {
     // SQLite requires connection-local FK enforcement paused during a table replacement. Validate every relation before commit and re-enable in finally.
-    const rebuild= migration.version===6;
+    const rebuild= [6,8].includes(migration.version);
     if(rebuild)this.db.exec('PRAGMA foreign_keys=OFF');
     try {this.transaction(()=>{
      const current=Number(this.db.prepare('PRAGMA user_version').get()?.user_version);
