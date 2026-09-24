@@ -6,6 +6,7 @@ import {ReferenceImageStore} from '../projects/images';
 import {assertNoSecrets,redactSecretText} from '../security/secret-content';
 import {READ_ROLES,WRITE_ROLES} from '../persistence/validation';
 import {checkStoredLimits,resolveRunLimits,type RunLimits,RunBudgetError} from '../budgets/run-limits';
+import {assertTransition} from './state-machine';
 import type {RunAccess,RunAuthority,EnqueueRequest,FrozenRunInput,ClaimedRun,WorkerLease,RunSummary,RunEvent} from './types';
 
 const LEASE_MS=20000,MAX_FROZEN_BYTES=24*1024*1024;
@@ -168,7 +169,7 @@ export class RunQueue {
    for(const c of rows){
     const expired=Number(c.deadline_at)<=this.clock(),safe=!c.model_started||c.output!==null;
     const state=expired?'FAILED':safe?'QUEUED':'INTERRUPTED',outcome=expired?'DEADLINE_EXCEEDED':safe?(c.output?'MODEL_RESULT_RECORDED':'NOT_STARTED'):'MODEL_OUTCOME_UNCERTAIN';
-    this.store.db.prepare('UPDATE runs SET state=?,error=?,lease_until=0,updated_at=? WHERE id=?').run(state,state==='INTERRUPTED'?'The worker stopped after a model request. Review before retrying; no automatic second call.':expired?'Execution deadline exceeded.':'',new Date(this.clock()).toISOString(),String(c.run_id));
+    assertTransition(String(c.state) as import('../projects/store').RunState,state as import('../projects/store').RunState);this.store.db.prepare('UPDATE runs SET state=?,error=?,lease_until=0,updated_at=? WHERE id=?').run(state,state==='INTERRUPTED'?'The worker stopped after a model request. Review before retrying; no automatic second call.':expired?'Execution deadline exceeded.':'',new Date(this.clock()).toISOString(),String(c.run_id));
     this.store.db.prepare('UPDATE run_controls SET worker_id=NULL,phase=?,outcome=? WHERE run_id=?').run(state==='QUEUED'?'queued':'interrupted',outcome,String(c.run_id));
     this.append(c,'run.'+(state==='QUEUED'?'requeued':'interrupted'),{state,outcome});
    }
@@ -197,7 +198,7 @@ export class RunQueue {
    }
    const token=Number(c.lease_token)+1;
    this.store.db.prepare('UPDATE run_controls SET lease_token=?,worker_id=?,worker_epoch=?,phase=? WHERE run_id=?').run(token,worker.workerId,worker.epoch,c.output?'validating':'context',String(c.run_id));
-   this.store.db.prepare("UPDATE runs SET state='RUNNING',lease_until=?,updated_at=? WHERE id=? AND state='QUEUED'").run(this.clock()+LEASE_MS,new Date(this.clock()).toISOString(),String(c.run_id));
+   assertTransition('QUEUED','RUNNING');this.store.db.prepare("UPDATE runs SET state='RUNNING',lease_until=?,updated_at=? WHERE id=? AND state='QUEUED'").run(this.clock()+LEASE_MS,new Date(this.clock()).toISOString(),String(c.run_id));
    this.store.db.prepare('INSERT INTO execution_claims VALUES(?,?) ON CONFLICT(run_id) DO NOTHING').run(String(c.run_id),new Date(this.clock()).toISOString());
    this.append(c,'run.claimed',{state:'RUNNING',resumingRecordedOutput:c.output!==null});
    return {run:this.store.getRun(owner,String(c.project_id),String(c.run_id)),authority,input,inputDigest:String(c.input_digest),owner,token,worker,deadlineAt:Number(c.deadline_at),output:c.output===null?null:String(c.output)};

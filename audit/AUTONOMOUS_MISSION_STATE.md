@@ -44,7 +44,7 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "ec56fc7a643159c257a5111c18a14af92b4c4320"
+  head: "61fd9ebf5a59ffc066dd56032e30bc030672e6b0"
   uncommitted_changes: false
 watchdog:
   executor_pid: null
@@ -81,6 +81,7 @@ completed_tasks:
   - "P14 React/Vite template includes real package lockfile, build/test scripts, and clean build evidence"
   - "P10 v1 approval GET/POST has route-level coverage; matching digest/nonce resumes the queued run"
   - "P07 canonical DomainEvent/redaction/tracing helpers are integrated with versioned run HTTP handlers"
+  - "P08 explicit run state machine is enforced in RunQueue claim/reconcile paths"
   - "Review branch pushed; draft PR creation remains blocked by GitHub integration permission"
 pending_tasks:
   - "P10 browser-level approval pause/resume journey"
