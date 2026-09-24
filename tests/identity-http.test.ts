@@ -1,8 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {startIdentityFixture} from './helpers/identity-fixture';
+import {accountApiAllowed} from '../lib/identity/config';
 const origin='http://127.0.0.1:3905';
 const request=(path:string,body?:unknown,cookie='',requestOrigin=origin)=>new Request(origin+path,{method:body===undefined?'GET':'POST',headers:{host:'127.0.0.1:3905',origin:requestOrigin,'Content-Type':'application/json',cookie},body:body===undefined?undefined:JSON.stringify(body)});
+test('Supabase account allowlist admits only the versioned run approval route',()=>{
+ const run='/api/v1/runs/00000000-0000-4000-8000-000000000000';
+ assert.equal(accountApiAllowed(run+'/approval'),true);
+ assert.equal(accountApiAllowed(run+'/unknown'),false);
+ assert.equal(accountApiAllowed('/api/projects'),true);
+});
 test('P05 HTTP uses opaque HttpOnly cookies, rejects CSRF and keeps operator credentials out of account access',async t=>{
  const fixture=await startIdentityFixture();t.after(()=>fixture.close());
  Object.assign(process.env,{OPEN_LOVABLE_AUTH_MODE:'supabase',OPEN_LOVABLE_SUPABASE_URL:fixture.url,OPEN_LOVABLE_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_contract',OPEN_LOVABLE_AUTH_ALLOW_LOOPBACK:'1',OPEN_LOVABLE_APP_ORIGIN:origin});

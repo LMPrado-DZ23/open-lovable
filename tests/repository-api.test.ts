@@ -22,7 +22,7 @@ test('workspace membership gates every project mutation, including generation an
  for(const body of [
   {action:'save',id:project.id,version:1,snapshot:{files:{},assets:{}},label:'forbidden'},
   {action:'document',id:project.id,name:'rules.md',content:'Cannot write'},
-  {action:'generate',id:project.id,version:1,requestKey:'read-only-request',prompt:'Must not call a model',model:'gateway/coder'}])assert.equal((await POST(req(body))).status,403);
+  {action:'generate',id:project.id,version:1,requestKey:'read-only-request',prompt:'Must not call a model',model:'gateway/coder',confirmCost:true}])assert.equal((await POST(req(body))).status,403);
  assert.equal(store.db.prepare('SELECT count(*) AS n FROM runs WHERE project_id=?').get(project.id)?.n,0);
  assert.equal((await GET(new Request('http://127.0.0.1/api/projects?id='+project.id))).status,200);
 });

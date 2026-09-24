@@ -17,7 +17,7 @@
     "test:e2e": "playwright test",
     "check": "npm run check:admission && npm run lint && npm run typecheck && npm test && npm run build",
     "security:audit": "npm audit --audit-level=low",
-    "test:roadmap": "tsx --import ./tests/setup.mjs --test-concurrency=1 --test tests/roadmap/*.test.ts && node --test-concurrency=1 tests/roadmap/*.test.mjs",
+    "test:roadmap": "tsx --import ./tests/setup.mjs --test-concurrency=1 --test tests/roadmap/*.test.ts && node scripts/test-roadmap-mjs.mjs",
     "verify:baseline": "node scripts/verification/baseline.mjs",
     "check:admission": "tsx scripts/admission-check.ts",
     "recovery": "tsx scripts/recovery.ts",

@@ -50,27 +50,24 @@ test('image API requires authentication, strips data from metadata and isolates 
 
 test('visual generation transmits the selected raster as multimodal data and keeps approval mandatory',async t=>{
  const {store,p,picture,post}=await setup(t);const requests=await model(t,code);
- const body={action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Use the visual reference',model:'gateway/vision',mode:'build',imageIDs:[picture.id],confirmVision:true};
- const result=await post(body);assert.equal(result.status,200);assert.match(await result.text(),/AWAITING_APPROVAL/);
- const parts=requests[0].messages.at(-1).content;
- assert.ok(Array.isArray(parts));const image=parts.find((part:any)=>part.type==='image_url');assert.match(image.image_url.url,/^data:image\/png;base64,/);
- assert.ok(parts.some((part:any)=>part.type==='text'&&part.text.includes('target')));
+ const body={action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Use the visual reference',model:'gateway/vision',mode:'build',imageIDs:[picture.id],confirmCost:true,confirmVision:true};
+ const result=await post(body);assert.equal(result.status,202);assert.match(await result.text(),/run/);
+ assert.equal(requests.length,0,'legacy adapter must enqueue without invoking the model inline');
  assert.equal(store.getProject('admin',p.id).version,1);assert.equal(store.runs('admin',p.id)[0].inputs.images[0].id,picture.id);
- await(await post(body)).text();assert.equal(requests.length,1);
+ const duplicate=await post(body);assert.equal(duplicate.status,202);assert.equal(store.runs('admin',p.id).length,1);
 });
 
 test('images require explicit vision acknowledgment and cannot be borrowed from another project',async t=>{
  const {store,p,picture,post}=await setup(t);const requests=await model(t,code);
- const body={action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Use image',model:'gateway/vision',imageIDs:[picture.id]};
+ const body={action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Use image',model:'gateway/vision',imageIDs:[picture.id],confirmCost:true};
  assert.equal((await post(body)).status,400);assert.equal(store.runs('admin',p.id).length,0);
  const other=store.createProject('admin','Other','gateway/vision');
  assert.equal((await post({...body,id:other.id,confirmVision:true})).status,404);assert.equal(requests.length,0);
 });
 
-test('plan mode stores discussion but never compiles or mutates application revisions',async t=>{
+ test('plan mode is queued without compiling or mutating application revisions',async t=>{
  const {store,p,post}=await setup(t);const requests=await model(t,'Plan: assess the form. '+code);
- const response=await post({action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Plan only',model:'gateway/vision',mode:'plan'});
- assert.equal(response.status,200);const events=await response.text();assert.match(events,/plan-complete/);assert.doesNotMatch(events,/AWAITING_APPROVAL|"compiled":true/);
- assert.equal(store.revisions('admin',p.id).length,1);assert.deepEqual(store.getProject('admin',p.id).snapshot.files,{});
- assert.match(store.messages('admin',p.id).at(-1)!.content,/Plan: assess/);assert.equal(requests.length,1);
+ const response=await post({action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Plan only',model:'gateway/vision',mode:'plan',confirmCost:true});
+ assert.equal(response.status,202);assert.match(await response.text(),/run/);assert.equal(requests.length,0,'plan adapter must also remain queued');
+ assert.equal(store.revisions('admin',p.id).length,1);assert.deepEqual(store.getProject('admin',p.id).snapshot.files,{});assert.equal(store.runs('admin',p.id)[0].inputs.mode,'plan');
 });

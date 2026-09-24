@@ -208,3 +208,19 @@ Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the
 - Gates: `npm test` passou com `226` testes unit/integration, `131` roadmap e `8` P00; lint, typecheck e build web/worker passaram; `npm audit --omit=dev --audit-level=high` encontrou `0` vulnerabilidades.
 - Bloqueios honestos: Auth real descartável sem configuração, PostgreSQL/S3/provedores externos, mobile nativo, PBX/SIP, datasets/hardware/modelos, produção e merge final permanecem `BLOCKED_BY_EXTERNAL_DEPENDENCY` ou `BLOCKED_BY_EXTERNAL_PERMISSION`; nenhum foi simulado.
 - Decisão: estado do produto continua `NOT_READY / BLOCKED` para release comercial, apesar dos gates locais verdes. Não declarar paridade externa nem 100% comercial.
+
+## Auditoria independente 2026-09-24 - correções HIGH e portabilidade
+
+- Auditoria recebida em `AUDITORIA_COMPLETA_OPEN_LOVABLE_e491dd6_20260924.md`; achados HIGH-01 e HIGH-02 reproduzidos no HEAD antes da alteração.
+- HIGH-01 corrigido: a ação legada `POST /api/projects` com `action=generate` exige confirmação explícita de custo e adapta o pedido para `POST /api/v1/runs`; não chama `streamProjectRun` nem executa inferência dentro da requisição observadora. Testes de workflow foram migrados para enfileiramento + `runWorkerOnce`.
+- HIGH-02 corrigido: a allowlist de contas agora admite exatamente `/api/v1/runs/<uuid>/approval`, mantendo subrotas desconhecidas bloqueadas. Regressão de identidade adicionada.
+- Portabilidade corrigida: `scripts/test-roadmap-mjs.mjs` descobre testes MJS com `fs.readdir` e executa o Node test runner sem glob shell; o hardening P06 trata a limitação de privilégio de symlink no Windows e ainda verifica caminhos regulares e corrupção.
+- Verificação focal: lint, typecheck e 21 testes de identidade/repositório/visual/workflow passaram.
+- Verificação integral: `npm test` passou com 227 testes unitários/integrados, 131 testes roadmap e 8 verificações P00; `npm run build` passou e compilou a aplicação Next e o worker.
+- Estado: os achados HIGH locais estão corrigidos. Homologação real de PostgreSQL/Auth/S3/provedores, CI no SHA, E2E obrigatório completo e autorização de PR/merge/produção continuam `BLOCKED_BY_EXTERNAL_DEPENDENCY` ou `BLOCKED_BY_EXTERNAL_PERMISSION`; não foram convertidos em sucesso fictício.
+- Próxima ação: commit e push da correção na branch de desenvolvimento; depois manter revisão externa e homologações autorizadas abertas.
+
+## Retomada contínua após o checkpoint
+
+- Preserve o branch `feat/manus-p06-p10-p11-20260924`, compare o SHA remoto e não faça merge em `main` sem autorização.
+- Se a missão continuar, priorize P10 end-to-end com approval/wait no worker, E2E das três jornadas obrigatórias e os blockers externos documentados; não reintroduza o endpoint de geração inline.

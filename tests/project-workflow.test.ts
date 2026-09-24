@@ -8,7 +8,8 @@ import { createServer } from 'node:http';
 import { randomUUID,createHash } from 'node:crypto';
 import { zipSync, strToU8, unzipSync, strFromU8 } from 'fflate';
 import { projectStore } from '../lib/projects/store';
-import {runDigest} from '../lib/runs/queue';
+import {RunQueue,runDigest} from '../lib/runs/queue';
+import {runWorkerOnce} from '../lib/runs/worker';
 import {buildReport} from '../lib/verification/evidence';
 import {buildSourceMap} from '../lib/visual/source-map';
 
@@ -37,7 +38,11 @@ async function aiFixture(t:any,code:string) {
  server.listen(0,'127.0.0.1');await once(server,'listening');
  t.after(()=>new Promise<void>(resolve=>{server.closeAllConnections();server.close(()=>resolve());}));
  Object.assign(process.env,{OPEN_LOVABLE_GATEWAY_URL:`http://127.0.0.1:${(server.address() as any).port}/v1`,OPEN_LOVABLE_GATEWAY_API_KEY:'project-fixture',OPEN_LOVABLE_GATEWAY_MODELS:'["test/coder"]'});
- return ()=>calls;
+	 return ()=>calls;
+}
+async function executeQueuedRun(){
+ const queue=new RunQueue(projectStore()),lease=queue.acquireWorker('project-workflow-'+randomUUID());assert.ok(lease);
+ try{return await runWorkerOnce(queue,lease!);}finally{queue.releaseWorker(lease!);}
 }
 
 test('project APIs preserve separate revisions and restoration does not affect another project',async t=>{
@@ -55,9 +60,9 @@ test('generation compiles a proposal, requires approval, and a repeated request 
  const {post,get,create}=await setup(t);
  const count=await aiFixture(t,'<file path="src/App.jsx">export default function App(){return <h1>Generated</h1>}</file>');
  const p=await create('Generation');const key=randomUUID();
- const body={action:'generate',id:p.id,version:1,requestKey:key,prompt:'Build a title',model:'gateway/test/coder'};
- const response=await post(body);assert.equal(response.status,200);const text=await response.text();assert.match(text,/AWAITING_APPROVAL/);
- const duplicate=await post(body);await duplicate.text();assert.equal(count(),1);
+ const body={action:'generate',id:p.id,version:1,requestKey:key,prompt:'Build a title',model:'gateway/test/coder',confirmCost:true};
+ const response=await post(body);assert.equal(response.status,202);const queued=await response.json();assert.ok(queued.run.id);
+ const duplicate=await post(body);assert.equal(duplicate.status,202);assert.equal(count(),0);await executeQueuedRun();assert.equal(count(),1);
  const state=await (await get('?id='+p.id)).json();assert.equal(state.project.version,1);
  const run=state.runs[0];assert.equal(run.state,'AWAITING_APPROVAL');
  assert.equal((await post({action:'accept',id:p.id,version:1,runID:run.id})).status,200);
@@ -67,8 +72,8 @@ test('generation compiles a proposal, requires approval, and a repeated request 
 test('invalid generated code fails without overwriting a saved revision',async t=>{
  const {post,get,create}=await setup(t);await aiFixture(t,'<file path="src/App.jsx">export default function App( { broken </file>');
  const p=await create('Failure');await post({action:'save',id:p.id,version:1,snapshot:first,label:'Original'});
- const result=await post({action:'generate',id:p.id,version:2,requestKey:randomUUID(),prompt:'Change title',model:'gateway/test/coder'});
- assert.match(await result.text(),/FAILED|error/);
+ const result=await post({action:'generate',id:p.id,version:2,requestKey:randomUUID(),prompt:'Change title',model:'gateway/test/coder',confirmCost:true});
+ assert.equal(result.status,202);await executeQueuedRun();assert.equal((await (await get('?id='+p.id)).json()).runs[0].state,'FAILED');
  const state=await (await get('?id='+p.id)).json();assert.equal(state.project.version,2);assert.deepEqual(state.project.snapshot,first);
 });
 
@@ -109,17 +114,16 @@ test('cancelling the response cancels the durable run and retains all saved sour
  t.after(()=>new Promise<void>(resolve=>{server.closeAllConnections();server.close(()=>resolve());}));
  Object.assign(process.env,{OPEN_LOVABLE_GATEWAY_URL:`http://127.0.0.1:${(server.address() as any).port}/v1`,OPEN_LOVABLE_GATEWAY_API_KEY:'project-fixture',OPEN_LOVABLE_GATEWAY_MODELS:'["test/coder"]'});
  const p=await create('Cancellation');await post({action:'save',id:p.id,version:1,snapshot:first,label:'Saved'});
- const response=await post({action:'generate',id:p.id,version:2,requestKey:randomUUID(),prompt:'Generate slowly',model:'gateway/test/coder'});
- const reader=response.body!.getReader();await reader.read();await reader.cancel();
- let state:any;
- for(let tries=0;tries<50;tries++){state=await(await get('?id='+p.id)).json();if(state.runs[0].state==='CANCELLED')break;await new Promise(resolve=>setTimeout(resolve,20));}
+ const response=await post({action:'generate',id:p.id,version:2,requestKey:randomUUID(),prompt:'Generate slowly',model:'gateway/test/coder',confirmCost:true});
+ assert.equal(response.status,202);const queued=await response.json();assert.equal((await post({action:'cancel',id:p.id,runID:queued.run.id})).status,200);
+ const state=await(await get('?id='+p.id)).json();
  assert.equal(state.runs[0].state,'CANCELLED');assert.equal(state.project.version,2);assert.deepEqual(state.project.snapshot,first);
 });
 
 test('candidate export returns a provenance manifest without accepting the revision',async t=>{
  const {post,get,create}=await setup(t);
  await aiFixture(t,'<file path="src/App.jsx">export default function App(){return <h1>Candidate</h1>}</file>');
- const p=await create('Candidate export');const runResponse=await post({action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Create candidate',model:'gateway/test/coder'});assert.match(await runResponse.text(),/AWAITING_APPROVAL/);
+ const p=await create('Candidate export');const runResponse=await post({action:'generate',id:p.id,version:1,requestKey:randomUUID(),prompt:'Create candidate',model:'gateway/test/coder',confirmCost:true});assert.equal(runResponse.status,202);await executeQueuedRun();
  const state=await (await get('?id='+p.id)).json(),run=state.runs[0];
  const exported=await get('?id='+p.id+'&action=export&runID='+run.id);assert.equal(exported.status,200);assert.match(exported.headers.get('content-disposition')||'',/candidate/);
  const files=unzipSync(new Uint8Array(await exported.arrayBuffer())),manifest=JSON.parse(strFromU8(files['__open_lovable__/manifest.json']));

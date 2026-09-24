@@ -8,7 +8,7 @@ import { ProviderConfigError } from '@/lib/ai/provider-catalog';
 import { ProjectError } from '@/lib/projects/store';
 import { importProjectZip } from '@/lib/projects/archive';
 import { compileProject } from '@/lib/projects/preview';
-import { streamProjectRun } from '@/lib/projects/generation';
+import { createRun } from '@/lib/runs/http';
 import { exportProjectBundle, exportBundleFileName } from '@/lib/artifacts/export-bundle';
 import { applyPatchSet } from '@/lib/revisions/patches';
 import { requireReleaseReady } from '@/lib/verification/release-gate';
@@ -27,7 +27,7 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('visualEdit'),id,version,baseRevision:z.string().min(1).max(128),element:z.object({runtimeId:z.string().min(1).max(128),revisionDigest:z.string().regex(/^[a-f0-9]{64}$/),elementId:z.string().regex(/^[a-f0-9]{32}$/),file:z.string().min(1).max(500),start:z.number().int().min(0),end:z.number().int().gt(0),tag:z.string().min(1).max(80),sourceHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),value:z.string().max(2000)}).strict(),
  z.object({action:z.literal('import'),id,version,archive:z.string().max(16*1024*1024)}).strict(),
  z.object({action:z.literal('restore'),id,version,revisionID:id}).strict(),
- z.object({action:z.literal('generate'),id,version,requestKey:z.string().min(8).max(128),prompt:z.string().min(1).max(32768),model:z.string().min(1).max(240),mode:z.enum(['build','plan']).optional(),imageIDs:z.array(id).max(4).optional(),confirmVision:z.boolean().optional()}).strict(),
+ z.object({action:z.literal('generate'),id,version,requestKey:z.string().min(8).max(128),prompt:z.string().min(1).max(32768),model:z.string().min(1).max(240),mode:z.enum(['build','plan']).optional(),imageIDs:z.array(id).max(4).optional(),confirmCost:z.literal(true),confirmVision:z.boolean().optional()}).strict(),
  z.object({action:z.literal('cancel'),id,runID:id}).strict(),
  z.object({action:z.literal('accept'),id,version,runID:id}).strict(),
  z.object({action:z.literal('preview'),id,runID:id.optional(),channel:z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/)}).strict(),
@@ -97,9 +97,8 @@ export async function POST(request:Request){
    case 'restore':return json({project:await repository.restore(context(body.id),body.version,body.revisionID)});
    case 'generate':{
     if(body.imageIDs?.length&&body.confirmVision!==true)throw new ProjectError('Confirm that the selected model accepts images. No text-only fallback is allowed.');
-    const run=store.beginRun(owner,body.id,body.requestKey,body.prompt,body.model,body.version,{mode:body.mode,imageIDs:body.imageIDs});
-    if(!store.claimRun(owner,body.id,run.id))return json({run});
-    return streamProjectRun(store,owner,run,request.signal,{scope:access.scope,assertLive:()=>guard(body.id,true)});
+    const headers=new Headers(request.headers);headers.set('content-type','application/json');
+    return createRun(new Request(new URL('/api/v1/runs',request.url),{method:'POST',headers,body:JSON.stringify({projectId:body.id,baseVersion:body.version,requestKey:body.requestKey,prompt:body.prompt,model:body.model,mode:body.mode||'build',imageIDs:body.imageIDs||[],confirmCost:body.confirmCost,confirmVision:body.confirmVision}),signal:request.signal}));
    }
    case 'cancel':{
     store.getRun(owner,body.id,body.runID);

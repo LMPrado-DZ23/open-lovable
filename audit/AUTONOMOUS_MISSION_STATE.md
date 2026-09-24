@@ -36,8 +36,8 @@ state: EXECUTING
 status: CONTINUE
 iteration: 3
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T15:30:00-03:00"
-last_progress_at: "2026-09-24T15:30:00-03:00"
+heartbeat_at: "2026-09-24T17:03:00-03:00"
+last_progress_at: "2026-09-24T17:03:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -45,14 +45,14 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "c7c65ffec733d9556a178aa9a508560c3421ee40"
-  uncommitted_changes: false
+  head: "a0036cd97f9e31092a989df90c037a6545528c20"
+  uncommitted_changes: true
 watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Internal audit gates complete at c7c65ff; remain in honest blocked state awaiting authorized external homologation and release review."
-current_failure: "No current code failure; mission remains incomplete because hosted/provider homologations, native/voice/model evidence, and authorized release review are not closed."
+current_task: "Fix audit findings HIGH-01/HIGH-02, correct Windows roadmap discovery, run full gates, then publish the verified checkpoint."
+current_failure: "External homologation and release authorization remain open; no local code failure after the audit fixes."
 current_strategy: "Use evidence-driven vertical slices, then run independent security, product and accessibility audits; never treat local fixtures as external homologation."
 plan:
   - "Recover and baseline commit 05875be."
@@ -342,6 +342,11 @@ latest_gate_evidence:
   p63_voice_contract: "PASS 2/2 focused; sessions require authorized E.164 destination, consent for recording, bounded timeout/budget, workspace/project-scoped handoff and idempotent callbacks"
   p63_full_regression: "PASS; npm test exit 0 with 131 roadmap tests, 225 unit/integration tests and 8 P00 checks"
   p63_external_voice: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no PBX/SIP, phone number, audio device, transcription provider or real call was used"
+  audit_high_01_legacy_generate: "PASS; /api/projects action=generate now delegates to /api/v1/runs and never invokes model inference in the observing request; canonical worker workflow and migrated regression tests pass"
+  audit_high_02_supabase_approval: "PASS; accountApiAllowed admits the exact /api/v1/runs/<uuid>/approval route and rejects unknown run subpaths; identity regression added"
+  audit_windows_test_runner: "PASS; roadmap MJS tests now use scripts/test-roadmap-mjs.mjs instead of a shell glob, and P06 hardening handles Windows symlink privilege limits without weakening regular-path checks"
+  audit_high_fixes_focused: "PASS; lint/typecheck and 21 focused identity/repository/visual/project workflow tests"
+  audit_high_fixes_full: "PASS; npm test exit 0 with 227 unit/integration tests, 131 roadmap tests and 8 P00 checks; npm run build exit 0"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
