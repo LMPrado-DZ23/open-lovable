@@ -46,3 +46,42 @@ test('foreign and nonexistent executions are indistinguishable and malformed eve
  f.store.db.prepare('UPDATE workspace_members SET active=1 WHERE workspace_id=?').run(f.ctx.principal.workspaceId);
  assert.equal((await f.stream.GET(f.req('/api/v1/runs/'+run.id+'/events?cursor=-1'))).status,400);
 });
+
+test('legacy cancellation of a managed run uses the same durable journal exactly once',async t=>{
+ const f=await fixture(t),response=await f.route.POST(f.req('/api/v1/runs',f.body)),{run}=await response.json();
+ const legacy=await import('../app/api/projects/route');
+ const cancel=()=>legacy.POST(f.req('/api/projects',{action:'cancel',id:f.project.id,runID:run.id}));
+ assert.equal((await cancel()).status,200);assert.equal((await cancel()).status,200);
+ assert.equal(f.store.getRun('admin',f.project.id,run.id).state,'CANCELLED');
+ assert.equal(f.store.db.prepare("SELECT count(*) AS n FROM run_journal WHERE run_id=? AND type='run.cancelled'").get(run.id)?.n,1);
+});
+
+test('a mismatched project and run ID cannot cancel another project before returning an error',async t=>{
+ const f=await fixture(t),response=await f.route.POST(f.req('/api/v1/runs',f.body)),{run}=await response.json();
+ const other=f.store.createProject('admin','Other project','gateway/fixture/coder');
+ const legacy=await import('../app/api/projects/route');
+ const result=await legacy.POST(f.req('/api/projects',{action:'cancel',id:other.id,runID:run.id}));
+ assert.equal(result.status,404);assert.equal(f.store.getRun('admin',f.project.id,run.id).state,'QUEUED');
+});
+
+test('journal export is authorized, audited and contains no frozen source or browser capabilities',async t=>{
+ const f=await fixture(t),response=await f.route.POST(f.req('/api/v1/runs',f.body)),{run}=await response.json();
+ const route=await import('../app/api/v1/runs/[runId]/export/route').catch(()=>({})) as Record<string,any>;assert.equal(typeof route.POST,'function');
+ const url='/api/v1/runs/'+run.id+'/export';
+ assert.equal((await route.POST(f.req(url,{},false))).status,401);
+ const exported=await route.POST(f.req(url,{}));assert.equal(exported.status,200);
+ assert.match(exported.headers.get('content-disposition')||'',/attachment/);
+ const contents=await exported.text(),document=JSON.parse(contents);
+ assert.equal(document.run.id,run.id);assert.equal(document.events.at(-1).type,'audit.exported');
+ for(const forbidden of ['frozen_input','authority','sessionId','apiKey','Prepare a page','api-queue-fixture'])assert.equal(contents.includes(forbidden),false,forbidden);
+ f.store.db.prepare('UPDATE workspace_members SET active=0 WHERE workspace_id=?').run(f.ctx.principal.workspaceId);
+ assert.equal((await route.POST(f.req(url,{}))).status,404);
+});
+test('repeated exports are bounded and never exhaust the final cancellation journal',async t=>{
+ const f=await fixture(t),response=await f.route.POST(f.req('/api/v1/runs',f.body)),{run}=await response.json();
+ const route=await import('../app/api/v1/runs/[runId]/export/route').catch(()=>({})) as Record<string,any>;assert.equal(typeof route.POST,'function');
+ for(let i=0;i<10;i++)assert.equal((await route.POST(f.req('/api/v1/runs/'+run.id+'/export',{}))).status,200);
+ assert.equal((await route.POST(f.req('/api/v1/runs/'+run.id+'/export',{}))).status,429);
+ assert.equal((await f.cancel.POST(f.req('/api/v1/runs/'+run.id+'/cancel',{}))).status,200);
+ assert.equal(f.store.getRun('admin',f.project.id,run.id).state,'CANCELLED');
+});

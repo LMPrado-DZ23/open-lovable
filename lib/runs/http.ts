@@ -25,7 +25,7 @@ function failure(error:unknown,trace:Correlation):Response {
  const message=status===404?'Run not found':status>=500?'Execution service unavailable. The saved revision was preserved.':error instanceof z.ZodError?'Review the run request fields.':redactSecretText(error instanceof Error?error.message:'Request failed');
  return json({success:false,code,error:message,...trace},trace,status);
 }
-function reader(access:Access):RunAccess {
+export function reader(access:Access):RunAccess {
  const p=access.workspace.principal;
  const member=access.store.db.prepare('SELECT version FROM workspace_members WHERE workspace_id=? AND actor_id=? AND active=1').get(p.workspaceId,p.actorId);
  if(!member)throw new ProjectError('Run not found',404);
@@ -62,7 +62,7 @@ export async function listRuns(request:Request):Promise<Response>{
 /** Authenticate before locating an execution; a foreign ID never grants project access. */
 async function located(request:Request){
  const auth=await authenticateStudio(request);if(auth instanceof Response)return auth;
- const match=new URL(request.url).pathname.match(/^\/api\/v1\/runs\/([0-9a-f-]{36})(?:\/(?:events|cancel|accept))?$/);
+ const match=new URL(request.url).pathname.match(/^\/api\/v1\/runs\/([0-9a-f-]{36})(?:\/(?:events|cancel|accept|export))?$/);
  if(!match||!id.safeParse(match[1]).success)throw new ProjectError('Run not found',404);
  const runId=match[1];
  const row=projectStore().db.prepare('SELECT r.project_id FROM runs r JOIN run_controls c ON c.run_id=r.id WHERE r.id=?').get(runId);
@@ -124,3 +124,11 @@ export async function observeRun(request:Request):Promise<Response>{
   return new Response(body,{headers:{'Content-Type':'text/event-stream','Cache-Control':'no-store','Vary':'Cookie, Authorization','X-Accel-Buffering':'no','X-Request-ID':trace.requestId,'X-Trace-ID':trace.traceId}});
  }catch(error){return failure(error,trace);}
 }
+
+/** Audited download is a CSRF-protected command; no public blob URL or database path is returned. */
+export async function exportRun(request:Request):Promise<Response>{const trace=correlation();try{
+ const found=await located(request);if(found instanceof Response)return found;
+ z.object({}).strict().parse(await readJsonObject(request,1024));
+ const data=found.queue.exportJournal(found.principal,found.runId);
+ return new Response(JSON.stringify(data,null,2)+'\n',{headers:{'Content-Type':'application/json; charset=utf-8','Content-Disposition':`attachment; filename="run-${found.runId}.json"`,'Cache-Control':'no-store','Vary':'Cookie, Authorization','X-Content-Type-Options':'nosniff','X-Request-ID':trace.requestId,'X-Trace-ID':trace.traceId}});
+}catch(error){return failure(error,trace);}}

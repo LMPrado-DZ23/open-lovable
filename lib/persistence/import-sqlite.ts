@@ -37,7 +37,7 @@ export async function importSqliteSnapshot(sourcePath:string,masterKey:Uint8Arra
   temporary=mkdtempSync(join(realpathSync(tmpdir()),'open-lovable-import-'));const snapshot=join(temporary,'snapshot.sqlite3');
   const input=new DatabaseSync(source,{readOnly:true});
   try{
-   if(![4,5,6].includes(Number(input.prepare('PRAGMA user_version').get()?.user_version)))throw new ProjectError('Import requires an explicitly upgraded SQLite schema version 4, 5 or 6');
+   if(![4,5,6,7].includes(Number(input.prepare('PRAGMA user_version').get()?.user_version)))throw new ProjectError('Import requires an explicitly upgraded SQLite schema version 4, 5, 6 or 7');
    const pageSize=Number(input.prepare('PRAGMA page_size').get()?.page_size);
    if(pageSize*Number(input.prepare('PRAGMA page_count').get()?.page_count)>budget.maxBytes)throw new ProjectError('Import size budget exceeded',413);
    await backup(input,snapshot,{rate:100,progress:({totalPages})=>{budget.check();if(totalPages*pageSize>budget.maxBytes)throw new ProjectError('Import size budget exceeded',413);}});

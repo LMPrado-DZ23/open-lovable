@@ -1,3 +1,4 @@
+import {isBase64} from '../security/base64';
 import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {ProjectError,ProjectStore,validateSnapshot} from '../projects/store';
@@ -17,6 +18,21 @@ export function canonicalRunData(value:unknown):string {
  return JSON.stringify(value);
 }
 export const runDigest=(value:unknown)=>createHash('sha256').update(canonicalRunData(value)).digest('hex');
+const frozenSchema=z.object({snapshot:z.unknown(),references:z.array(z.object({name:z.string().max(200),content:z.string().max(200000)}).strict()).max(20),history:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().max(32768)}).strict()).max(12),images:z.array(z.object({id:z.string().uuid(),name:z.string().max(200),role:z.enum(['target','current']),mime:z.enum(['image/png','image/jpeg','image/webp']),width:z.number().int().positive(),height:z.number().int().positive(),sha256:z.string().regex(/^[a-f0-9]{64}$/),data:z.string().max(9*1024*1024)}).strict()).max(4)}).strict();
+function frozenInput(encoded:string,digest:unknown):FrozenRunInput {
+ if(Buffer.byteLength(encoded)>MAX_FROZEN_BYTES)throw new ProjectError('Stored execution input size failed validation',503);
+ const input=frozenSchema.parse(JSON.parse(encoded));
+ if(runDigest(input)!==digest)throw new ProjectError('Frozen execution input integrity failed',503);
+ const snapshot=validateSnapshot(input.snapshot);let bytes=0;
+ for(const image of input.images){
+  if(!isBase64(image.data))throw new ProjectError('Frozen image encoding failed validation',503);
+  const content=Buffer.from(image.data,'base64');bytes+=content.length;
+  if(createHash('sha256').update(content).digest('hex')!==image.sha256)throw new ProjectError('Frozen image digest failed validation',503);
+ }
+ if(bytes>6*1024*1024)throw new ProjectError('Frozen images exceed their budget',413);
+ return {...input,snapshot};
+}
+
 type Control=Record<string,unknown>;
 
 /** Single-node durable scheduler. Only this service writes the control/journal, never browser/model payloads. */
@@ -108,6 +124,19 @@ export class RunQueue {
   const events=rows.slice(0,64).map(row=>({eventId:String(row.event_id),sequence:Number(row.sequence),workspaceId:String(c.workspace_id),projectId:String(c.project_id),runId,requestId:String(c.request_id),traceId:String(c.trace_id),type:String(row.type),occurredAt:String(row.occurred_at),payload:JSON.parse(String(row.payload))}));
   return {events,nextCursor:events.at(-1)?.sequence??cursor,hasMore:rows.length>64};
  }
+ /** Exports only the public journal and records this access without exposing prompts or capabilities. */
+ exportJournal(authority:RunAccess,runId:string) {
+  return this.store.transaction(()=>{
+   const c=this.scoped(authority,runId);
+   const count=Number(this.store.db.prepare("SELECT count(*) AS n FROM run_journal WHERE run_id=? AND type='audit.exported'").get(runId)?.n);
+   const total=Number(this.store.db.prepare('SELECT count(*) AS n FROM run_journal WHERE run_id=?').get(runId)?.n);
+   if(count>=10||total>=950)throw new ProjectError('Journal export limit reached. Keep the previously downloaded record.',429);
+   this.append(c,'audit.exported',{actorId:authority.actorId,format:'json-v1'});
+   const events:RunEvent[]=[];let cursor=0;
+   do{const batch=this.events(authority,runId,cursor);events.push(...batch.events);cursor=batch.nextCursor;if(!batch.hasMore)break;}while(events.length<=1000);
+   return {format:'open-lovable-run-journal',version:1,exportedAt:new Date(this.clock()).toISOString(),run:this.get(authority,runId),events};
+  });
+ }
  cancel(authority:RunAccess,runId:string):RunSummary {
   return this.store.transaction(()=>{const c=this.scoped(authority,runId,true),owner=this.assertAuthority(authority,String(c.project_id),true),before=this.store.getRun(owner,String(c.project_id),runId);
    if(before.state==='SUCCEEDED')throw new ProjectError('Completed work cannot be cancelled; use a new revision.',409);
@@ -149,13 +178,19 @@ export class RunQueue {
    this.assertWorker(worker);
    if(this.store.db.prepare("SELECT 1 FROM runs r JOIN run_controls c ON c.run_id=r.id WHERE r.state='RUNNING'").get())return null;
    const c=this.store.db.prepare("SELECT c.*,r.project_id FROM run_controls c JOIN runs r ON r.id=c.run_id WHERE r.state='QUEUED' ORDER BY c.created_at,c.rowid LIMIT 1").get();if(!c)return null;
-   const authority=authoritySchema.parse(JSON.parse(String(c.authority)));
+   let authority:RunAuthority,input:FrozenRunInput;
+   try{
+    authority=authoritySchema.parse(JSON.parse(String(c.authority)));
+    if(authority.workspaceId!==c.workspace_id||authority.actorId!==c.actor_id)throw new ProjectError('Stored authority mismatch',503);
+    input=frozenInput(String(c.frozen_input),c.input_digest);
+   }catch{
+    this.store.db.prepare("UPDATE runs SET state='FAILED',error='Stored execution data failed integrity checks. No model request was made.',updated_at=? WHERE id=? AND state='QUEUED'").run(new Date(this.clock()).toISOString(),String(c.run_id));
+    this.store.db.prepare("UPDATE run_controls SET phase='failed',outcome='INVALID_CONTROL_RECORD' WHERE run_id=?").run(String(c.run_id));
+    this.append(c,'run.invalid-data',{state:'FAILED',outcome:'INVALID_CONTROL_RECORD'});return null;
+   }
    let owner:string;try{owner=this.assertAuthority(authority,String(c.project_id),true,true);}catch(error){
     this.store.db.prepare("UPDATE runs SET state='CANCELLED',error=?,updated_at=? WHERE id=?").run('Execution authorization expired or changed.',new Date(this.clock()).toISOString(),String(c.run_id));this.append(c,'run.authorization-denied',{state:'CANCELLED'});return null;
    }
-   const input=JSON.parse(String(c.frozen_input)) as FrozenRunInput;
-   if(runDigest(input)!==c.input_digest)throw new ProjectError('Frozen execution input integrity failed',503);
-   validateSnapshot(input.snapshot);
    const token=Number(c.lease_token)+1;
    this.store.db.prepare('UPDATE run_controls SET lease_token=?,worker_id=?,worker_epoch=?,phase=? WHERE run_id=?').run(token,worker.workerId,worker.epoch,c.output?'validating':'context',String(c.run_id));
    this.store.db.prepare("UPDATE runs SET state='RUNNING',lease_until=?,updated_at=? WHERE id=? AND state='QUEUED'").run(this.clock()+LEASE_MS,new Date(this.clock()).toISOString(),String(c.run_id));
@@ -186,9 +221,13 @@ export class RunQueue {
  completePlan(job:ClaimedRun,text:string):void {this.store.transaction(()=>{const c=this.assertLease(job);this.store.completePlan(job.owner,job.run.project_id,job.run.id,text);this.store.db.prepare("UPDATE run_controls SET phase='complete',outcome='PLAN_SAVED' WHERE run_id=?").run(job.run.id);this.append(c,'plan.completed',{state:'SUCCEEDED',codeChanged:false});});}
  fail(job:ClaimedRun,message:string,interrupted=false):void {
   this.store.transaction(()=>{this.assertWorker(job.worker);const c=this.control(job.run.id),run=this.store.getRun(job.owner,job.run.project_id,job.run.id);
-   if(run.state!=='RUNNING'||c.lease_token!==job.token||c.worker_id!==job.worker.workerId||c.worker_epoch!==job.worker.epoch)return;
-   const state=interrupted?'INTERRUPTED':'FAILED';this.store.db.prepare('UPDATE runs SET state=?,candidate=NULL,error=?,updated_at=? WHERE id=?').run(state,redactSecretText(message).slice(0,2000),new Date(this.clock()).toISOString(),job.run.id);
-   this.store.db.prepare("UPDATE run_controls SET phase='stopped' WHERE run_id=?").run(job.run.id);this.append(c,'run.stopped',{state,outcome:String(c.outcome)});
+   if(run.state!=='RUNNING'||run.lease_until<=this.clock()||c.lease_token!==job.token||c.worker_id!==job.worker.workerId||c.worker_epoch!==job.worker.epoch)return;
+   const expired=Number(c.deadline_at)<=this.clock();
+   const resumable=interrupted&&!expired&&(!c.model_started||c.output!==null);
+   const state=resumable?'QUEUED':interrupted&&!expired?'INTERRUPTED':'FAILED';
+   this.store.db.prepare('UPDATE runs SET state=?,candidate=NULL,error=?,lease_until=0,updated_at=? WHERE id=?').run(state,resumable?'':redactSecretText(message).slice(0,2000),new Date(this.clock()).toISOString(),job.run.id);
+   this.store.db.prepare('UPDATE run_controls SET phase=?,worker_id=NULL WHERE run_id=?').run(resumable?'queued':'stopped',job.run.id);
+   this.append(c,resumable?'run.requeued':'run.stopped',{state,outcome:String(c.outcome),reason:interrupted?'worker-shutdown':'failure'});
   });
  }
  accept(authority:RunAccess,runId:string,version:number) {

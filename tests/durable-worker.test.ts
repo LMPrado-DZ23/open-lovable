@@ -51,3 +51,31 @@ test('a changed connection cannot consume a previously approved queued request',
  process.env.OPEN_LOVABLE_GATEWAY_API_KEY='changed-fixture-key';await f.work(f.queue,lease);
  assert.equal(f.calls(),0);assert.equal(f.queue.get(f.authority,run.id).state,'FAILED');
 });
+
+test('revoking the loopback provider policy invalidates a queued account request before inference',async t=>{
+ const f=await setup(t);
+ const {startIdentityFixture}=await import('./helpers/identity-fixture');const auth=await startIdentityFixture();
+ const extras={OPEN_LOVABLE_AUTH_MODE:'supabase',OPEN_LOVABLE_SUPABASE_URL:auth.url,OPEN_LOVABLE_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_contract',OPEN_LOVABLE_AUTH_ALLOW_LOOPBACK:'1',OPEN_LOVABLE_ACCOUNT_ALLOW_LOOPBACK_PROVIDERS:'1'};
+ const previous=Object.fromEntries(Object.keys(extras).map(key=>[key,process.env[key]]));Object.assign(process.env,extras);
+ t.after(async()=>{await auth.close();for(const key of Object.keys(extras)){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key];}});
+ const {accountService}=await import('../lib/identity/factory');const {CredentialStore,masterKey}=await import('../lib/settings/store');
+ const service=accountService('http://127.0.0.1:3100'),signed=await service.login('alice@example.test','identity-contract-password');
+ const session=await service.authenticate(signed.token);
+ const ctx=service.identity.context(session.actor_id,session.selected_workspace_id!);
+ const project=await new SqliteProjectRepository(f.store).create(ctx,'Account policy','gateway/fixture/coder');
+ const scope={owner:'workspace:'+ctx.principal.workspaceId,allowLoopback:true};
+ new CredentialStore(f.store,masterKey()).save(scope.owner,'gateway',0,{enabled:true,baseURL:process.env.OPEN_LOVABLE_GATEWAY_URL,apiKey:'worker-fixture-key',models:['fixture/coder']});
+ const authority:RunAuthority={...f.authority,workspaceId:ctx.principal.workspaceId,actorId:session.actor_id,sessionId:session.id,mode:'supabase',settingsOwner:scope.owner,modelBinding:modelBindingDigest(f.request.model,scope)};
+ const run=f.queue.enqueue(authority,{...f.request,projectId:project.id}),lease=f.queue.acquireWorker('policy-worker')!;
+ process.env.OPEN_LOVABLE_ACCOUNT_ALLOW_LOOPBACK_PROVIDERS='0';
+ await f.work(f.queue,lease);assert.equal(f.calls(),0);assert.equal(f.queue.get(authority,run.id).state,'FAILED');
+});
+test('membership revocation during a model request prevents candidate consolidation',async t=>{
+ const f=await setup(t),run=f.queue.enqueue(f.authority,{...f.request,prompt:'MODEL_HOLD'}),lease=f.queue.acquireWorker('revocation-worker')!;
+ const working=f.work(f.queue,lease);await f.received;
+ f.store.db.prepare('UPDATE workspace_members SET active=0,version=version+1 WHERE workspace_id=? AND actor_id=?').run(f.authority.workspaceId,f.authority.actorId);
+ f.release();await working;
+ assert.equal(f.calls(),1);assert.equal(f.store.getRun('alice',f.request.projectId,run.id).candidate,null);
+ assert.equal(f.store.getProject('alice',f.request.projectId).version,1);
+ assert.throws(()=>f.queue.get(f.authority,run.id),/not found/i);
+});

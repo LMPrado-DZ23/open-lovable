@@ -23,5 +23,5 @@ export function readSessionCookie(header:string|null,origin:string):string {
 
 /** Only exact versioned run operations are added; legacy sandbox endpoints stay forbidden in account mode. */
 export function accountApiAllowed(path:string):boolean {
- return ACCOUNT_API_PATHS.has(path)||path==='/api/v1/projects'||path==='/api/v1/runs'||/^\/api\/v1\/runs\/[0-9a-f-]{36}(?:\/(?:events|cancel|accept))?$/.test(path);
+ return ACCOUNT_API_PATHS.has(path)||path==='/api/v1/projects'||path==='/api/v1/runs'||/^\/api\/v1\/runs\/[0-9a-f-]{36}(?:\/(?:events|cancel|accept|export))?$/.test(path);
 }

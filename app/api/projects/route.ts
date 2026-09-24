@@ -1,3 +1,5 @@
+import {RunQueue} from '@/lib/runs/queue';
+import {reader as runAccess} from '@/lib/runs/http';
 import {studioAccess,authenticateStudio} from '@/lib/identity/request';
 import { z } from 'zod';
 import { readJsonObject, ClientInputError } from '@/lib/security/input-validation';
@@ -80,13 +82,18 @@ export async function POST(request:Request){
     if(!store.claimRun(owner,body.id,run.id))return json({run});
     return streamProjectRun(store,owner,run,request.signal,{scope:access.scope,assertLive:()=>guard(body.id,true)});
    }
-   case 'cancel':return json({run:store.cancelRun(owner,body.id,body.runID)});
+   case 'cancel':{
+    store.getRun(owner,body.id,body.runID);
+    if(store.db.prepare('SELECT 1 FROM run_controls WHERE run_id=?').get(body.runID))new RunQueue(store).cancel(runAccess(access),body.runID);
+    else store.cancelRun(owner,body.id,body.runID);
+    return json({run:store.getRun(owner,body.id,body.runID)});
+   }
    case 'accept':{
     const run=store.getRun(owner,body.id,body.runID);if(!run.candidate)throw new ProjectError('No candidate is awaiting approval',409);
     await compileProject(run.candidate);
     await repository.requireWrite(context(body.id));
     guard(body.id,true);
-    return json({project:store.acceptRun(owner,body.id,body.runID,body.version)});
+    return json({project:store.db.prepare('SELECT 1 FROM run_controls WHERE run_id=?').get(body.runID)?new RunQueue(store).accept(runAccess(access),body.runID,body.version):store.acceptRun(owner,body.id,body.runID,body.version)});
    }
    case 'preview':{
     const project=store.getProject(owner,body.id);const snapshot=body.runID?store.getRun(owner,body.id,body.runID).candidate:project.snapshot;

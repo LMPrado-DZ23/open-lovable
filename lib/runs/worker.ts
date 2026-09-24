@@ -16,6 +16,8 @@ function localGuard(queue:RunQueue,job:ClaimedRun):ProviderScope|undefined {
  if(configured?new URL(configured).origin!==a.origin:!['localhost','127.0.0.1','[::1]'].includes(new URL(a.origin).hostname))throw new ProjectError('Studio origin changed; authorize a new request.',403);
  if(a.mode==='individual'&&a.settingsOwner!==operatorID())throw new ProjectError('Operator identity changed.',403);
  if(a.mode==='supabase'&&a.settingsOwner!=='workspace:'+a.workspaceId)throw new ProjectError('Connection scope mismatch.',403);
+ const loopbackAllowed=process.env.OPEN_LOVABLE_ACCOUNT_ALLOW_LOOPBACK_PROVIDERS==='1'&&['localhost','127.0.0.1','[::1]'].includes(new URL(a.origin).hostname);
+ if(a.mode==='supabase'&&a.allowLoopback&&!loopbackAllowed)throw new ProjectError('Provider network policy changed. Authorize a new request.',403);
  const scope=a.mode==='supabase'?{owner:a.settingsOwner,allowLoopback:a.allowLoopback}:undefined;
  if(modelBindingDigest(job.run.model,scope)!==a.modelBinding)throw new ProjectError('Model connection changed. Review settings and authorize a new request.',409);
  return scope;

@@ -34,6 +34,7 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
 export function validateSnapshot(input:unknown):ProjectSnapshot {
  if(!input || typeof input!=='object') throw new ProjectError('Invalid project snapshot');
  const source=input as ProjectSnapshot;
+ if(Object.keys(source).some(key=>key!=='files'&&key!=='assets'))throw new ProjectError('Unknown snapshot field; only files and assets are accepted');
  if(!source.files || typeof source.files!=='object' || Array.isArray(source.files) || !source.assets || typeof source.assets!=='object' || Array.isArray(source.assets)) throw new ProjectError('Files and assets must be objects');
  if(Object.keys(source.files).length+Object.keys(source.assets).length>300) throw new ProjectError('Project exceeds 300 files');
  let bytes=0;const paths=new Set<string>();

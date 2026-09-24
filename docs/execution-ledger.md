@@ -157,3 +157,17 @@ Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the
 - Complete current tests: 184/185 passed; the nested-route discovery gate remains failed. The new browser cases have setup faults and do not yet demonstrate the intended disconnect behavior. UI integration is not delivered.
 - The last green published application is 13f89db / PR #6; its real upstream Auth, PostgreSQL, Ubuntu/main, Windows and macOS jobs passed in CI 35937107948.
 - No merge, production cutover or inference with a paid/user model. Runtime scripts and new migrations in this worktree are development state and must not be mistaken for the green P05 revision.
+
+## P07-P09 continuation from f6af97c
+
+- Reproduced the nested-route discovery failure. Recursive discovery now includes all existing and v1 handlers and retains every unauthorized-request assertion. Browser fixture encoding and inherited-auth mistakes corrected without relaxing assertions. The real legacy UI still fails the close-tab scenario.
+- Browser plugin not available; using the installed Playwright runner. UI direction: preserve warm white/copper surfaces, add a readable event timeline and meaningful no-worker/error states, no fabricated progress percentages.
+- Implement client observer and journal first, then connect enqueue and canonical approval/cancel adapters. Repeat full gates and crash/security tests before publishing the delta.
+
+- Connected the Studio to v1 enqueue and a read-only persistent journal; native anonymous tests no longer inherit Playwright credentials. Browser close/reopen proved one synthetic HTTP inference; approval/export timelines update through the same backend journal.
+- Added failure-first regressions for mismatched project/run cancellation, immutable admitted data/events, malformed-job quarantine, stale failure writes, queued network-policy revocation, unknown snapshot fields and safe graceful drain. Fixed causes without bypassing checks.
+- OS-process proof: forced death after dispatch remains uncertain/no retry; recorded complete output resumes compilation in another process without a second HTTP call. Windows results passed; CI cross-platform/PostgreSQL for the final SHA remain separate until read.
+- New migrations SQLite7/PostgreSQL4 enforce immutability. Historical migrations preserved; source import accepts schema7 and invalidates pending executions at destination.
+- The known Next aborted-request diagnostics remain. Rechecked upstream PR94658 (open); did not copy its broad ignore-error patch or switch to a custom server that would change optimization/deployment contracts solely to hide logs.
+
+- Clean local verification completed: 203 code/API/integration tests + 8 evidence tests, 30 E2E, lint/types, web and worker build, npm audit. Log bytes/digests checked independently in docs/evidence/p07-p09-local.json. This is the single-node P07/P08/P09 slice; distributed/typed HITL/cost control still require their own completion. Final-head PostgreSQL/portability CI and independent review pending publication.
