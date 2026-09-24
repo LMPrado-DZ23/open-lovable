@@ -50,7 +50,7 @@ watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Checkpoint P11 dispatch enforcement and continue P06 consumers plus P07-P10 real HTTP/worker journeys."
+current_task: "Checkpoint P06 image quota consumer and continue P06 export/candidate consumers plus P07-P10 real HTTP/worker journeys."
 current_failure: "The previous session stopped after a partial P06/P10/P11 increment; full project is not complete."
 current_strategy: "Use a vertical P12 slice: scoped RuntimeRef/capabilities, lease expiry/fencing and adapter delegation; prove tenant isolation and unavailable capabilities with tests before touching routes."
 plan:
@@ -72,6 +72,7 @@ completed_tasks:
   - "P16 authorized tools and P17 atomic PatchSet slices"
   - "P18 bounded repair loop and P19 approved plan digest slices"
   - "P11 budget reservation and usage reconciliation in real RunQueue dispatch"
+  - "P06 ReferenceImageStore upload now consumes central QuotaService; external ArtifactRef migration remains open"
 pending_tasks:
   - "P12 runtime contract and lease slice"
   - "All remaining packages and full-flow acceptance"
@@ -106,6 +107,7 @@ commands_and_tests:
   - "npx --no-install tsx --import ./tests/setup.mjs --test tests/roadmap/p18-p19.test.ts: PASS 4/4"
   - "npm run lint: PASS; npm run typecheck: PASS; accumulated P11-P19 focused suite: PASS 20/20"
   - "npm test: PASS after enqueue budget persistence; lint was fixed and re-run to PASS"
+  - "P06 image/backup/artifact validation: PASS 12/12; npm run lint/typecheck: PASS"
 evidence:
   - claim: "Previous checkpoint is a development increment, not full completion"
     command_or_observation: "pasted_content.txt and execution ledger read"
@@ -127,6 +129,11 @@ evidence:
     result: "PASS; zero-call deployment ceiling prevents model.requested and missing usage yields MODEL_USAGE_UNKNOWN"
     timestamp: "2026-09-24T08:23:59-03:00"
     artifact_or_log: "lib/runs/queue.ts; tests/roadmap/p11-dispatch.test.ts"
+  - claim: "P06 image uploads consume central quota accounting while retaining SQLite bytes for backup compatibility"
+    command_or_observation: "tests/backup-roundtrip.test.ts tests/p06-artifacts.test.ts"
+    result: "PASS 12/12 with backup and local artifact suites; captures/logs/releases are not yet migrated"
+    timestamp: "2026-09-24T08:25:15-03:00"
+    artifact_or_log: "lib/projects/images.ts; lib/quotas/service.ts"
 artifacts:
   - "/home/ubuntu/open-lovable-exec/docs/evidence/manus-p06-p10-p11-20260924.json"
 delegated_agents: []
@@ -135,6 +142,6 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Commit P11 dispatch enforcement, then wire ArtifactStore/quotas into real image/export/candidate consumers and add HTTP-to-worker approval/budget journeys."
+next_action: "Commit P06 image quota consumer, then wire export/candidate consumers and add HTTP-to-worker approval/budget journeys; keep unmigrated P06 classes explicit."
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---

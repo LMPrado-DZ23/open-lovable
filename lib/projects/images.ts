@@ -2,6 +2,7 @@ import {normalizeRasterInput,RasterInputError} from '@/lib/security/raster-input
 import {createHash,randomUUID} from 'node:crypto';
 import {assertNoSecrets} from '@/lib/security/secret-content';
 import {ProjectError,type ProjectStore} from './store';
+import {QuotaService} from '../quotas/service';
 
 export interface ReferenceImage {
  id:string;project_id:string;name:string;role:'target'|'current';mime:string;
@@ -15,7 +16,7 @@ export async function normalizeReferenceImage(data:unknown) {
 }
 /** Only normalized immutable references live here; archives retain evidence used by past runs. */
 export class ReferenceImageStore {
- constructor(private readonly store:ProjectStore,private readonly authorize?:(projectID:string,write:boolean)=>void){}
+ constructor(private readonly store:ProjectStore,private readonly authorize?:(projectID:string,write:boolean)=>void,private readonly quotas=new QuotaService({maxBytes:32*1024*1024,maxArtifacts:32,retentionMs:365*24*60*60*1000})){}
  list(owner:string,projectID:string):ReferenceImage[]{
   this.authorize?.(projectID,false);this.store.getProject(owner,projectID);
   return this.store.db.prepare('SELECT id,project_id,name,role,mime,width,height,bytes,sha256,created_at FROM project_images WHERE project_id=? AND archived=0 ORDER BY created_at,id').all(projectID) as unknown as ReferenceImage[];
@@ -34,7 +35,7 @@ export class ReferenceImageStore {
   this.store.transaction(()=>{
    this.authorize?.(projectID,true);this.store.getProject(owner,projectID);
    const quota=this.store.db.prepare('SELECT count(*) AS count, coalesce(sum(bytes),0) AS bytes FROM project_images WHERE project_id=?').get(projectID)!;
-   if(Number(quota.count)>=32||Number(quota.bytes)+normalized.bytes>32*1024*1024)throw new ProjectError('Image storage budget reached (32 images / 32 MiB including archived references).',413);
+   this.quotas.assertCanStore({source:0,references:Number(quota.bytes),candidates:0,logs:0,captures:0,research:0,release:0},'references',normalized.bytes,Number(quota.count),1);
    this.store.db.prepare('INSERT INTO project_images(id,project_id,name,role,mime,width,height,bytes,sha256,data,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(id,projectID,name.trim(),role,normalized.mime,normalized.width,normalized.height,normalized.bytes,normalized.sha256,normalized.data,created_at);
   });
   return this.list(owner,projectID).find(image=>image.id===id)!;
