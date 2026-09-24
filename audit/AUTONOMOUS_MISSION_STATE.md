@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T13:29:00-03:00"
-last_progress_at: "2026-09-24T13:29:00-03:00"
+heartbeat_at: "2026-09-24T13:33:00-03:00"
+last_progress_at: "2026-09-24T13:33:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue P42 with asset records/crops and explicit provenance/licensing/consent, preserving originals and blocking unauthorized or over-budget generation."
+next_action: "Continue P43 with versioned video references and multipage flow contracts, keeping external media providers and downloads disabled unless explicitly authorized."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -257,6 +257,9 @@ latest_gate_evidence:
   p41_knowledge: "PASS 2/2 focused; text ingestion produces source/version/digest chunks, retrieval is workspace/project scoped with freshness/revocation filters, citations are visible, and missing evidence remains unknown"
   p41_full_regression: "PASS; npm test exit 0 after P41 integration"
   p41_external_ocr_embeddings: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no OCR or embedding provider was invoked"
+  p42_assets: "PASS 2/2 focused; uploaded assets preserve original bytes/provenance, crops bind to originals, consent and license references are required, unsupported media and invalid bounds are rejected"
+  p42_full_regression: "PASS; npm test exit 0 with 89 roadmap tests and 8 P00 checks"
+  p42_external_media: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no generation provider or third-party media download was used"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
