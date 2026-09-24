@@ -268,3 +268,7 @@ Enquanto o runner remoto aguarda, foram executados localmente os jobs adicionais
 O CI remoto `36062884808` revelou uma falha real no job `postgres-contracts`: o teste de upgrade v1 esperava quatro registros de migração, enquanto o catálogo vigente já possui cinco, incluindo `POSTGRES_ADMIN_SQL`. A assertion foi corrigida para usar `POSTGRES_MIGRATIONS.length` e comparar a sequência completa de digests, preservando a verificação de histórico imutável.
 
 A correção passou localmente em lint, typecheck e diff check e foi publicada no commit `23bd6e0472a590cd75b745356a19c4f06298f94c`. O novo GitHub Actions run `36063966841` terminou com `success` no SHA correto. Este é o primeiro CI remoto bem-sucedido para a branch após a correção; não há mais falha conhecida nesse job. Homologação de provedores, produção e merge continuam dependências externas separadas.
+
+## CI final do checkpoint documental (2026-09-24)
+
+O workflow disparado para o SHA `18a916acf67fe24b86486b4db0aa023ca8914128` terminou com sucesso no run GitHub Actions `36065782501`. O run anterior do commit documental intermediário foi cancelado por concorrência; não é usado como evidência. A branch agora possui CI verde no último SHA publicado, incluindo os jobs configurados de verificação, portabilidade, PostgreSQL e Auth contratual.
