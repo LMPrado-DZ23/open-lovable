@@ -36,8 +36,8 @@ state: EXECUTING
 status: CONTINUE
 iteration: 3
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T15:09:00-03:00"
-last_progress_at: "2026-09-24T15:09:00-03:00"
+heartbeat_at: "2026-09-24T15:10:00-03:00"
+last_progress_at: "2026-09-24T15:10:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -329,6 +329,10 @@ latest_gate_evidence:
   generation_file_selection: "PASS; resolveSelectedFileContent helper prefers generated output, falls back to authorized sandbox cache and avoids empty placeholders"
   accessibility_file_tree: "PASS source audit; folder/file click targets are native buttons with keyboard support, aria-expanded/aria-pressed state and accessible labels; lint/build/regression green"
   accessibility_regression: "PASS; npm test exit 0 with 226 unit/integration tests, 131 roadmap tests and 8 P00 checks"
+  tenant_unit_audit: "PASS 9/9; operator auth, project API server-derived workspace identity, membership mutation gates and image revocation boundaries passed"
+  tenant_playwright_audit: "PASS 1/1; project settings scope passed using the correct Playwright runner"
+  auth_real_audit: "BLOCKED_BY_EXTERNAL_DEPENDENCY; disposable Auth server and signing-key environment are not configured; no simulated pass was claimed"
+  audit_runner_correction: "Initial mixed node:test invocation was invalid for Playwright and real-auth suites; rerun used their correct runners and separated the external blocker"
   p63_voice_contract: "PASS 2/2 focused; sessions require authorized E.164 destination, consent for recording, bounded timeout/budget, workspace/project-scoped handoff and idempotent callbacks"
   p63_full_regression: "PASS; npm test exit 0 with 131 roadmap tests, 225 unit/integration tests and 8 P00 checks"
   p63_external_voice: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no PBX/SIP, phone number, audio device, transcription provider or real call was used"
