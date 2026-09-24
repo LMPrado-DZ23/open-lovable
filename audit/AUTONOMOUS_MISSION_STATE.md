@@ -45,7 +45,7 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "23bd6e0472a590cd75b745356a19c4f06298f94c"
+  head: "ea8824b11d339e08f85339f8a3293b8a693586cc"
   uncommitted_changes: false
 watchdog:
   executor_pid: null
