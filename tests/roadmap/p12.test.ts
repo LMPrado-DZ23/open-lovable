@@ -7,3 +7,10 @@ function adapter(calls:string[],clock:()=>number):RuntimeAdapter{return {async c
 test('P12-A: project B cannot reuse project A runtime or lease',async()=>{const now=1000;const calls:string[]=[];const service=new RuntimeService(adapter(calls,()=>now),undefined,()=>now);const a=await service.create(identity());const b=await service.create(identity('w_b','p_b','actor_b'));assert.notEqual(a.id,b.id);assert.notEqual(a.sandboxId,b.sandboxId);await service.execute(a,'actor_a',{argv:['npm','test']});assert.deepEqual(calls,['create:p_a','create:p_b','execute:p_a:npm test']);await assert.rejects(()=>service.execute(a,'actor_b',{argv:['id']}),/scope/i);});
 test('P12-B: forged runtime identity and expired lease are denied before adapter call',async()=>{let now=1000;const calls:string[]=[];const service=new RuntimeService(adapter(calls,()=>now),undefined,()=>now);await assert.rejects(()=>service.create({...identity(),projectId:'../escape'}),/Invalid runtime identity/);const ref=await service.create(identity(),10);now+=11;await assert.rejects(()=>service.execute(ref,'actor_a',{argv:['npm','test']}),/lease/i);assert.deepEqual(calls,['create:p_a']);});
 test('P12 capabilities are explicit and unavailable terminal is not guessed',async()=>{const now=1000;const calls:string[]=[];const base=adapter(calls,()=>now);const noTerminal={...base,async create(i){const created=await base.create(i);return {...created,capabilities:{...created.capabilities,terminal:false}};}};const service=new RuntimeService(noTerminal,undefined,()=>now);const ref=await service.create(identity());assert.equal(service.capabilities(ref,'actor_a').terminal,false);await assert.rejects(()=>service.execute(ref,'actor_a',{argv:['npm','test']}),/unavailable/i);assert.deepEqual(calls,['create:p_a']);});
+
+test('P12 factory adapts an existing provider without introducing a second sandbox selector',async()=>{
+ const {SandboxFactory}=await import('../../lib/sandbox/factory');
+ const runtime=SandboxFactory.createRuntimeFactory('e2b',{});
+ const adapter=runtime.createAdapter();
+ assert.equal(typeof adapter.create,'function');assert.equal(typeof adapter.execute,'function');
+});
