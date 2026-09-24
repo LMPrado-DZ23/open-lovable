@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T13:39:00-03:00"
-last_progress_at: "2026-09-24T13:39:00-03:00"
+heartbeat_at: "2026-09-24T13:43:00-03:00"
+last_progress_at: "2026-09-24T13:43:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue P45 with test-mode app integrations: payment/email manifests, consented analytics and SEO metadata, keeping real providers and production activation blocked."
+next_action: "Continue P46-P49 with remaining local acceptance slices from the DAG; keep real provider, production hosting and external homologation claims blocked unless authorized."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -266,6 +266,9 @@ latest_gate_evidence:
   p44_templates_design: "PASS 3/3 focused; institutional, authenticated CRUD and role-calendar templates declare capabilities/scenarios/checklists, incompatible dependencies and unconfirmed destinations fail closed, workspace tokens are isolated and server-authorized, and rollback creates an explicit new version"
   p44_full_regression: "PASS; npm test exit 0 with 92 roadmap tests and 8 P00 checks"
   p44_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external template source or third-party design identity was copied"
+  p45_app_integrations: "PASS 3/3 focused; app test-mode checkout is idempotent and webhook-reconciled, transactional email is project-bound and rate-limited with marketing opt-in rejected, analytics is consented and project-scoped, and SEO metadata/sitemap/robots are generated with safe origins"
+  p45_full_regression: "PASS; npm test exit 0 with 97 roadmap tests and 8 P00 checks"
+  p45_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no payment, email, analytics or production provider account was invoked"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
