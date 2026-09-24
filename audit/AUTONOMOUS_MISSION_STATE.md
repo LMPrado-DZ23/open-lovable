@@ -1,0 +1,119 @@
+---
+mission_id: "20260924-open-lovable-v2-completion"
+objective: "Concluir o produto Open Lovable/DZ23 conforme o plano V2 e emenda V2.1, preservando o histórico, implementando capacidades reais e validando-as com evidência reproduzível."
+scope:
+  in:
+    - "P00-P67 e critérios de aceite do plano mestre V2/V2.1"
+    - "código, testes, UI, backend, persistência, runtime, integração e operação"
+    - "execução em clone separado e branch de desenvolvimento autorizada"
+  out:
+    - "merge final/main sem autorização específica"
+    - "deploy/publicação em produção, gastos, dados reais e credenciais novas sem autorização"
+acceptance_criteria:
+  - "Cada pacote possui implementação ou BLOCKED_BY_EXTERNAL_DEPENDENCY honesto, com evidência ligada ao SHA."
+  - "Os três fluxos ponta a ponta do handoff funcionam: alteração com tools/testes/reparo; edição visual ligada à fonte; app full-stack com login e isolamento de dados."
+  - "Instalação/update, backup/restore, rollback, segurança, observabilidade, exportação e release são verificáveis."
+  - "Nenhum blocker interno, nenhum achado CRITICAL/HIGH após o fix loop e três auditorias independentes concluídas."
+gates:
+  required: [lint,typecheck,unit,integration,security,build,functional_acceptance,final_audit]
+  not_applicable:
+    - gate: "real cloud/production homologation"
+      justification: "Requires authorized external credentials, infrastructure and release approval; independent local work continues."
+delivery_destination: "local development branch fix/p09-reviewed-recovery-scope-20260924; origin push/PR only when explicitly authorized"
+approvals_required:
+  - "merge final/main"
+  - "produção, publicação permanente, domínio/TLS e alteração de infraestrutura"
+  - "gastos, provedores pagos, inferência paga, SMTP, comunicação externa e dados reais"
+budget:
+  max_equivalent_attempts: 3
+  max_attempts_without_progress: 5
+  max_parallel_agents: 3
+  task_timeout: "bounded per task; checkpoint before context exhaustion"
+  no_progress_timeout: "checkpoint and strategy change after 5 unsuccessful attempts"
+  api_or_cost_limit: "free/local fixtures only unless explicit approval"
+rollback_plan: "Every code step is committed on the development branch; restore to 05875bef7ef8f3f43a84195df7f6df05abc3e379 or the last verified commit. Database tests use disposable roots; no destructive production migration is permitted."
+state: CHECKPOINTING
+iteration: 1
+started_at: "2026-09-24T08:11:36-03:00"
+heartbeat_at: "2026-09-24T08:11:36-03:00"
+last_progress_at: "2026-09-24T08:13:22-03:00"
+repository:
+  path: "/home/ubuntu/open-lovable-exec"
+  branch: "fix/p09-reviewed-recovery-scope-20260924"
+  upstream: "origin"
+  remotes:
+    - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
+    - "upstream=https://github.com/firecrawl/open-lovable.git"
+  head: "05875bef7ef8f3f43a84195df7f6df05abc3e379"
+  uncommitted_changes: true
+watchdog:
+  executor_pid: null
+  restarts: 0
+  last_exit_status: null
+current_task: "Checkpoint verified P12 runtime contract and proceed to P13/P14 isolation and export validation."
+current_failure: "The previous session stopped after a partial P06/P10/P11 increment; full project is not complete."
+current_strategy: "Use a vertical P12 slice: scoped RuntimeRef/capabilities, lease expiry/fencing and adapter delegation; prove tenant isolation and unavailable capabilities with tests before touching routes."
+plan:
+  - "Recover and baseline commit 05875be."
+  - "Close control plane P06/P07-P11, including real dispatch enforcement and PostgreSQL contracts."
+  - "Implement runtime/export/tools/context/repair P12-P19/P23/P52-P53."
+  - "Implement visual editing/drafts/quality P20-P22/P44/P51/P54/P58-P59."
+  - "Implement Git/research/adapters/collaboration P24-P25/P30-P32/P55-P57/P60/P66."
+  - "Implement backend/release/hosting/operation P26-P40/P61."
+  - "Implement extensions P41-P45/P50/P62-P65/P67 and close P46-P49."
+  - "Run three independent audits, fix findings, and prepare release evidence."
+completed_tasks:
+  - "Baseline clone and SHA verification"
+  - "P10/P11 local approval/limits slice"
+  - "P06 local artifact/quota slice"
+  - "P12 runtime contract, capabilities and lease fencing slice"
+pending_tasks:
+  - "P12 runtime contract and lease slice"
+  - "All remaining packages and full-flow acceptance"
+dependencies:
+  - "PostgreSQL disposable service for real hosted contracts"
+  - "Private S3-compatible service for P06 acceptance"
+  - "Authorized real model/cloud/SMTP/DNS credentials for external homologation"
+blockers: []
+approvals_pending: []
+hypotheses:
+  - "The existing SQLite canonical ledger can be extended vertically without replacing the legacy flow."
+decisions:
+  - "Continue from 05875be; do not reset, clean, cherry-pick the WIP wholesale, or restart the plan."
+  - "Use L3 enterprise rigor because the target includes external users, auth, releases, data recovery and production readiness."
+strategies_tried:
+  - "Partial local P06/P10/P11 implementation; verified but insufficient for mission completion."
+discarded_hypotheses: []
+attempt_count: 1
+same_failure_count: 0
+tests_passed_delta: 0
+tests_failed_delta: 0
+completed_tasks_delta: 0
+files_changed: []
+commands_and_tests:
+  - "git status/HEAD/remotes: observed clean at 05875be before checkpoint creation"
+  - "Previous verified gates: lint/typecheck/unit/build/audit/E2E passed on 05875be; external PostgreSQL/S3/production not claimed"
+  - "npm run typecheck: PASS on current worktree after P12"
+  - "npx --no-install tsx --import ./tests/setup.mjs --test tests/roadmap/p12.test.ts: PASS 3/3"
+evidence:
+  - claim: "Previous checkpoint is a development increment, not full completion"
+    command_or_observation: "pasted_content.txt and execution ledger read"
+    result: "Confirmed P11, P07-P09, P12-P67 remain open"
+    timestamp: "2026-09-24T08:11:13-03:00"
+    artifact_or_log: "/home/ubuntu/upload/pasted_content.txt"
+  - claim: "P12 runtime identities, capabilities and lease fencing are implemented and deny cross-actor/expired access before adapter calls"
+    command_or_observation: "Focused P12 test and typecheck"
+    result: "PASS; 3/3 tests, typecheck exit 0"
+    timestamp: "2026-09-24T08:13:22-03:00"
+    artifact_or_log: "tests/roadmap/p12.test.ts"
+artifacts:
+  - "/home/ubuntu/open-lovable-exec/docs/evidence/manus-p06-p10-p11-20260924.json"
+delegated_agents: []
+audits: []
+risks:
+  - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
+  - "External homologations may remain blocked; implement all independent local and contract work first."
+context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
+next_action: "Commit P12 checkpoint, then implement P13/P14 local security contracts: execution policy and clean export/template validation without claiming external sandbox availability."
+resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
+---
