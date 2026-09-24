@@ -232,3 +232,11 @@ Plan: V2 + V2.1; base 13f89db, isolated worktree, no merge/cutover. Preserve the
 - O comportamento individual e as execuções Supabase sem essa política explícita permanecem compatíveis; não foi introduzida aprovação tácita nem segredo no prompt.
 - Foco P10/P09: typecheck, lint, `tests/durable-worker.test.ts` e `tests/run-api.test.ts` passaram (13/13); regressão integral passou com 227 testes unitários/integrados, 131 roadmap e 8 P00; build web/worker passou.
 - Estado: implementação local do worker avançou; homologação com Auth/PostgreSQL/provedor externo real permanece `BLOCKED_BY_EXTERNAL_DEPENDENCY`.
+
+## Continuação P10/P16 - E2E e contexto de tools (2026-09-24)
+
+A suíte Playwright completa passou com 31/31 testes usando o runner correto, abrangendo runs duráveis, visual workflow, contas, isolamento de workspace, smoke/security e responsividade. Os logs de `ECONNRESET` e do comando inválido correspondem a cenários de cancelamento/validação exercitados pelos próprios testes e não produziram falha.
+
+O worker durável agora injeta somente valores derivados no servidor — `workspaceId` da autoridade, `projectId` do run e `revisionDigest` do snapshot congelado — no `FrozenRunInput`. Isso ativa o inventário `authorizedTools` durante a chamada real ao modelo sem aceitar autoridade do browser. A regressão focal do worker passou 5/5; o gate integral de `npm test` e `npm run build` passou novamente.
+
+A homologação Auth/PostgreSQL/S3/provedores reais e a autorização de merge/produção continuam bloqueios externos explícitos.

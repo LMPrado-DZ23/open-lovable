@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {authMode} from '../identity/config';
 import {accountService} from '../identity/factory';
 import {ProjectError,operatorID} from '../projects/store';
@@ -42,7 +43,8 @@ export async function runWorkerOnce(queue:RunQueue,worker:WorkerLease,stopSignal
   let text=job.output;
   if(text===null){
    const approval=new ApprovalService(queue);
-   const result=await requestFrozenModel(job.run,job.input,signal,{
+   const toolInput={...job.input,workspaceId:job.authority.workspaceId,projectId:job.run.project_id,revisionDigest:createHash('sha256').update(JSON.stringify(job.input.snapshot)).digest('hex')};
+   const result=await requestFrozenModel(job.run,toolInput,signal,{
     scope,
     limits:queue.limitsFor(job.run.id,job.run.inputs.mode),
     assertLive:()=>{localGuard(queue,job);},

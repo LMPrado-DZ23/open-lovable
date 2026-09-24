@@ -13,11 +13,11 @@ import {modelBindingDigest} from '../lib/runs/model-binding';
 import type {RunAuthority,EnqueueRequest} from '../lib/runs/types';
 
 async function setup(t:{after(fn:()=>void|Promise<void>):void}){
- let calls=0,release=()=>{};let accepted=()=>{};const received=new Promise<void>(r=>accepted=r);
+ let calls=0,release=()=>{};let lastBody:any;let accepted=()=>{};const received=new Promise<void>(r=>accepted=r);
  const server=createServer(async(req,res)=>{
   if(req.url==='/v1/models'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({data:[{id:'fixture/coder'}]}));return;}
   assert.equal(req.headers.authorization,'Bearer worker-fixture-key');let raw='';for await(const c of req)raw+=c;
-  calls++;accepted();const body=JSON.parse(raw);res.writeHead(200,{'Content-Type':'text/event-stream'});
+  calls++;accepted();const body=JSON.parse(raw);lastBody=body;res.writeHead(200,{'Content-Type':'text/event-stream'});
   if(raw.includes('MODEL_HOLD'))await new Promise<void>(r=>release=r);
   const content='<file path="src/App.jsx">export default function App(){return <h1>Durable result</h1>}</file>Test proposal.';
   const chunk={id:'worker-fixture',object:'chat.completion.chunk',created:1,model:body.model,choices:[{index:0,delta:{content},finish_reason:null}]};
@@ -31,11 +31,12 @@ async function setup(t:{after(fn:()=>void|Promise<void>):void}){
  const authority:RunAuthority={workspaceId:ctx.principal.workspaceId,actorId:ctx.principal.actorId,memberVersion:1,mode:'individual',sessionId:null,origin:'http://127.0.0.1:3100',settingsOwner:'alice',allowLoopback:true,modelBinding:modelBindingDigest('gateway/fixture/coder'),policyVersion:1};
  const request:EnqueueRequest={projectId:project.id,baseVersion:1,requestKey:randomUUID(),prompt:'Build the page',model:'gateway/fixture/coder',mode:'build',imageIDs:[],confirmCost:true};
  const implementationModule=await import('../lib/runs/worker').catch(()=>({})) as Record<string,any>;assert.equal(typeof implementationModule.runWorkerOnce,'function','Worker must execute outside the observing request');
- return {store,queue:new RunQueue(store),authority,request,calls:()=>calls,received,release:()=>release(),work:implementationModule.runWorkerOnce};
+ return {store,queue:new RunQueue(store),authority,request,calls:()=>calls,lastBody:()=>lastBody,received,release:()=>release(),work:implementationModule.runWorkerOnce};
 }
 test('worker executes one real HTTP model exchange, validates a candidate and preserves the accepted revision',async t=>{
  const f=await setup(t),run=f.queue.enqueue(f.authority,f.request),lease=f.queue.acquireWorker('fixture-worker')!;
  const result=await f.work(f.queue,lease);assert.equal(result.worked,true);assert.equal(f.calls(),1);
+ assert.match(JSON.stringify(f.lastBody()),/authorizedTools/);assert.match(JSON.stringify(f.lastBody()),/revisionDigest/);
  assert.equal(f.queue.get(f.authority,run.id).state,'AWAITING_APPROVAL');assert.equal(f.store.getProject('alice',f.request.projectId).version,1);
  assert.match(f.store.getRun('alice',f.request.projectId,run.id).candidate!.files['src/App.jsx'],/Durable result/);
  assert.equal((await f.work(f.queue,lease)).worked,false);assert.equal(f.calls(),1);

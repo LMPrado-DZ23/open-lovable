@@ -45,13 +45,13 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "536935d7aa3e2f8a7e5db24a2d52e8fa21acb0e5"
-  uncommitted_changes: false
+  head: "ee1bb749a31552535bef36f22fd3988ae38d928b"
+  uncommitted_changes: true
 watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "P10 HITL worker pause verified and published at 536935d; continue with authorized E2E and external homologation gates without claiming release readiness."
+current_task: "Connect authorized tool context to the durable worker, verify full regression/E2E, then publish; external gates remain explicitly blocked."
 current_failure: "External homologation and release authorization remain open; no local code failure after the audit fixes."
 current_strategy: "Use evidence-driven vertical slices, then run independent security, product and accessibility audits; never treat local fixtures as external homologation."
 plan:
@@ -349,6 +349,8 @@ latest_gate_evidence:
   audit_high_fixes_full: "PASS; npm test exit 0 with 227 unit/integration tests, 131 roadmap tests and 8 P00 checks; npm run build exit 0"
   p10_worker_hilt_pause: "PASS; with OPEN_LOVABLE_REQUIRE_CONNECTION_APPROVAL=1 and Supabase authority, the worker pauses before model effect through ApprovalService; lease is released and approval API remains the only resume path; default individual behavior is unchanged"
   p10_worker_regression: "PASS; npm test exit 0 with 227 unit/integration tests, 131 roadmap tests and 8 P00 checks; npm run build exit 0"
+  e2e_full_resume: "PASS; Playwright correct runner completed 31/31 tests across durable runs, visual workflows, account isolation, settings scope, smoke/security and responsive UI; expected aborted-request and invalid-command logs did not fail tests"
+  worker_authorized_tools_context: "PASS; durable worker now injects server-derived workspaceId/projectId and snapshot revisionDigest into FrozenRunInput; model request includes authorizedTools inventory and revision provenance; focused worker 5/5 and full npm test/build passed"
   p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
   p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
   p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
