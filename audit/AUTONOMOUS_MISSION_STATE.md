@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T11:46:15-03:00"
-last_progress_at: "2026-09-24T11:46:15-03:00"
+heartbeat_at: "2026-09-24T11:50:35-03:00"
+last_progress_at: "2026-09-24T11:50:35-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue F07 at P26 by implementing the authorized backend connection contract with provider-neutral capability/configuration boundaries; keep real credential provisioning and external homologation blocked until authorized."
+next_action: "Implement P27 migration proposals with schema digest, expand/contract safety, RLS/grant/destructive SQL rejection and approval-bound execution; keep external staging DB homologation blocked."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -211,6 +211,9 @@ latest_gate_evidence:
   p25_legacy_url: "PASS 4/4 focused; legacy URL sandbox creation is additive, prior sandbox remains addressable, rollback terminates only the newly created sandbox, and snapshot migration manifests preserve history with hash verification"
   p25_full_regression: "PASS; npm test exit 0 with 46 roadmap tests and 8 P00 checks"
   p25_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; Firecrawl and real sandbox URL reference scenario were not invoked without authorized external credentials"
+  p26_backend_contract: "PASS 3/3 focused; Supabase binding reports observed capabilities without secrets, provisioning is opt-in/idempotent, and foreign managed resources are rejected"
+  p26_full_regression: "PASS; npm test exit 0 with 49 roadmap tests and 8 P00 checks"
+  p26_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no Supabase project, region, quota or cost authorization was used"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---

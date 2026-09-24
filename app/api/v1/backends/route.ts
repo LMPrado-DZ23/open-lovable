@@ -1,0 +1,7 @@
+import {z} from 'zod';
+import {authenticateStudio,studioAccess} from '@/lib/identity/request';
+import {connectSupabase} from '@/lib/backend/supabase';
+import {ProjectError} from '@/lib/projects/store';
+export const runtime='nodejs';
+const schema=z.object({projectId:z.string().uuid(),environment:z.enum(['development','staging','production']),provider:z.literal('supabase'),projectRef:z.string().min(6).max(80),credentialRef:z.string().min(1).max(240),observed:z.object({schema:z.string().min(1).max(120),health:z.enum(['healthy','unknown','unhealthy']),auth:z.boolean(),storage:z.boolean(),functions:z.boolean()}).strict()}).strict();
+export async function POST(request:Request){try{const identity=await authenticateStudio(request);if(identity instanceof Response)return identity;const body=schema.parse(await request.json());const access=await studioAccess(request,body.projectId,identity);if(access instanceof Response)return access;access.guard(body.projectId,true);const binding=connectSupabase(body.projectId,body.environment,body.projectRef,body.credentialRef,body.observed);return Response.json({binding:{...binding,credentialRef:'server-managed'}},{status:200,headers:{'Cache-Control':'no-store'}});}catch(error){const status=error instanceof ProjectError?error.status:error instanceof z.ZodError?400:500;return Response.json({error:error instanceof Error?error.message:'Backend connection failed.'},{status});}}
