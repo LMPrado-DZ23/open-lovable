@@ -44,13 +44,13 @@ repository:
   remotes:
     - "origin=https://github.com/LMPrado-DZ23/open-lovable.git"
     - "upstream=https://github.com/firecrawl/open-lovable.git"
-  head: "48d1baaf23e831d6a3ef866a1202630668538137"
+  head: "ec56fc7a643159c257a5111c18a14af92b4c4320"
   uncommitted_changes: false
 watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Implement P13 rootless runner policy and then advance through the remaining DAG slices."
+current_task: "Close P08/P09 durable execution acceptance and then continue through remaining DAG slices."
 current_failure: "No current code failure; mission remains incomplete because the full P00-P67 acceptance matrix is not closed."
 current_strategy: "Use vertical slices: integrate existing P06 services into hot consumers, close HTTP/worker approval journeys, then add governance improvements with tests and evidence."
 plan:
@@ -80,9 +80,11 @@ completed_tasks:
   - "P12 RuntimeFactory now adapts the existing SandboxFactory providers through the canonical RuntimeAdapter"
   - "P14 React/Vite template includes real package lockfile, build/test scripts, and clean build evidence"
   - "P10 v1 approval GET/POST has route-level coverage; matching digest/nonce resumes the queued run"
+  - "P07 canonical DomainEvent/redaction/tracing helpers are integrated with versioned run HTTP handlers"
   - "Review branch pushed; draft PR creation remains blocked by GitHub integration permission"
 pending_tasks:
   - "P10 browser-level approval pause/resume journey"
+  - "P08/P09 hosted PostgreSQL and concurrency acceptance"
   - "P13 external Linux/container homologation"
   - "P11 timeout/concurrency acceptance and external model homologation"
   - "All remaining packages and full-flow acceptance"

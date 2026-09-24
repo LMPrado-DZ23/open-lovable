@@ -12,12 +12,13 @@ import {compileProject} from '../projects/preview';
 import {RunQueue} from './queue';
 import {modelBindingDigest} from './model-binding';
 import {ApprovalService} from '../approvals/service';
+import {traceFromRequest} from '../observability/tracing';
 import type {ApprovalResolution,ConnectionSummary} from '../approvals/types';
 import type {RunAccess,RunAuthority,EnqueueRequest} from './types';
 type Access=Exclude<Awaited<ReturnType<typeof studioAccess>>,Response>;
 const id=z.string().uuid();
 const requestSchema=z.object({projectId:id,baseVersion:z.number().int().min(1),requestKey:z.string().regex(/^[a-z0-9_-]{8,128}$/i),prompt:z.string().min(1).max(32768),model:z.string().min(1).max(240),mode:z.enum(['build','plan']),imageIDs:z.array(id).max(4),confirmCost:z.literal(true),confirmVision:z.boolean().optional()}).strict();
-const correlation=()=>({requestId:randomUUID(),traceId:randomBytes(16).toString('hex')});
+const correlation=(request:Request)=>traceFromRequest(request);
 interface Correlation {requestId:string;traceId:string;}
 function json(value:unknown,trace:Correlation,status=200){return Response.json(value,{status,headers:{'Cache-Control':'no-store','Vary':'Cookie, Authorization','X-Request-ID':trace.requestId,'X-Trace-ID':trace.traceId,'X-Content-Type-Options':'nosniff'}});}
 function failure(error:unknown,trace:Correlation):Response {
@@ -38,7 +39,7 @@ function authority(access:Access,request:Request,model:string):RunAuthority {
 }
 /** The command completes when admitted, not when a long-lived model stream ends. */
 export async function createRun(request:Request):Promise<Response>{
- const trace=correlation();
+ const trace=correlation(request);
  try{
   const auth=await authenticateStudio(request);if(auth instanceof Response)return auth;
   const input=requestSchema.parse(await readJsonObject(request,100000));
@@ -54,7 +55,7 @@ export async function createRun(request:Request):Promise<Response>{
  }catch(error){return failure(error,trace);}
 }
 export async function listRuns(request:Request):Promise<Response>{
- const trace=correlation();try{
+ const trace=correlation(request);try{
   const auth=await authenticateStudio(request);if(auth instanceof Response)return auth;
   const projectId=id.parse(new URL(request.url).searchParams.get('projectId'));
   const access=await studioAccess(request,projectId,auth);if(access instanceof Response)return access;
@@ -72,13 +73,13 @@ async function located(request:Request){
  const access=await studioAccess(request,String(row.project_id),auth);if(access instanceof Response)return access;
  access.guard(String(row.project_id));return {access,runId,projectId:String(row.project_id),queue:new RunQueue(access.store),principal:reader(access)};
 }
-export async function readRun(request:Request):Promise<Response>{const trace=correlation();try{const found=await located(request);if(found instanceof Response)return found;return json({run:found.queue.get(found.principal,found.runId)},trace);}catch(error){return failure(error,trace);}}
-export async function cancelRun(request:Request):Promise<Response>{const trace=correlation();try{
+export async function readRun(request:Request):Promise<Response>{const trace=correlation(request);try{const found=await located(request);if(found instanceof Response)return found;return json({run:found.queue.get(found.principal,found.runId)},trace);}catch(error){return failure(error,trace);}}
+export async function cancelRun(request:Request):Promise<Response>{const trace=correlation(request);try{
  const found=await located(request);if(found instanceof Response)return found;
  z.object({}).strict().parse(await readJsonObject(request,1024));found.access.guard(found.projectId,true);
  return json({run:found.queue.cancel(found.principal,found.runId)},trace);
  }catch(error){return failure(error,trace);}}
-export async function acceptRun(request:Request):Promise<Response>{const trace=correlation();try{
+export async function acceptRun(request:Request):Promise<Response>{const trace=correlation(request);try{
  const found=await located(request);if(found instanceof Response)return found;
  const body=z.object({version:z.number().int().min(1)}).strict().parse(await readJsonObject(request,1024));
  found.access.guard(found.projectId,true);
@@ -91,7 +92,7 @@ export async function acceptRun(request:Request):Promise<Response>{const trace=c
 const subscribers=new Map<string,number>();
 /** Read-only per-run event stream. Cancellation releases only this observer, never the job. */
 export async function observeRun(request:Request):Promise<Response>{
- const trace=correlation();try{
+ const trace=correlation(request);try{
   const found=await located(request);if(found instanceof Response)return found;
   const parameter=new URL(request.url).searchParams.get('cursor'),header=request.headers.get('last-event-id');
   if(parameter!==null&&header!==null&&parameter!==header)throw new ProjectError('Conflicting event cursors');
@@ -128,20 +129,20 @@ export async function observeRun(request:Request):Promise<Response>{
 }
 
 /** Audited download is a CSRF-protected command; no public blob URL or database path is returned. */
-export async function exportRun(request:Request):Promise<Response>{const trace=correlation();try{
+export async function exportRun(request:Request):Promise<Response>{const trace=correlation(request);try{
  const found=await located(request);if(found instanceof Response)return found;
  z.object({}).strict().parse(await readJsonObject(request,1024));
  const data=found.queue.exportJournal(found.principal,found.runId);
  return new Response(JSON.stringify(data,null,2)+'\n',{headers:{'Content-Type':'application/json; charset=utf-8','Content-Disposition':`attachment; filename="run-${found.runId}.json"`,'Cache-Control':'no-store','Vary':'Cookie, Authorization','X-Content-Type-Options':'nosniff','X-Request-ID':trace.requestId,'X-Trace-ID':trace.traceId}});
  }catch(error){return failure(error,trace);}}
 
-export async function readApproval(request:Request):Promise<Response>{const trace=correlation();try{
+export async function readApproval(request:Request):Promise<Response>{const trace=correlation(request);try{
  const found=await located(request);if(found instanceof Response)return found;
  const run=found.queue.get(found.principal,found.runId);
  return json(new ApprovalService(found.queue).status(authority(found.access,request,run.model),found.runId),trace);
  }catch(error){return failure(error,trace);}}
 
-export async function resolveApproval(request:Request):Promise<Response>{const trace=correlation();try{
+export async function resolveApproval(request:Request):Promise<Response>{const trace=correlation(request);try{
  const found=await located(request);if(found instanceof Response)return found;
  const run=found.queue.get(found.principal,found.runId),current=authority(found.access,request,run.model);
  const body=z.object({approvalId:id,actionDigest:z.string().regex(/^[a-f0-9]{64}$/),nonce:z.string().regex(/^[a-f0-9]{32}$/),decision:z.enum(['approve','deny']),connection:z.object({provider:z.string().min(1).max(120),endpoint:z.string().url().max(2048),credentialConfigured:z.boolean()}).strict()}).strict().parse(await readJsonObject(request,10000));
