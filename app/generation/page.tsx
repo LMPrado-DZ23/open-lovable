@@ -1215,9 +1215,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                       return Object.entries(fileTree).map(([dir, files]) => (
                         <div key={dir} className="mb-1">
                           {dir && (
-                            <div 
+                            <button
+                              type="button"
                               className="flex items-center gap-2 py-0.5 px-3 hover:bg-gray-100 rounded cursor-pointer text-gray-700"
                               onClick={() => toggleFolder(dir)}
+                              aria-expanded={expandedFolders.has(dir)}
+                              aria-label={`${expandedFolders.has(dir) ? 'Collapse' : 'Expand'} folder ${dir.split('/').pop()}`}
                             >
                               {expandedFolders.has(dir) ? (
                                 <FiChevronDown style={{ width: '16px', height: '16px' }} className="text-gray-600" />
@@ -1230,7 +1233,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                 <BsFolderFill style={{ width: '16px', height: '16px' }} className="text-yellow-600" />
                               )}
                               <span className="text-gray-700">{dir.split('/').pop()}</span>
-                            </div>
+                            </button>
                           )}
                           {(!dir || expandedFolders.has(dir)) && (
                             <div className={dir ? 'ml-8' : ''}>
@@ -1239,14 +1242,17 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                 const isSelected = selectedFile === fullPath;
                                 
                                 return (
-                                  <div 
+                                  <button
+                                    type="button"
                                     key={fullPath} 
-                                    className={`flex items-center gap-2 py-0.5 px-3 rounded cursor-pointer transition-all ${
+                                    className={`flex w-full items-center gap-2 py-0.5 px-3 rounded cursor-pointer transition-all text-left ${
                                       isSelected 
                                         ? 'bg-blue-500 text-white' 
                                         : 'text-gray-700 hover:bg-gray-100'
                                     }`}
                                     onClick={() => handleFileClick(fullPath)}
+                                    aria-pressed={isSelected}
+                                    aria-label={`Open file ${fullPath}`}
                                   >
                                     {getFileIcon(fileInfo.name)}
                                     <span className={`text-xs flex items-center gap-1 ${isSelected ? 'font-medium' : ''}`}>
@@ -1257,7 +1263,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                         }`}>✓</span>
                                       )}
                                     </span>
-                                  </div>
+                                  </button>
                                 );
                               })}
                             </div>
