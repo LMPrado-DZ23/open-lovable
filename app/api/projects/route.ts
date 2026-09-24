@@ -1,4 +1,4 @@
-import {RunQueue} from '@/lib/runs/queue';
+import {RunQueue,runDigest} from '@/lib/runs/queue';
 import {reader as runAccess} from '@/lib/runs/http';
 import {studioAccess,authenticateStudio} from '@/lib/identity/request';
 import { z } from 'zod';
@@ -11,6 +11,8 @@ import { compileProject } from '@/lib/projects/preview';
 import { streamProjectRun } from '@/lib/projects/generation';
 import { exportProjectBundle, exportBundleFileName } from '@/lib/artifacts/export-bundle';
 import { applyPatchSet } from '@/lib/revisions/patches';
+import { requireReleaseReady } from '@/lib/verification/release-gate';
+import type { VerificationReport } from '@/lib/verification/evidence';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -25,6 +27,7 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('cancel'),id,runID:id}).strict(),
  z.object({action:z.literal('accept'),id,version,runID:id}).strict(),
  z.object({action:z.literal('preview'),id,runID:id.optional(),channel:z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/)}).strict(),
+ z.object({action:z.literal('verify'),id,runID:id.optional(),report:z.unknown()}).strict(),
  z.object({action:z.literal('document'),id,name:z.string().min(1).max(200),content:z.string().min(1).max(200000)}).strict(),
 ]);
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -110,6 +113,7 @@ export async function POST(request:Request){
     const compiled=await compileProject(snapshot,body.channel);guard(body.id);return json(compiled);
    }
    case 'document':return json({documents:store.addDocument(owner,body.id,body.name,body.content)});
+   case 'verify':{const project=store.getProject(owner,body.id);const candidate=body.runID?store.getRun(owner,body.id,body.runID).candidate:null;if(body.runID&&!candidate)throw new ProjectError('This run has no candidate to verify',409);const snapshot=candidate||project.snapshot;const gate=requireReleaseReady(body.report as VerificationReport,runDigest(snapshot));return json({gate,runID:body.runID||null});}
   }
  }catch(error){return failure(error);}
 }

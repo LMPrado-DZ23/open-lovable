@@ -8,6 +8,8 @@ import { createServer } from 'node:http';
 import { randomUUID,createHash } from 'node:crypto';
 import { zipSync, strToU8, unzipSync, strFromU8 } from 'fflate';
 import { projectStore } from '../lib/projects/store';
+import {runDigest} from '../lib/runs/queue';
+import {buildReport} from '../lib/verification/evidence';
 
 async function setup(t:any) {
  const env={...process.env};
@@ -124,3 +126,4 @@ test('candidate export returns a provenance manifest without accepting the revis
  assert.equal((await (await get('?id='+p.id)).json()).project.version,1);
 });
 test('visual source edit applies an authorized PatchSet and creates a new revision',async t=>{const {post,get,create}=await setup(t);const p=await create('Visual patch');const current=(await (await get('?id='+p.id)).json()).project;const path='src/App.jsx',old=current.snapshot.files[path]||'';const expected=createHash('sha256').update(old).digest('hex');const response=await post({action:'patch',id:p.id,version:current.version,baseRevision:String(current.version),operations:[{kind:old?'update':'create',path,content:'export default function App(){return <h1>Visual edit</h1>}'}],expectedHashes:old?{[path]:expected}:{}});assert.equal(response.status,200);const body=await response.json();assert.equal(body.diffDigest.length,64);assert.equal(body.project.version,current.version+1);const after=(await (await get('?id='+p.id)).json()).project;assert.match(after.snapshot.files[path],/Visual edit/);});
+test('release verification endpoint requires signed independent evidence for the exact revision',async t=>{const {post,get,create}=await setup(t);const p=await create('Release gate');const current=(await (await get('?id='+p.id)).json()).project;const report=buildReport({revisionDigest:runDigest(current.snapshot),environment:{browser:'chromium',viewport:'1440x900'},checks:[{id:'render',kind:'render',passed:true,observed:'rendered'},{id:'flow',kind:'flow',passed:true,observed:'flow passed'},{id:'accessibility',kind:'accessibility',passed:true,observed:'keyboard passed'},{id:'network',kind:'network',passed:true,observed:'no errors'}],artifacts:[],observedErrors:[]});const response=await post({action:'verify',id:p.id,report});assert.equal(response.status,200);assert.equal((await response.json()).gate.ready,true);const tampered={...report,revisionDigest:'f'.repeat(64)};assert.equal((await post({action:'verify',id:p.id,report:tampered})).status,409);});
