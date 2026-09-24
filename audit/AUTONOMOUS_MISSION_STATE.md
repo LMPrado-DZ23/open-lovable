@@ -74,6 +74,7 @@ completed_tasks:
   - "P11 budget reservation and usage reconciliation in real RunQueue dispatch"
   - "P06 ReferenceImageStore upload now consumes central QuotaService; external ArtifactRef migration remains open"
   - "P06 ExportBundle is available for project and awaiting-approval candidate exports with manifest/checksums"
+  - "P10 journal exposes pending connection/cost approvals with server-bound digest/nonce and explicit approve/deny actions"
   - "Review branch pushed; draft PR creation blocked by GitHub integration permission"
 pending_tasks:
   - "P10 HTTP/UI approval pause/resume journey"
