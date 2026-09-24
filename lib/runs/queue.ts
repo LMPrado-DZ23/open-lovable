@@ -20,7 +20,7 @@ export function canonicalRunData(value:unknown):string {
  return JSON.stringify(value);
 }
 export const runDigest=(value:unknown)=>createHash('sha256').update(canonicalRunData(value)).digest('hex');
-const frozenSchema=z.object({snapshot:z.unknown(),references:z.array(z.object({name:z.string().max(200),content:z.string().max(200000)}).strict()).max(20),history:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().max(32768)}).strict()).max(12),images:z.array(z.object({id:z.string().uuid(),name:z.string().max(200),role:z.enum(['target','current']),mime:z.enum(['image/png','image/jpeg','image/webp']),width:z.number().int().positive(),height:z.number().int().positive(),sha256:z.string().regex(/^[a-f0-9]{64}$/),data:z.string().max(9*1024*1024)}).strict()).max(4)}).strict();
+const frozenSchema=z.object({workspaceId:z.string().uuid().optional(),projectId:z.string().uuid().optional(),revisionDigest:z.string().regex(/^[a-f0-9]{64}$/).optional(),snapshot:z.unknown(),references:z.array(z.object({name:z.string().max(200),content:z.string().max(200000)}).strict()).max(20),history:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().max(32768)}).strict()).max(12),images:z.array(z.object({id:z.string().uuid(),name:z.string().max(200),role:z.enum(['target','current']),mime:z.enum(['image/png','image/jpeg','image/webp']),width:z.number().int().positive(),height:z.number().int().positive(),sha256:z.string().regex(/^[a-f0-9]{64}$/),data:z.string().max(9*1024*1024)}).strict()).max(4)}).strict();
 function frozenInput(encoded:string,digest:unknown):FrozenRunInput {
  if(Buffer.byteLength(encoded)>MAX_FROZEN_BYTES)throw new ProjectError('Stored execution input size failed validation',503);
  const input=frozenSchema.parse(JSON.parse(encoded));
@@ -97,7 +97,7 @@ export class RunQueue {
    const limits=resolveRunLimits(undefined,request.mode);
    const run=this.store.beginRun(owner,project.id,request.requestKey,request.prompt,request.model,request.baseVersion,{mode:request.mode,imageIDs:request.imageIDs,queued:true});
    const images=new ReferenceImageStore(this.store).forRun(owner,project.id,run.id).map(({id,name,role,mime,width,height,sha256,data})=>({id,name,role,mime,width,height,sha256,data}));
-   const frozen:FrozenRunInput={snapshot:project.snapshot,history,references,images},encoded=JSON.stringify(frozen);
+   const frozen:FrozenRunInput={workspaceId:authority.workspaceId,projectId:project.id,revisionDigest:runDigest(project.snapshot),snapshot:project.snapshot,history,references,images},encoded=JSON.stringify(frozen);
    if(Buffer.byteLength(encoded)>MAX_FROZEN_BYTES)throw new ProjectError('Frozen input exceeds its storage budget',413);
    const used=Number(this.store.db.prepare('SELECT coalesce(sum(length(CAST(frozen_input AS BLOB))+coalesce(length(CAST(output AS BLOB)),0)),0) AS n FROM run_controls WHERE workspace_id=?').get(authority.workspaceId)?.n);
    if(used+Buffer.byteLength(encoded)>256*1024*1024)throw new ProjectError('Execution context storage budget exceeded',413);

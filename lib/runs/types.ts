@@ -9,6 +9,7 @@ export interface EnqueueRequest {
  imageIDs:string[]; confirmCost:boolean; confirmVision?:boolean;
 }
 export interface FrozenRunInput {
+ workspaceId?:string;projectId?:string;revisionDigest?:string;
  snapshot:ProjectSnapshot;
  references:Array<{name:string;content:string}>;
  history:Array<{role:'user'|'assistant';content:string}>;
