@@ -35,8 +35,8 @@ rollback_plan: "Every code step is committed on the development branch; restore 
 state: EXECUTING
 iteration: 2
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T12:13:15-03:00"
-last_progress_at: "2026-09-24T12:13:15-03:00"
+heartbeat_at: "2026-09-24T12:16:40-03:00"
+last_progress_at: "2026-09-24T12:16:40-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -168,7 +168,7 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Continue the DAG at P55 with structured harness contracts: start/resume/events/cancel/artifacts/result, negotiated protocol, run/project/draft mapping, disconnect reconciliation and no token passthrough."
+next_action: "Continue the DAG with the next planned package after P55, preserving harness authority and integrating only through candidate/review paths; maintain external executor/licence/credential homologation as blocked."
 latest_gate_evidence:
   full_regression_b95d752: "PASS; npm test exit 0 after rebuilding compiled worker"
   build: "PASS; npm run build"
@@ -232,6 +232,9 @@ latest_gate_evidence:
   p32_adapters: "PASS 3/3 focused; Figma/docs/Sentry manifests expose scopes and schemas, references are project/account/release traceable, redaction blocks secrets, and unavailable/wrong-scope resources are rejected"
   p32_full_regression: "PASS; npm test exit 0 with 65 roadmap tests and 8 P00 checks"
   p32_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no third-party connector account or cost authorization was used"
+  p55_harness_contracts: "PASS 2/2 focused; sessions bind run/project/workspace/draft, protocol is negotiated, disconnect/resume keeps identity, events are monotonic, foreign/late events and permission escalation fail closed"
+  p55_full_regression: "PASS; npm test exit 0 with 67 roadmap tests and 8 P00 checks"
+  p55_external_homologation: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no external harness, CLI, license or credential was invoked"
   pr_creation: "BLOCKED_BY_EXTERNAL_PERMISSION; gh pr create returned Resource not accessible by integration"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
