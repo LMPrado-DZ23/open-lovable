@@ -15,6 +15,7 @@ import { requireReleaseReady } from '@/lib/verification/release-gate';
 import type { VerificationReport } from '@/lib/verification/evidence';
 import {buildTextVisualEdit} from '@/lib/visual/edits';
 import {buildVisualEvidence,assertComparableVisualEvidence,type VisualEvidence} from '@/lib/visual/comparison';
+import {DraftService} from '@/lib/drafts/service';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
@@ -32,6 +33,7 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('preview'),id,runID:id.optional(),channel:z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/)}).strict(),
  z.object({action:z.literal('verify'),id,runID:id.optional(),report:z.unknown()}).strict(),
  z.object({action:z.literal('visualCompare'),id,targetDigest:z.string().regex(/^[a-f0-9]{64}$/),renderDigest:z.string().regex(/^[a-f0-9]{64}$/),viewport:z.object({width:z.number().int(),height:z.number().int()}).strict(),metric:z.number().min(0).max(1).optional(),review:z.string().min(1).max(4000),functionalErrors:z.array(z.string().max(500)).max(100),referenceOnly:z.boolean().optional()}).strict(),
+ z.object({action:z.literal('draftMerge'),id,base:z.unknown(),ours:z.unknown(),theirs:z.unknown()}).strict(),
  z.object({action:z.literal('document'),id,name:z.string().min(1).max(200),content:z.string().min(1).max(200000)}).strict(),
 ]);
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -120,6 +122,7 @@ export async function POST(request:Request){
    case 'document':return json({documents:store.addDocument(owner,body.id,body.name,body.content)});
    case 'verify':{const project=store.getProject(owner,body.id);const candidate=body.runID?store.getRun(owner,body.id,body.runID).candidate:null;if(body.runID&&!candidate)throw new ProjectError('This run has no candidate to verify',409);const snapshot=candidate||project.snapshot;const gate=requireReleaseReady(body.report as VerificationReport,runDigest(snapshot));return json({gate,runID:body.runID||null});}
    case 'visualCompare':{const evidence=buildVisualEvidence({...body,referenceOnly:body.referenceOnly===true});assertComparableVisualEvidence(evidence);return json({evidence});}
+   case 'draftMerge':{store.getProject(owner,body.id);const result=new DraftService().merge(workspace.principal.workspaceId,body.base as never,body.ours as never,body.theirs as never);return json({result},result.conflicts.length?409:200);}
   }
  }catch(error){return failure(error);}
 }
