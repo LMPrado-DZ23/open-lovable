@@ -36,8 +36,8 @@ state: EXECUTING
 status: CONTINUE
 iteration: 3
 started_at: "2026-09-24T08:11:36-03:00"
-heartbeat_at: "2026-09-24T15:16:00-03:00"
-last_progress_at: "2026-09-24T15:16:00-03:00"
+heartbeat_at: "2026-09-24T15:23:00-03:00"
+last_progress_at: "2026-09-24T15:23:00-03:00"
 repository:
   path: "/home/ubuntu/open-lovable-exec"
   branch: "feat/manus-p06-p10-p11-20260924"
@@ -51,7 +51,7 @@ watchdog:
   executor_pid: null
   restarts: 0
   last_exit_status: null
-current_task: "Final internal audit: reconcile remaining TODO/unsafe annotations and complete package evidence; external Auth/cloud homologation remains blocked."
+current_task: "Final internal audit: run complete regression after preview-origin fix and reconcile final release evidence; external Auth/cloud homologation remains blocked."
 current_failure: "No current code failure; mission remains incomplete because external homologations and final independent audits are not closed."
 current_strategy: "Use evidence-driven vertical slices, then run independent security, product and accessibility audits; never treat local fixtures as external homologation."
 plan:
@@ -335,6 +335,10 @@ latest_gate_evidence:
   audit_runner_correction: "Initial mixed node:test invocation was invalid for Playwright and real-auth suites; rerun used their correct runners and separated the external blocker"
   pixi_types: "PASS; removed the remaining @ts-nocheck TODO from Pixi utilities, typed texture/generateTexture inputs and handled WebGL/WebGPU renderer union explicitly"
   pixi_full_regression: "PASS; npm test exit 0 with 226 unit/integration tests, 131 roadmap tests and 8 P00 checks"
+  preview_opaque_origin: "PASS; compiled preview chooses a valid HTTPS/HTTP origin or '*' for sandbox origin 'null'; receiver remains bound to frame source and channel"
+  preview_focused_regression: "PASS 15/15; compiler and project workflow tests green"
+  preview_e2e: "PASS 8/8 after rebuilding Next output; durable project and visual desktop/mobile flows have no postMessage crashes"
+  production_dependency_audit: "PASS; npm audit --omit=dev --audit-level=high found 0 vulnerabilities"
   p63_voice_contract: "PASS 2/2 focused; sessions require authorized E.164 destination, consent for recording, bounded timeout/budget, workspace/project-scoped handoff and idempotent callbacks"
   p63_full_regression: "PASS; npm test exit 0 with 131 roadmap tests, 225 unit/integration tests and 8 P00 checks"
   p63_external_voice: "BLOCKED_BY_EXTERNAL_DEPENDENCY; no PBX/SIP, phone number, audio device, transcription provider or real call was used"
