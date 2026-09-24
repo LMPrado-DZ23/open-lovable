@@ -76,10 +76,11 @@ completed_tasks:
   - "P06 ExportBundle is available for project and awaiting-approval candidate exports with manifest/checksums"
   - "P10 journal exposes pending connection/cost approvals with server-bound digest/nonce and explicit approve/deny actions"
   - "P11 capability evidence identifies unsupported/unknown tools and exposes explicit alternatives without silent fallback"
+  - "P11 restart/fencing requeues only pre-effect work and marks started uncertain work interrupted"
   - "Review branch pushed; draft PR creation blocked by GitHub integration permission"
 pending_tasks:
   - "P10 HTTP/UI approval pause/resume journey"
-  - "P11 restart/timeout/concurrency budget acceptance"
+  - "P11 timeout/concurrency acceptance and external model homologation"
   - "All remaining packages and full-flow acceptance"
 dependencies:
   - "PostgreSQL disposable service for real hosted contracts"
@@ -165,5 +166,6 @@ latest_gate_evidence:
   browser: "PASS 5/5; npx --no-install playwright test tests/e2e/projects.spec.ts --reporter=line"
   browser_log: "/tmp/mission-e2e-p06-p10-2.log"
   p11: "PASS 7/7; lint/typecheck PASS; capability endpoint now returns explicit evidence when model/capability are requested"
+  p11_restart: "PASS 9/9; pre-effect requeue, worker epoch fencing, started-request interruption, capability and budget gates"
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
