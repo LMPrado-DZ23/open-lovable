@@ -73,6 +73,7 @@ completed_tasks:
   - "P18 bounded repair loop and P19 approved plan digest slices"
   - "P11 budget reservation and usage reconciliation in real RunQueue dispatch"
   - "P06 ReferenceImageStore upload now consumes central QuotaService; external ArtifactRef migration remains open"
+  - "Review branch pushed; draft PR creation blocked by GitHub integration permission"
 pending_tasks:
   - "P12 runtime contract and lease slice"
   - "All remaining packages and full-flow acceptance"
@@ -108,6 +109,7 @@ commands_and_tests:
   - "npm run lint: PASS; npm run typecheck: PASS; accumulated P11-P19 focused suite: PASS 20/20"
   - "npm test: PASS after enqueue budget persistence; lint was fixed and re-run to PASS"
   - "P06 image/backup/artifact validation: PASS 12/12; npm run lint/typecheck: PASS"
+  - "Final npm test after quota compatibility fix: PASS 214/214; npm run lint/typecheck: PASS"
 evidence:
   - claim: "Previous checkpoint is a development increment, not full completion"
     command_or_observation: "pasted_content.txt and execution ledger read"
@@ -134,6 +136,11 @@ evidence:
     result: "PASS 12/12 with backup and local artifact suites; captures/logs/releases are not yet migrated"
     timestamp: "2026-09-24T08:25:15-03:00"
     artifact_or_log: "lib/projects/images.ts; lib/quotas/service.ts"
+  - claim: "Current head has full local npm test green"
+    command_or_observation: "npm test"
+    result: "PASS 214/214"
+    timestamp: "2026-09-24T08:34:04-03:00"
+    artifact_or_log: "/tmp/final-full-test-3.log"
 artifacts:
   - "/home/ubuntu/open-lovable-exec/docs/evidence/manus-p06-p10-p11-20260924.json"
 delegated_agents: []
@@ -142,6 +149,6 @@ risks:
   - "Scope is large; keep checkpoint current and avoid claiming package completion without acceptance evidence."
   - "External homologations may remain blocked; implement all independent local and contract work first."
 context_summary: "Mission resumed from commit 05875be after a previous partial increment. No mission checkpoint existed, so this file is the new source of truth. The next action is a real coverage audit and first missing vertical slice, not more planning."
-next_action: "Commit P06 image quota consumer, then wire export/candidate consumers and add HTTP-to-worker approval/budget journeys; keep unmigrated P06 classes explicit."
+next_action: "Obtain GitHub permission to create the draft PR (branch is already pushed), then wire P06 export/candidate consumers and add HTTP-to-worker approval/budget journeys; keep unmigrated P06 classes explicit."
 resume_instructions: "Read this file, compare git status/HEAD, preserve all local changes, continue from next_action, and update state/evidence after every significant change."
 ---
