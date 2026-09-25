@@ -1,5 +1,6 @@
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextResponse } from 'next/server';
+import { sandboxManager } from '@/lib/sandbox/sandbox-manager';
 
 declare global {
   var activeSandboxProvider: any;
@@ -16,16 +17,26 @@ export async function POST(request: Request) {
     let sandboxKilled = false;
 
     // Stop existing sandbox if any
+    // Providers tracked by the manager are terminated exactly once below.
     if (global.activeSandboxProvider) {
-      try {
-        await global.activeSandboxProvider.terminate();
-        sandboxKilled = true;
-        console.log('[kill-sandbox] Sandbox stopped successfully');
-      } catch (e) {
-        console.error('[kill-sandbox] Failed to stop sandbox:', e);
+      if (!sandboxManager.tracks(global.activeSandboxProvider)) {
+        try {
+          await global.activeSandboxProvider.terminate();
+          sandboxKilled = true;
+          console.log('[kill-sandbox] Sandbox stopped successfully');
+        } catch (e) {
+          console.error('[kill-sandbox] Failed to stop sandbox:', e);
+        }
       }
       global.activeSandboxProvider = null;
       global.sandboxData = null;
+    }
+
+    // The manager is consulted before the legacy global by the other sandbox
+    // routes; leaving its entries behind would hand them a dead provider.
+    if (sandboxManager.size > 0) {
+      await sandboxManager.terminateAll();
+      sandboxKilled = true;
     }
     
     // Clear existing files tracking
@@ -43,9 +54,9 @@ export async function POST(request: Request) {
     console.error('[kill-sandbox] Error:', error);
     return NextResponse.json(
       { 
-        success: false, 
-        error: (error as Error).message 
-      }, 
+        success: false,
+        error: 'Failed to stop sandbox'
+      },
       { status: 500 }
     );
   }
