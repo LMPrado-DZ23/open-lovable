@@ -269,8 +269,10 @@ export default function HomePage() {
               >
                 Powered by Firecrawl.
               </Link>
-              <Link href="/settings/ai" className="ml-[12px] text-[13px] underline underline-offset-4">Conexões de IA</Link>
-              <Link href="/projects" className="ml-[12px] text-[13px] underline underline-offset-4">Projetos salvos</Link>
+              <nav aria-label="Áreas do construtor" className="mt-[16px] flex flex-wrap items-center justify-center gap-[10px]">
+                <Link href="/projects" className="rounded-md bg-[#252520] px-[16px] py-[10px] text-[14px] font-medium text-white hover:bg-black">Criar projeto com chat, anexos e plano</Link>
+                <Link href="/settings/ai" className="rounded-md border border-[#d2d2cc] bg-white px-[16px] py-[10px] text-[14px] hover:bg-[#f5f5f2]">Conexões de IA</Link>
+              </nav>
             </div>
           </div>
 
