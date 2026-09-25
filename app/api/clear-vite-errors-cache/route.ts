@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '@/lib/security/input-validation';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextResponse } from 'next/server';
 
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
     console.error('[clear-vite-errors-cache] Error:', error);
     return NextResponse.json({ 
       success: false, 
-      error: (error as Error).message 
+      error: publicErrorMessage(error)
     }, { status: 500 });
   }
 }

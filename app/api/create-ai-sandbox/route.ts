@@ -52,10 +52,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('[create-ai-sandbox] Sandbox creation failed:', error);
     return NextResponse.json(
-      { 
-        error: error instanceof Error ? error.message : 'Failed to create sandbox',
-        details: error instanceof Error ? error.stack : undefined
-      },
+      { error: 'Failed to create sandbox' },
       { status: 500 }
     );
   } finally {

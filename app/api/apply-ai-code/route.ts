@@ -1,3 +1,4 @@
+import { recordMajorChange } from '@/lib/conversation/history';
 import { fetchApplication } from '@/lib/security/internal-fetch';
 import { ClientInputError, readJsonObject, assertCompleteFileBlocks, validateGeneratedFiles, validatePackages, normalizeProjectPath } from '@/lib/security/input-validation';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
@@ -786,7 +787,7 @@ body {
       
       // Track applied code in project evolution
       if (global.conversationState.context.projectEvolution) {
-        global.conversationState.context.projectEvolution.majorChanges.push({
+        recordMajorChange(global.conversationState.context.projectEvolution, {
           timestamp: Date.now(),
           description: parsed.explanation || 'Code applied',
           filesAffected: results.filesCreated

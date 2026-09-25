@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '@/lib/security/input-validation';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextResponse } from 'next/server';
 import { parseJavaScriptFile, buildComponentTree } from '@/lib/file-parser';
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
         // Check file size first
         const statResult = await global.activeSandbox.runCommand({
           cmd: 'stat',
-          args: ['-f', '%z', filePath]
+          args: ['-c', '%s', filePath]
         });
         
         if (statResult.exitCode === 0) {
@@ -169,7 +170,7 @@ export async function GET(request: Request) {
     console.error('[get-sandbox-files] Error:', error);
     return NextResponse.json({
       success: false,
-      error: (error as Error).message
+      error: publicErrorMessage(error)
     }, { status: 500 });
   }
 }

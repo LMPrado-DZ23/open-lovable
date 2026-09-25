@@ -1,4 +1,4 @@
-import { ClientInputError, readJsonObject, validatePackages } from '@/lib/security/input-validation';
+import { ClientInputError, readJsonObject, validatePackages, publicErrorMessage } from '@/lib/security/input-validation';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
     console.error('[install-packages] Error:', error);
     return NextResponse.json({ 
       success: false, 
-      error: (error as Error).message 
+      error: publicErrorMessage(error)
     }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }

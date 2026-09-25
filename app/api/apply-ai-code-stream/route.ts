@@ -1,5 +1,6 @@
+import { recordMajorChange } from '@/lib/conversation/history';
 import { fetchApplication } from '@/lib/security/internal-fetch';
-import { ClientInputError, readJsonObject, assertCompleteFileBlocks, validateGeneratedFiles, validatePackages, normalizeProjectPath } from '@/lib/security/input-validation';
+import { ClientInputError, readJsonObject, assertCompleteFileBlocks, validateGeneratedFiles, validatePackages, normalizeProjectPath, quoteShellArgument } from '@/lib/security/input-validation';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 import { parseMorphEdits, applyMorphEditToFile } from '@/lib/morph-fast-apply';
@@ -333,7 +334,7 @@ export async function POST(request: NextRequest) {
           console.log(`[apply-ai-code-stream] Creating new sandbox since reconnection failed for ${sandboxId}`);
           await provider.createSandbox();
           await provider.setupViteApp();
-          sandboxManager.registerSandbox(sandboxId, provider);
+          await sandboxManager.registerSandbox(sandboxId, provider);
         }
 
         // Update legacy global state
@@ -368,7 +369,7 @@ export async function POST(request: NextRequest) {
         await provider.setupViteApp();
 
         // Register with sandbox manager
-        sandboxManager.registerSandbox(sandboxInfo.sandboxId, provider);
+        await sandboxManager.registerSandbox(sandboxInfo.sandboxId, provider);
 
         // Store in legacy global state
         global.activeSandboxProvider = provider;
@@ -640,7 +641,7 @@ export async function POST(request: NextRequest) {
             // Create directory if needed
             const dirPath = normalizedPath.includes('/') ? normalizedPath.substring(0, normalizedPath.lastIndexOf('/')) : '';
             if (dirPath) {
-              await providerInstance.runCommand(`mkdir -p ${dirPath}`);
+              await providerInstance.runCommand(`mkdir -p -- ${quoteShellArgument(dirPath)}`);
             }
 
             // Write the file using provider
@@ -769,7 +770,7 @@ export async function POST(request: NextRequest) {
 
           // Track applied code in project evolution
           if (global.conversationState.context.projectEvolution) {
-            global.conversationState.context.projectEvolution.majorChanges.push({
+            recordMajorChange(global.conversationState.context.projectEvolution, {
               timestamp: Date.now(),
               description: parsed.explanation || 'Code applied',
               filesAffected: results.filesCreated || []
