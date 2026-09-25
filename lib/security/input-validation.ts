@@ -1,4 +1,4 @@
-import { assertNoSecrets, SecretContentError } from './secret-content';
+import { assertNoSecrets, redactSecretText, SecretContentError } from './secret-content';
 
 export class ClientInputError extends Error {
   constructor(message: string) { super(message); this.name = 'ClientInputError'; }
@@ -105,4 +105,23 @@ export function validateGeneratedFiles(files: Array<{ path: string; content: str
       throw new ClientInputError('Generated file exceeds the size limit');
     }
   }
+}
+
+/**
+ * Message safe to return to a client: validation errors are shown verbatim,
+ * anything else is passed through secret redaction so provider keys, tokens
+ * or connection strings embedded in upstream errors never reach the response.
+ */
+export function publicErrorMessage(error: unknown, fallback = 'Request failed'): string {
+  if (error instanceof ClientInputError) return error.message;
+  const message = error instanceof Error ? error.message : '';
+  return message ? redactSecretText(message).slice(0, 2_000) : fallback;
+}
+
+export function requireHttpUrl(value: unknown): string {
+  if (typeof value !== 'string' || value.length > 2_048) throw new ClientInputError('URL must be an http(s) address');
+  let parsed: URL;
+  try { parsed = new URL(value); } catch { throw new ClientInputError('URL must be an http(s) address'); }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new ClientInputError('URL must be an http(s) address');
+  return parsed.toString();
 }

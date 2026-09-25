@@ -1,4 +1,4 @@
-import { ClientInputError, readJsonObject, validateCommand } from '@/lib/security/input-validation';
+import { ClientInputError, readJsonObject, validateCommand, publicErrorMessage } from '@/lib/security/input-validation';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     console.error('[run-command] Error:', error);
     return NextResponse.json({ 
       success: false, 
-      error: (error as Error).message 
+      error: publicErrorMessage(error)
     }, { status: error instanceof ClientInputError ? 400 : 500 });
   }
 }

@@ -1,3 +1,4 @@
+import { publicErrorMessage } from '@/lib/security/input-validation';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextResponse } from 'next/server';
 
@@ -118,7 +119,7 @@ export async function GET(request: Request) {
     console.error('[monitor-vite-logs] Error:', error);
     return NextResponse.json({ 
       success: false, 
-      error: (error as Error).message 
+      error: publicErrorMessage(error)
     }, { status: 500 });
   }
 }

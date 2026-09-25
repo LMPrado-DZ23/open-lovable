@@ -1,4 +1,4 @@
-import { ClientInputError, readJsonObject } from '@/lib/security/input-validation';
+import { ClientInputError, publicErrorMessage, readJsonObject, requireHttpUrl } from '@/lib/security/input-validation';
 import { authorizeOperatorRequest } from '@/lib/security/operator-access';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   if (accessDenied) return accessDenied;
   try {
     const body = await readJsonObject(request);
-    const url = body.url;
+    const url = requireHttpUrl(body.url);
     const prompt = body.prompt;
 
     console.log('[extract-brand-styles] Extracting brand styles for:', url);
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to extract brand styles'
+        error: publicErrorMessage(error, 'Failed to extract brand styles')
       },
       { status: error instanceof ClientInputError ? 400 : 500 }
     );
