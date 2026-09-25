@@ -1,3 +1,4 @@
+import { recordMajorChange } from '@/lib/conversation/history';
 import { getProviderForModel } from '@/lib/ai/provider-manager';
 import { ProviderConfigError } from '@/lib/ai/provider-catalog';
 import { safeLogger as logger, redactSecretValue, redactSecretText } from '@/lib/security/secret-content';
@@ -1768,7 +1769,7 @@ Provide the complete file content without any truncation. Include all necessary 
           
           // Track major changes
           if (editContext.editIntent.type === 'ADD_FEATURE' || files.length > 3) {
-            global.conversationState.context.projectEvolution.majorChanges.push({
+            recordMajorChange(global.conversationState.context.projectEvolution, {
               timestamp: Date.now(),
               description: editContext.editIntent.description,
               filesAffected: editContext.primaryFiles
