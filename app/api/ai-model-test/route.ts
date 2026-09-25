@@ -1,5 +1,6 @@
 import { safeLogger } from '@/lib/security/secret-content';
 import { streamText } from 'ai';
+import { modelTestFailure, parseRateLimitHeaders } from '@/lib/ai/provider-discovery';
 import {studioAccess} from '@/lib/identity/request';
 import {ProjectError} from '@/lib/projects/store';
 import { readJsonObject, ClientInputError } from '@/lib/security/input-validation';
@@ -30,10 +31,11 @@ export async function POST(request: Request) {
       access.requireAdmin();
     }
     if (!content.trim()) throw new Error('Empty provider response');
-    return Response.json({success:true,model:resolved.actualModel,provider:resolved.option.provider,
+    const rateLimits=parseRateLimitHeaders((await result.response.catch(()=>undefined))?.headers);
+    return Response.json({success:true,model:resolved.actualModel,provider:resolved.option.provider,rateLimits,
       checkedAt:new Date().toISOString(),durationMs:Math.round(performance.now()-started),verified:['text','streaming']}, {headers:{'Cache-Control':'no-store'}});
   } catch (error) {
     const status = error instanceof ProviderConfigError||error instanceof ProjectError ? error.status : error instanceof ClientInputError ? 400 : 502;
-    return Response.json({success:false,error:status===502 ? 'Model test failed. Check provider credentials, quota, model support and server logs. No fallback was used.' : (error as Error).message}, {status,headers:{'Cache-Control':'no-store'}});
+    return Response.json({success:false,error:status===502 ? modelTestFailure(error) : (error as Error).message}, {status,headers:{'Cache-Control':'no-store'}});
   } finally {if(individualClaim)inFlight=false;}
 }
