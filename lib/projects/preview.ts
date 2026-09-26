@@ -19,7 +19,12 @@ function lookup(snapshot:ProjectSnapshot,path:string):string {
 }
 
 /** Compiles virtual files only. Project npm scripts/configs are never evaluated on the host. */
-export async function compileProject(input:unknown,channel:string=randomUUID(),instrument=false):Promise<{html:string;sha256:string;entry:string;warnings:string[];sourceMap?:SourceMap}> {
+/** Only a connected project's own Supabase API may be reached from the preview. */
+function connectSources(origins:readonly string[]):string{
+ const allowed=origins.filter(origin=>/^https:\/\/[a-z0-9]{20}\.supabase\.co$/.test(origin));
+ return allowed.length?allowed.join(' '):"'none'";
+}
+export async function compileProject(input:unknown,channel:string=randomUUID(),instrument=false,connectOrigins:readonly string[]=[]):Promise<{html:string;sha256:string;entry:string;warnings:string[];sourceMap?:SourceMap}> {
  let snapshot=validateSnapshot(input);let sourceMap:SourceMap|undefined;
  if(instrument){const revisionDigest=createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');sourceMap=buildSourceMap(snapshot.files,revisionDigest,channel);snapshot=validateSnapshot({...snapshot,files:instrumentJsx(snapshot.files,sourceMap)});}
  if(!/^[a-zA-Z0-9_-]{1,128}$/.test(channel))throw new ProjectError('Invalid preview channel');
@@ -92,7 +97,7 @@ export async function compileProject(input:unknown,channel:string=randomUUID(),i
  const safeCSS=css.replace(/<\/style/gi,'<\\/style');
  const mapScript=`const sourceMapData=${JSON.stringify(sourceMap||null)};`;
  const report=`const channel=${JSON.stringify(channel)};const targetOrigin=(()=>{try{const candidate=document.referrer?new URL(document.referrer).origin:location.origin;return candidate&&candidate!=='null'&&/^https?:\\/\\//.test(candidate)?candidate:'*'}catch{return'*'}})();const report=(type,detail)=>parent.postMessage({source:'open-lovable-preview',channel,type,detail},targetOrigin);${mapScript}addEventListener('error',event=>report('error',String(event.message).slice(0,500)));addEventListener('unhandledrejection',event=>report('error',String(event.reason).slice(0,500)));addEventListener('click',event=>{const node=event.target instanceof Element?event.target.closest('[data-open-lovable-element]'):null;const id=node?.getAttribute('data-open-lovable-element');const match=id&&sourceMapData?.elements.find((element)=>element.elementId===id);if(match)report('select',match)});addEventListener('load',()=>setTimeout(()=>{const root=document.getElementById('root');report(root&&root.childElementCount?'rendered':'empty',root?root.innerText.slice(0,200):'Root absent')},100));`;
- const csp="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+ const csp=`default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src ${connectSources(connectOrigins)}; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
  const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${safeCSS}</style><script>${report}</script></head><body><div id="root"></div><script>${safeJS}</script></body></html>`;
  return {html,sha256:createHash('sha256').update(html).digest('hex'),entry:main||app!,warnings:result.warnings.map(warning=>warning.text).slice(0,10),...(sourceMap?{sourceMap}: {})};
 }
@@ -106,14 +111,14 @@ const PREVIEW_SLOT = 'olpreviewslot' + randomUUID().replace(/-/g, '');
 const previewCache = new Map<string, Promise<Awaited<ReturnType<typeof compileProject>>>>();
 const PREVIEW_CACHE_LIMIT = 16;
 
-export async function compileProjectCached(input: unknown, channel: string, instrument = false): Promise<Awaited<ReturnType<typeof compileProject>>> {
+export async function compileProjectCached(input: unknown, channel: string, instrument = false, connectOrigins: readonly string[] = []): Promise<Awaited<ReturnType<typeof compileProject>>> {
   if (!/^[a-zA-Z0-9_-]{1,128}$/.test(channel)) throw new ProjectError('Invalid preview channel');
-  const key = createHash('sha256').update(JSON.stringify(validateSnapshot(input))).digest('hex') + (instrument ? ':i' : ':p');
+  const key = createHash('sha256').update(JSON.stringify(validateSnapshot(input))).digest('hex') + (instrument ? ':i' : ':p') + ':' + connectOrigins.join(',');
   let pending = previewCache.get(key);
   if (pending) {
     previewCache.delete(key); // refresh LRU position
   } else {
-    pending = compileProject(input, PREVIEW_SLOT, instrument);
+    pending = compileProject(input, PREVIEW_SLOT, instrument, connectOrigins);
     pending.catch(() => previewCache.delete(key)); // never cache a failure
   }
   previewCache.set(key, pending);
