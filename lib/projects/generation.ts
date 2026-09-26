@@ -36,7 +36,9 @@ export function captureRunInput(store:ProjectStore,owner:string,run:ProjectRun):
  const project=store.getProject(owner,run.project_id);
  return {snapshot:project.snapshot,references:store.documents(owner,project.id).map(doc=>({name:doc.name,content:doc.content})),history:store.messages(owner,project.id).filter(message=>message.role!=='system').slice(-12).map(message=>({role:message.role as 'user'|'assistant',content:message.content})),images:new ReferenceImageStore(store).forRun(owner,project.id,run.id)};
 }
-export interface ModelRunHooks {scope?:ProviderScope;limits?:RunLimits;assertLive:()=>void;beforeModel:()=>void;status:(payload:Record<string,unknown>)=>void;}
+export interface ModelRunHooks {scope?:ProviderScope;limits?:RunLimits;assertLive:()=>void;beforeModel:()=>void;status:(payload:Record<string,unknown>)=>void;
+ /** Optional live view of the text generated so far (display only). */
+ partial?:(text:string)=>void;}
 /** Inference is shared by inline compatibility and the worker; this function never writes project state. */
 export async function requestFrozenModel(run:ProjectRun,input:FrozenRunInput,signal:AbortSignal,hooks:ModelRunHooks):Promise<{text:string;usage:Record<string,unknown>}> {
  signal.throwIfAborted();hooks.assertLive();
@@ -56,12 +58,13 @@ export async function requestFrozenModel(run:ProjectRun,input:FrozenRunInput,sig
  const backend=readProjectBackend(run.project_id);
  const projectRules=(backend?supabaseGuidance(backend):'')+(instructions?'\n\nPROJECT INSTRUCTIONS FROM THE OWNER (follow them in every change unless the current request explicitly overrides them):\n'+instructions:'');
  const result=streamText({model:model.model,system:(run.inputs.mode==='plan'?PLAN_GUIDANCE:system)+projectRules+(images.length?'\n'+VISUAL_GUIDANCE:''),messages:[...input.history,{role:'user',content}],maxOutputTokens,maxRetries:0,abortSignal:signal,onError:({error})=>safeLogger.error('Project model stream failed',error)});
- let text='',lastProgress=0;
+ let text='',lastProgress=0,lastPartial=0;
  for await(const event of result.fullStream){
   if(event.type==='error'){noteModelFailure(run.model,event.error,hooks.scope);throw event.error;}
   if(event.type==='text-delta'){
    text+=event.text;if(Buffer.byteLength(text)>2*1024*1024)throw new ProjectError('Generated output exceeds the allowed size');
    if(Date.now()-lastProgress>1000){hooks.status({phase:'generating',characters:text.length});lastProgress=Date.now();}
+   if(Date.now()-lastPartial>400){hooks.partial?.(text);lastPartial=Date.now();}
   }
  }
  signal.throwIfAborted();hooks.assertLive();
