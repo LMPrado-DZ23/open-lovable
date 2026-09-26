@@ -66,8 +66,8 @@ function writeBackend(projectId: string, backend: ProjectBackend): void {
 export function supabaseClientSource(backend: Pick<ProjectBackend, 'url' | 'anonKey'>): string {
   return `// Cliente Supabase criado pelo Open Lovable. Não depende de pacotes externos.
 // A chave abaixo é a pública (anon); a segurança dos dados vem das políticas RLS no banco.
-const SUPABASE_URL = ${JSON.stringify(backend.url)};
-const SUPABASE_ANON_KEY = ${JSON.stringify(backend.anonKey)};
+export const SUPABASE_URL = ${JSON.stringify(backend.url)};
+export const SUPABASE_ANON_KEY = ${JSON.stringify(backend.anonKey)};
 const SESSION_KEY = 'sb-session';
 
 function readSession() {

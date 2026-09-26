@@ -6,7 +6,7 @@ import IntegrationsForm from '@/components/IntegrationsForm';
 import {useModelCatalog} from '@/hooks/useModelCatalog';
 
 type Status = {integrations: Array<{integration: string; configured: boolean}>; services: {firecrawl: boolean; sandbox: boolean; sandboxProvider: string} | null};
-type Card = {name: string; initials: string; color: string; description: string; connected: boolean | null; action: {label: string; href: string}};
+type Card = {name: string; initials: string; color: string; description: string; connected: boolean | null; status?: string; action: {label: string; href: string}};
 
 /** Lovable-style integrations hub: every connection the builder uses, with its state and where to set it up. */
 export default function IntegrationsPage() {
@@ -22,6 +22,7 @@ export default function IntegrationsPage() {
 
   const cards: Card[] = [
     {name: 'Modelos de IA', initials: 'IA', color: 'from-[#ff9a3c] to-[#e2456f]', description: catalog?.gateway?.detected ? `${aiProviders} conexão(ões) ativa(s), incluindo ${catalog.gateway.detected} neste computador.` : `${aiProviders} conexão(ões) ativa(s): OpenAI, Anthropic, Gemini, Groq, OpenRouter, DeepSeek e outros.`, connected: loading ? null : aiProviders > 0, action: {label: 'Gerenciar', href: '/settings/ai'}},
+    {name: 'Conectores para apps', initials: '50', color: 'from-[#8b5cf6] to-[#ec4899]', description: 'Stripe, Mercado Pago, Resend, WhatsApp, Google Maps, OpenAI e mais 40 serviços para usar dentro dos seus apps.', connected: null, status: 'Disponíveis em todos os projetos', action: {label: 'Ver conectores', href: '/settings/connectors'}},
     {name: 'Supabase', initials: 'SB', color: 'from-[#3ecf8e] to-[#1f9d63]', description: 'Login de usuários e banco de dados para os apps. Conecte em cada projeto, na aba Supabase.', connected: token('supabase'), action: {label: 'Configurar token', href: '#integracoes'}},
     {name: 'GitHub', initials: 'GH', color: 'from-[#3b3b45] to-[#111116]', description: 'Envie o código de um projeto para um repositório seu.', connected: token('github'), action: {label: 'Configurar token', href: '#integracoes'}},
     {name: 'Vercel', initials: 'V', color: 'from-[#2b2b2b] to-[#000]', description: 'Publique na internet com endereço público e domínio próprio.', connected: token('vercel'), action: {label: 'Configurar token', href: '#integracoes'}},
@@ -35,7 +36,7 @@ export default function IntegrationsPage() {
       <p className="mt-[8px] max-w-[680px] text-[15px] leading-relaxed text-[#5f5c68]">Conecte os serviços que o Open Lovable usa para gerar, publicar e dar backend aos seus apps.</p>
       <ul className="mt-[24px] grid gap-[14px] sm:grid-cols-2 lg:grid-cols-3">{cards.map(card => <li key={card.name} className="flex flex-col rounded-[16px] border border-[#ece7e2] bg-white p-[18px]">
         <div className="flex items-center gap-[12px]"><span aria-hidden="true" className={`flex h-[40px] w-[40px] items-center justify-center rounded-[10px] bg-gradient-to-br text-[13px] font-bold text-white ${card.color}`}>{card.initials}</span>
-          <div className="min-w-0"><h2 className="text-[16px] font-semibold">{card.name}</h2><p className={`text-[12px] font-medium ${card.connected ? 'text-green-700' : card.connected === false ? 'text-[#a15c14]' : 'text-[#8a8792]'}`}>{card.connected === null ? 'Verificando…' : card.connected ? 'Conectado' : 'Não conectado'}</p></div></div>
+          <div className="min-w-0"><h2 className="text-[16px] font-semibold">{card.name}</h2><p className={`text-[12px] font-medium ${card.connected ? 'text-green-700' : card.connected === false ? 'text-[#a15c14]' : 'text-[#8a8792]'}`}>{card.status ?? (card.connected === null ? 'Verificando…' : card.connected ? 'Conectado' : 'Não conectado')}</p></div></div>
         <p className="mt-[12px] flex-1 text-[13px] leading-relaxed text-[#5f5c68]">{card.description}</p>
         <Link href={card.action.href} className="mt-[14px] self-start rounded-[10px] border border-[#e3ded8] px-[12px] py-[7px] text-[13px] hover:bg-[#f7f4f1]">{card.action.label}</Link>
       </li>)}</ul>
