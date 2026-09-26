@@ -70,3 +70,18 @@ test('GitHub export creates the repository and commits every file in one commit'
   assert.equal(githubRepositoryName('../../etc'), 'etc');
   await assert.rejects(pushToGitHub({token: 't', repository: 'x', files: {}, message: 'm', fetchImpl}), /não tem arquivos/);
 });
+
+test('custom domains get the right DNS records and invalid names are refused', async () => {
+  const { addVercelDomain, normalizeDomain } = await import('../lib/publish/vercel');
+  const calls: string[] = [];
+  const ok = (async (url: string) => { calls.push(url); return new Response(JSON.stringify({verified: false, verification: [{type: 'TXT', domain: '_vercel.meusite.com.br', value: 'vc-domain-verify=abc'}]}), {status: 200}); }) as unknown as typeof fetch;
+  const apex = await addVercelDomain({token: 't', project: 'loja-12345678', domain: 'https://MeuSite.com.br/', fetchImpl: ok});
+  assert.deepEqual(apex.records, [{type: 'A', name: '@', value: '76.76.21.21'}, {type: 'TXT', name: '_vercel.meusite.com.br', value: 'vc-domain-verify=abc'}]);
+  assert.equal(calls[0], 'https://api.vercel.com/v10/projects/loja-12345678/domains');
+  const sub = await addVercelDomain({token: 't', project: 'p', domain: 'a.b.meusite.com.br', fetchImpl: ok});
+  assert.deepEqual(sub.records[0], {type: 'CNAME', name: 'a.b', value: 'cname.vercel-dns.com'});
+  assert.deepEqual((await addVercelDomain({token: 't', project: 'p', domain: 'app.site.io', fetchImpl: ok})).records[0], {type: 'CNAME', name: 'app', value: 'cname.vercel-dns.com'});
+  for (const bad of ['localhost', 'x.vercel.app', '-bad.com', 'a..com']) assert.throws(() => normalizeDomain(bad), /domínio válido/);
+  const missing = (async () => new Response('{}', {status: 404})) as unknown as typeof fetch;
+  await assert.rejects(addVercelDomain({token: 't', project: 'p', domain: 'meusite.com', fetchImpl: missing}), /Publique o projeto na Vercel/);
+});

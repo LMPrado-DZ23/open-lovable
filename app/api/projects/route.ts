@@ -9,9 +9,12 @@ import { ProjectError } from '@/lib/projects/store';
 import { importProjectZip } from '@/lib/projects/archive';
 import { compileProject, compileProjectCached } from '@/lib/projects/preview';
 import { buildPublishedSite, saveLocalPublication } from '@/lib/publish/site';
-import { deployToVercel, vercelProjectName } from '@/lib/publish/vercel';
+import { addVercelDomain, deployToVercel, vercelProjectName } from '@/lib/publish/vercel';
 import { pushToGitHub } from '@/lib/publish/github';
 import { scanProject } from '@/lib/security/app-scan';
+import { starterTemplate } from '@/lib/templates/starters';
+import { addComment, listComments, setCommentResolved } from '@/lib/collaboration/project-comments';
+import { readLiveText, summarizeLiveText } from '@/lib/runs/live-text';
 import { applySupabaseMigration, MIGRATIONS_DIRECTORY, readProjectBackend, saveProjectBackend, SUPABASE_CLIENT_PATH, supabaseClientSource } from '@/lib/backend/project-supabase';
 import { integrationCredential } from '@/lib/settings/store';
 import { createRun } from '@/lib/runs/http';
@@ -28,6 +31,7 @@ export const runtime='nodejs';
 const id=z.string().uuid();const version=z.number().int().min(1);
 const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('create'),name:z.string().min(1).max(120),model:z.string().max(240)}).strict(),
+ z.object({action:z.literal('template'),template:z.string().min(1).max(60),name:z.string().min(1).max(120).optional(),model:z.string().max(240)}).strict(),
  z.object({action:z.literal('save'),id,version,snapshot:z.unknown(),label:z.string().min(1).max(200)}).strict(),
  z.object({action:z.literal('patch'),id,version,baseRevision:z.string().min(1).max(128),operations:z.array(z.object({kind:z.enum(['create','update','delete']),path:z.string().min(1).max(500),content:z.string().optional()}).strict()).min(1).max(200),expectedHashes:z.record(z.string().regex(/^[a-f0-9]{64}$/))}).strict(),
  z.object({action:z.literal('visualEdit'),id,version,baseRevision:z.string().min(1).max(128),element:z.object({runtimeId:z.string().min(1).max(128),revisionDigest:z.string().regex(/^[a-f0-9]{64}$/),elementId:z.string().regex(/^[a-f0-9]{32}$/),file:z.string().min(1).max(500),start:z.number().int().min(0),end:z.number().int().gt(0),tag:z.string().min(1).max(80),sourceHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),value:z.string().max(2000)}).strict(),
@@ -44,6 +48,9 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('instructions'),id,content:z.string().max(200000)}).strict(),
  z.object({action:z.literal('publish'),id,target:z.enum(['local','vercel'])}).strict(),
  z.object({action:z.literal('scan'),id}).strict(),
+ z.object({action:z.literal('domain'),id,domain:z.string().min(3).max(253)}).strict(),
+ z.object({action:z.literal('comment'),id,body:z.string().min(1).max(4000),file:z.string().max(300).optional()}).strict(),
+ z.object({action:z.literal('commentResolve'),id,commentId:z.string().uuid(),resolved:z.boolean()}).strict(),
  z.object({action:z.literal('backend'),id,version:z.number().int().min(1),url:z.string().min(1).max(200),anonKey:z.string().min(10).max(2048)}).strict(),
  z.object({action:z.literal('backendApply'),id,path:z.string().min(1).max(300)}).strict(),
  z.object({action:z.literal('github'),id,repository:z.string().min(1).max(100),private:z.boolean()}).strict(),
@@ -73,6 +80,13 @@ export async function GET(request:Request){
    if(request.signal.aborted)return new Response(null,{status:499});
    guard(projectID);
    return json(compiled);
+  }
+  if(params.get('action')==='comments')return json({comments:listComments(projectID),actorId:workspace.principal.actorId});
+  if(params.get('action')==='live'){
+   // Partial output of a running generation for the chat; the run must belong to this project.
+   const runID=params.get('runID')||'';if(!id.safeParse(runID).success)throw new ProjectError('Invalid run');
+   store.getRun(owner,projectID,runID);
+   return json({text:summarizeLiveText(readLiveText(runID))});
   }
   if(params.get('action')==='backend'){
    const backend=readProjectBackend(projectID);
@@ -105,6 +119,12 @@ export async function POST(request:Request){
   if('id' in body){if(body.action==='preview'||body.action==='scan')await repository.read(context(body.id));else await repository.requireWrite(context(body.id));}
   switch(body.action){
    case 'create':return json({project:await repository.create(workspace,body.name,body.model)},201);
+   case 'template':{
+    const template=starterTemplate(body.template);if(!template)throw new ProjectError('Modelo de projeto desconhecido.',404);
+    const created=await repository.create(workspace,body.name||template.name,body.model);
+    const project=await repository.save({...workspace,projectId:created.id},created.version,{files:template.files,assets:{}},'Modelo: '+template.name);
+    return json({project},201);
+   }
    case 'save':return json({project:await repository.save(context(body.id),body.version,body.snapshot,body.label)});
    case 'patch':{const project=store.getProject(owner,body.id);const result=applyPatchSet(project.snapshot,{baseRevision:body.baseRevision,operations:body.operations,expectedHashes:body.expectedHashes},String(project.version));const saved=await repository.save(context(body.id),body.version,result.snapshot,'Edição visual: '+result.changed.join(', '));return json({project:saved,changed:result.changed,diffDigest:result.diffDigest});}
    case 'visualEdit':{const project=store.getProject(owner,body.id);const patch=buildTextVisualEdit(project.snapshot,body.element,body.value,body.baseRevision);const result=applyPatchSet(project.snapshot,patch,String(project.version));const saved=await repository.save(context(body.id),body.version,result.snapshot,'Edição visual assistida: '+body.element.tag);return json({project:saved,changed:result.changed,diffDigest:result.diffDigest});}
@@ -139,6 +159,8 @@ export async function POST(request:Request){
    case 'document':return json({documents:store.addDocument(owner,body.id,body.name,body.content)});
    case 'instructions':return json({documents:store.setInstructions(owner,body.id,body.content)});
    case 'scan':return json({scan:scanProject(store.getProject(owner,body.id).snapshot.files)});
+   case 'comment':return json({comments:addComment(body.id,workspace.principal.actorId,body.body,body.file||undefined)});
+   case 'commentResolve':return json({comments:setCommentResolved(body.id,body.commentId,body.resolved)});
    case 'backend':{
     // Connecting writes the dependency-free client into the app as a normal, undoable revision.
     const backend=saveProjectBackend(body.id,body.url,body.anonKey);const project=store.getProject(owner,body.id);
@@ -162,6 +184,12 @@ export async function POST(request:Request){
     const credential=integrationCredential('vercel',access.scope);if(!credential.token)throw new ProjectError('Configure o token da Vercel em Integrações antes de publicar na internet.',409);
     const deployment=await deployToVercel({token:credential.token,name:vercelProjectName(project.name,project.id),html:site.html});
     return json({publication:{...local,publicUrl:deployment.url,deploymentId:deployment.id}});
+   }
+   case 'domain':{
+    const project=store.getProject(owner,body.id);const credential=integrationCredential('vercel',access.scope);
+    if(!credential.token)throw new ProjectError('Configure o token da Vercel em Integrações antes de conectar um domínio.',409);
+    const setup=await addVercelDomain({token:credential.token,project:vercelProjectName(project.name,project.id),domain:body.domain});
+    guard(body.id);return json({domain:setup});
    }
    case 'github':{
     const project=store.getProject(owner,body.id);const credential=integrationCredential('github',access.scope);

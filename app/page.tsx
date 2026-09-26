@@ -4,11 +4,13 @@ import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {appConfig} from '@/config/app.config';
 import AIModelSelect from '@/components/AIModelSelect';
-import OpenLovableLogo from '@/components/brand/OpenLovableLogo';
-import ThemeToggle from '@/components/ThemeToggle';
+import AppShell from '@/components/shell/AppShell';
 import {useAccount} from '@/components/account/client';
-import {projectRequest} from '@/lib/projects/client';
+import {projectRequest, zipAsBase64} from '@/lib/projects/client';
 import {saveProjectDraft} from '@/lib/projects/draft';
+import {favoriteProjects, toggleFavorite} from '@/lib/projects/preferences';
+import VoiceInputButton from '@/components/VoiceInputButton';
+import {STARTER_TEMPLATES} from '@/lib/templates/starters';
 import type {Project} from '@/lib/projects/store';
 
 type Summary = Omit<Project, 'snapshot'>;
@@ -17,6 +19,7 @@ type Attachment = {file: File; preview: string};
 const MAX_ATTACHMENTS = 4;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const TEXT_FILE = /\.(txt|md|json|csv|html?|css|jsx?|tsx?|mjs|svg|xml|ya?ml|sql)$/i;
 const EXAMPLES = [
   'Uma loja virtual de roupas com carrinho e checkout',
   'Um painel financeiro com gráficos de receitas e despesas',
@@ -42,6 +45,12 @@ export default function Home() {
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState<string>(appConfig.ai.defaultModel);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [chatMode, setChatMode] = useState<'build' | 'chat' | 'plan'>('build');
+  const [tab, setTab] = useState<'mine' | 'recent' | 'favorites' | 'templates'>('mine');
+  const [query, setQuery] = useState('');
+  const [favorites, setFavorites] = useState<string[]>([]);
+  useEffect(() => { setFavorites(favoriteProjects()); }, []);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -68,13 +77,17 @@ export default function Home() {
     if (!list) return;
     setError('');
     const next = [...attachments];
+    const others = [...files];
     for (const file of Array.from(list)) {
+      if (/\.zip$/i.test(file.name)) { if (file.size > 16 * 1024 * 1024) { setError('O ZIP deve ter até 16 MB.'); continue; } others.push(file); continue; }
+      if (TEXT_FILE.test(file.name)) { if (file.size > 200_000) { setError('Arquivos de texto devem ter até 200 KB.'); continue; } others.push(file); continue; }
       if (next.length >= MAX_ATTACHMENTS) { setError(`Anexe até ${MAX_ATTACHMENTS} imagens por pedido.`); break; }
-      if (!IMAGE_TYPES.includes(file.type)) { setError('Use imagens PNG, JPEG ou WebP.'); continue; }
+      if (!IMAGE_TYPES.includes(file.type)) { setError(`Não é possível anexar "${file.name}". Use imagem, ZIP de código ou arquivo de texto/código.`); continue; }
       if (file.size > MAX_IMAGE_BYTES) { setError('Cada imagem deve ter até 5 MB.'); continue; }
       next.push({file, preview: URL.createObjectURL(file)});
     }
     setAttachments(next);
+    setFiles(others.slice(0, 10));
   }
 
   function removeAttachment(index: number) {
@@ -84,16 +97,38 @@ export default function Home() {
     });
   }
 
+  async function startFromTemplate(templateId: string) {
+    if (busy || !canCreate) return;
+    setBusy(true); setError(''); setStatus('Criando a partir do modelo…');
+    try {
+      const {project} = await projectRequest<{project: Project}>({action: 'template', template: templateId, model});
+      router.push('/projects/' + project.id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Não foi possível usar o modelo.'); setBusy(false); setStatus('');
+    }
+  }
+
   async function start(event?: React.FormEvent) {
     event?.preventDefault();
     const text = prompt.trim();
-    if (!text || busy || !canCreate) return;
+    if ((!text && !files.length) || busy || !canCreate) return;
     setBusy(true);
     setError('');
     try {
       setStatus('Criando o projeto…');
-      const name = text.split('\n')[0].slice(0, 60).trim() || 'Novo projeto';
+      const name = text.split('\n')[0].slice(0, 60).trim() || files[0]?.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Novo projeto';
       const {project} = await projectRequest<{project: Project}>({action: 'create', name, model});
+      let version = project.version;
+      for (const file of files) {
+        if (/\.zip$/i.test(file.name)) {
+          setStatus('Importando o código do ZIP…');
+          const {project: imported} = await projectRequest<{project: Project}>({action: 'import', id: project.id, version, archive: await zipAsBase64(file)});
+          version = imported.version;
+        } else {
+          setStatus(`Enviando ${file.name}…`);
+          await projectRequest({action: 'document', id: project.id, name: file.name.slice(0, 200), content: await file.text()});
+        }
+      }
       const imageIDs: string[] = [];
       for (const [index, item] of attachments.entries()) {
         setStatus(`Enviando imagem ${index + 1} de ${attachments.length}…`);
@@ -103,7 +138,9 @@ export default function Home() {
         if (!response.ok) throw new Error(result.error || 'Falha ao enviar uma imagem.');
         imageIDs.push(result.image.id);
       }
-      saveProjectDraft(project.id, {prompt: text, imageIDs});
+      // "Conversar" answers without touching files, like Lovable's chat mode; it runs as a read-only plan request.
+      const draftPrompt = chatMode === 'chat' && text ? `Responda de forma direta e clara, sem propor nem gerar alterações de código:\n\n${text}` : text;
+      saveProjectDraft(project.id, {prompt: draftPrompt, imageIDs, ...(chatMode === 'build' ? {} : {mode: 'plan' as const})});
       router.push('/projects/' + project.id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Não foi possível começar o projeto.');
@@ -112,83 +149,99 @@ export default function Home() {
     }
   }
 
-  return <main className="relative min-h-screen overflow-hidden bg-[#fbf9f7] text-[#1c1b22]">
-    <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[-240px] mx-auto h-[720px] max-w-[1200px] opacity-80 blur-[90px]"
-      style={{background: 'radial-gradient(40% 45% at 30% 45%, #ffb38a 0%, transparent 70%), radial-gradient(38% 45% at 55% 55%, #ff7aa8 0%, transparent 70%), radial-gradient(40% 45% at 75% 40%, #9c8cff 0%, transparent 70%)'}}/>
-    <header className="relative z-10 mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-[16px] px-[16px] py-[18px] md:px-[32px]">
-      <Link href="/" aria-label="Open Lovable, início"><OpenLovableLogo/></Link>
-      <nav aria-label="Principal" className="flex flex-wrap items-center gap-[6px] text-[14px]">
-        <Link href="/projects" className="rounded-md px-[12px] py-[8px] hover:bg-white/70">Projetos</Link>
-        <Link href="/settings/ai" className="rounded-md px-[12px] py-[8px] hover:bg-white/70">Conexões de IA</Link>
-        <Link href="/clone" className="rounded-md px-[12px] py-[8px] hover:bg-white/70">Importar um site</Link>
-        <ThemeToggle/>
-      </nav>
-    </header>
+  const firstName = account?.user?.email ? account.user.email.split('@')[0].split(/[._-]/)[0] : '';
+  const greeting = firstName ? `Vamos criar algo, ${firstName.charAt(0).toUpperCase()}${firstName.slice(1)}` : 'Vamos criar algo';
+  const search = query.trim().toLowerCase();
+  const listed = (tab === 'favorites' ? projects.filter(project => favorites.includes(project.id)) : tab === 'recent' ? [...projects].sort((a, b) => b.updated_at.localeCompare(a.updated_at)) : projects)
+    .filter(project => !search || project.name.toLowerCase().includes(search)).slice(0, 12);
+  const tabs: Array<[typeof tab, string]> = [['mine', 'Meus projetos'], ['recent', 'Visualizados recentemente'], ['favorites', 'Favoritos'], ['templates', 'Modelos']];
 
-    <section className="relative z-10 mx-auto max-w-[820px] px-[16px] pb-[48px] pt-[56px] text-center md:pt-[96px]">
-      <h1 className="text-[34px] font-semibold leading-[1.1] tracking-tight md:text-[56px]">O que vamos construir hoje?</h1>
-      <p className="mx-auto mt-[16px] max-w-[560px] text-[16px] leading-relaxed text-[#56545f] md:text-[18px]">Descreva o app ou site que você quer. A IA escreve o código e monta a prévia, e cada alteração fica guardada no histórico.</p>
+  return <AppShell><main className="relative min-h-screen overflow-hidden bg-[#101014] text-white">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0"
+      style={{background: 'radial-gradient(60% 45% at 50% 18%, #3b5bdb 0%, transparent 70%), radial-gradient(55% 50% at 30% 60%, #c85fd6 0%, transparent 70%), radial-gradient(60% 55% at 70% 72%, #f0466e 0%, transparent 72%), linear-gradient(180deg, #1b2a55 0%, #7a3fb0 45%, #e4436b 100%)'}}/>
 
-      <form onSubmit={start} className="mt-[36px] rounded-[20px] border border-[#e6e1dc] bg-white p-[14px] text-left shadow-[0_12px_40px_rgba(60,40,80,0.12)]"
+    <section className="relative z-10 mx-auto max-w-[900px] px-[16px] pb-[56px] pt-[72px] text-center md:pt-[120px]">
+      <h1 className="text-[36px] font-semibold leading-[1.1] tracking-tight drop-shadow-sm md:text-[52px]">{greeting}</h1>
+      <p className="mx-auto mt-[12px] max-w-[560px] text-[16px] text-white/80">Descreva o app ou site. A IA escreve o código, monta a prévia e guarda cada versão.</p>
+
+      <form onSubmit={start} className="mt-[32px] rounded-[26px] border border-white/10 bg-[#1c1c21]/95 p-[14px] text-left shadow-[0_24px_60px_rgba(0,0,0,0.35)] backdrop-blur"
         onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); addFiles(event.dataTransfer.files); }}>
         <label htmlFor="home-prompt" className="sr-only">Descreva o que você quer construir</label>
-        <textarea id="home-prompt" ref={textarea} value={prompt} onChange={event => setPrompt(event.target.value)} rows={3} maxLength={32768}
+        <textarea id="home-prompt" ref={textarea} value={prompt} onChange={event => setPrompt(event.target.value)} rows={2} maxLength={32768}
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void start(); } }}
-          placeholder="Peça ao Open Lovable para criar um sistema de agendamento para o meu salão…" disabled={busy || !canCreate}
-          className="block max-h-[320px] min-h-[88px] w-full resize-y rounded-[12px] border-0 bg-transparent p-[8px] text-[16px] leading-relaxed placeholder:text-[#9a97a3] focus:outline-none"/>
+          placeholder={chatMode === 'chat' ? 'Pergunte qualquer coisa ao Open Lovable…' : 'Peça ao Open Lovable para criar um app de agendamento para o meu salão…'} disabled={busy || !canCreate}
+          className="block max-h-[320px] min-h-[64px] w-full resize-none bg-transparent p-[8px] text-[16px] leading-relaxed text-white placeholder:text-white/45 focus:outline-none"/>
+        {files.length > 0 && <ul aria-label="Arquivos anexados" className="flex flex-wrap gap-[8px] px-[8px] pb-[8px]">{files.map((file, index) => <li key={file.name + index} className="flex items-center gap-[6px] rounded-full bg-white/10 px-[10px] py-[4px] text-[12px]">{/\.zip$/i.test(file.name) ? '🗂' : '📄'} {file.name}<button type="button" aria-label={`Remover ${file.name}`} onClick={() => setFiles(current => current.filter((_, position) => position !== index))} className="text-[14px] leading-none">×</button></li>)}</ul>}
         {attachments.length > 0 && <ul aria-label="Imagens anexadas" className="flex flex-wrap gap-[10px] px-[8px] pb-[8px]">
           {attachments.map((item, index) => <li key={item.preview} className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview */}
-            <img src={item.preview} alt={item.file.name} className="h-[64px] w-[64px] rounded-[10px] border border-[#e6e1dc] object-cover"/>
+            <img src={item.preview} alt={item.file.name} className="h-[64px] w-[64px] rounded-[10px] border border-white/10 object-cover"/>
             <button type="button" onClick={() => removeAttachment(index)} aria-label={`Remover ${item.file.name}`}
-              className="absolute -right-[6px] -top-[6px] flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#1c1b22] text-[13px] leading-none text-white">×</button>
+              className="absolute -right-[6px] -top-[6px] flex h-[22px] w-[22px] items-center justify-center rounded-full bg-white text-[13px] leading-none text-black">×</button>
           </li>)}
         </ul>}
-        <div className="flex flex-wrap items-center justify-between gap-[10px] border-t border-[#f0ece8] px-[4px] pt-[10px]">
-          <div className="flex min-w-0 flex-wrap items-center gap-[8px]">
-            <input ref={fileInput} type="file" accept={IMAGE_TYPES.join(',')} multiple className="sr-only" aria-label="Anexar imagens"
+        <div className="flex flex-wrap items-center justify-between gap-[8px] px-[2px] pt-[6px]">
+          <div className="flex min-w-0 items-center gap-[6px]">
+            <input ref={fileInput} type="file" accept={IMAGE_TYPES.join(',') + ',.zip,.txt,.md,.json,.csv,.html,.htm,.css,.js,.jsx,.ts,.tsx,.mjs,.svg,.xml,.yml,.yaml,.sql'} multiple className="sr-only" aria-label="Anexar imagens"
               onChange={event => { addFiles(event.target.files); event.currentTarget.value = ''; }} disabled={busy || !canCreate}/>
             <button type="button" onClick={() => fileInput.current?.click()} disabled={busy || !canCreate || attachments.length >= MAX_ATTACHMENTS}
-              className="inline-flex items-center gap-[6px] rounded-full border border-[#e3ded8] px-[12px] py-[7px] text-[13px] hover:bg-[#f7f4f1] disabled:opacity-40">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m21.4 11.1-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8l8.5-8.5a3.7 3.7 0 0 1 5.2 5.2l-8.5 8.5a1.8 1.8 0 0 1-2.6-2.6l7.8-7.8"/></svg>
-              Anexar
-            </button>
-            <div className="w-[230px] max-w-full">
+              aria-label="Anexar arquivos (imagem, ZIP ou código)" title="Anexar imagem, ZIP ou código"
+              className="flex h-[36px] w-[36px] items-center justify-center rounded-full border border-white/15 text-[20px] leading-none hover:bg-white/10 disabled:opacity-30">+</button>
+            <div className="w-[190px] max-w-[40vw]">
               <AIModelSelect value={model} onValueChange={setModel} disabled={busy}
-                className="w-full min-w-0 rounded-full border border-[#e3ded8] bg-white px-[12px] py-[7px] text-[13px]"/>
+                className="w-full min-w-0 rounded-full border border-white/15 bg-transparent px-[10px] py-[7px] text-[13px] text-white [&>option]:text-black"/>
             </div>
           </div>
-          <button type="submit" disabled={busy || !prompt.trim() || !canCreate} aria-label="Começar a construir"
-            className="flex h-[40px] min-w-[40px] items-center justify-center gap-[8px] rounded-full bg-[#1c1b22] px-[16px] text-[14px] font-medium text-white hover:bg-black disabled:opacity-30">
-            {busy ? status || 'Começando…' : <>Construir <span aria-hidden="true">↑</span></>}
-          </button>
+          <div className="flex items-center gap-[6px]">
+            <label htmlFor="home-mode" className="sr-only">Modo</label>
+            <select id="home-mode" value={chatMode} onChange={event => setChatMode(event.target.value as typeof chatMode)} disabled={busy}
+              className="rounded-full border border-white/15 bg-transparent px-[10px] py-[7px] text-[14px] font-medium text-white [&>option]:text-black">
+              <option value="build">Construir</option><option value="chat">Conversar</option><option value="plan">Planejar</option>
+            </select>
+            <VoiceInputButton disabled={busy || !canCreate} onText={text => setPrompt(current => current ? current.trimEnd() + ' ' + text : text)}/>
+            <button type="submit" disabled={busy || (!prompt.trim() && !files.length) || !canCreate} aria-label="Começar a construir"
+              className="flex h-[36px] min-w-[36px] items-center justify-center gap-[6px] rounded-full bg-white px-[12px] text-[14px] font-semibold text-black hover:bg-white/90 disabled:opacity-30">
+              {busy ? status || 'Começando…' : <span aria-hidden="true">↑</span>}
+            </button>
+          </div>
         </div>
       </form>
-      {!canCreate && <p className="mt-[12px] text-[13px] text-[#56545f]">Seu papel neste workspace permite apenas visualizar projetos.</p>}
+      {!canCreate && <p className="mt-[12px] text-[13px] text-white/80">Seu papel neste workspace permite apenas visualizar projetos.</p>}
       {error && <p role="alert" className="mt-[14px] rounded-md border border-red-200 bg-red-50 p-[12px] text-left text-[14px] text-red-800">{error}</p>}
-
-      <div className="mt-[20px] flex flex-wrap justify-center gap-[8px]">
+      <div className="mt-[18px] flex flex-wrap justify-center gap-[8px]">
         {EXAMPLES.map(example => <button key={example} type="button" disabled={busy}
           onClick={() => { setPrompt(example); textarea.current?.focus(); }}
-          className="rounded-full border border-[#e6e1dc] bg-white/80 px-[14px] py-[8px] text-[13px] text-[#3e3c46] hover:bg-white disabled:opacity-40">{example}</button>)}
+          className="rounded-full border border-white/20 bg-white/10 px-[14px] py-[7px] text-[13px] text-white backdrop-blur hover:bg-white/20 disabled:opacity-40">{example}</button>)}
       </div>
     </section>
 
-    <section aria-labelledby="recent-heading" className="relative z-10 mx-auto max-w-[1200px] px-[16px] pb-[64px] md:px-[32px]">
-      <div className="rounded-[20px] border border-[#ebe6e1] bg-white/90 p-[20px] md:p-[28px]">
-        <div className="mb-[16px] flex flex-wrap items-baseline justify-between gap-[8px]">
-          <h2 id="recent-heading" className="text-[18px] font-semibold">Seus projetos</h2>
-          <Link href="/projects" className="text-[14px] underline underline-offset-4">Ver todos</Link>
+    <section aria-label="Seus projetos e modelos" className="relative z-10 mx-auto max-w-[1240px] px-[12px] pb-[40px] md:px-[28px]">
+      <div className="rounded-[24px] border border-white/10 bg-[#141418]/95 p-[14px] shadow-[0_-10px_40px_rgba(0,0,0,0.25)] md:p-[18px]">
+        <div className="flex flex-wrap items-center justify-between gap-[10px]">
+          <div role="tablist" aria-label="Lista de projetos" className="flex flex-wrap items-center gap-[4px] rounded-[14px] border border-white/10 p-[4px]">
+            <label className="flex items-center gap-[6px] px-[8px] text-white/60"><span aria-hidden="true">⌕</span><span className="sr-only">Buscar projetos</span><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar" className="w-[110px] bg-transparent py-[6px] text-[14px] text-white placeholder:text-white/50 focus:outline-none"/></label>
+            {tabs.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+              className={`rounded-[10px] px-[12px] py-[7px] text-[14px] ${tab === id ? 'bg-white/10 font-medium text-white' : 'text-white/65 hover:text-white'}`}>{label}</button>)}
+          </div>
+          <Link href={tab === 'templates' ? '/templates' : '/projects'} className="text-[14px] text-white/85 hover:text-white">Ver tudo →</Link>
         </div>
-        {!projectsLoaded ? <p role="status" className="text-[14px] text-[#6a6772]">Carregando…</p>
-          : projects.length === 0 ? <p className="text-[14px] text-[#6a6772]">Nenhum projeto ainda. Descreva uma ideia acima para começar.</p>
-          : <ul className="grid gap-[12px] sm:grid-cols-2 lg:grid-cols-3">{projects.slice(0, 6).map(project => <li key={project.id}>
-            <Link href={'/projects/' + project.id} className="block rounded-[14px] border border-[#ece7e2] p-[16px] hover:border-[#d9cfc7] hover:bg-[#fdfbf9]">
-              <p className="truncate text-[15px] font-medium">{project.name}</p>
-              <p className="mt-[6px] text-[12px] text-[#7a7782]">Revisão {project.version} · {new Date(project.updated_at).toLocaleDateString('pt-BR')}</p>
+        {tab === 'templates'
+          ? <ul className="mt-[16px] grid gap-[12px] sm:grid-cols-2 lg:grid-cols-5">{STARTER_TEMPLATES.map(template => <li key={template.id}>
+            <button type="button" disabled={busy || !canCreate} onClick={() => void startFromTemplate(template.id)} className="block h-full w-full rounded-[14px] border border-white/10 bg-white/5 p-[14px] text-left text-white hover:bg-white/10 disabled:opacity-50">
+              <span className="block text-[15px] font-medium">{template.name}</span>
+              <span className="mt-[6px] block text-[12px] leading-relaxed text-white/60">{template.description}</span>
+            </button></li>)}</ul>
+          : !projectsLoaded ? <p role="status" className="mt-[16px] text-[14px] text-white/60">Carregando…</p>
+          : listed.length === 0 ? <p className="mt-[16px] text-[14px] text-white/60">{tab === 'favorites' ? 'Nenhum favorito ainda. Use a estrela nos projetos.' : search ? 'Nenhum projeto com esse nome.' : 'Nenhum projeto ainda. Descreva uma ideia acima para começar.'}</p>
+          : <ul className="mt-[16px] grid gap-[12px] sm:grid-cols-2 lg:grid-cols-4">{listed.map(project => <li key={project.id} className="group relative">
+            <Link href={'/projects/' + project.id} className="block overflow-hidden rounded-[14px] border border-white/10 bg-white/5 hover:bg-white/10">
+              <div aria-hidden="true" className="flex h-[110px] items-center justify-center bg-gradient-to-br from-[#2b2f55] via-[#5b3d8f] to-[#c2456f] text-[28px] font-semibold text-white/85">{project.name.slice(0, 1).toUpperCase()}</div>
+              <div className="p-[12px]"><p className="truncate text-[14px] font-medium">{project.name}</p><p className="mt-[4px] text-[12px] text-white/55">Editado {new Date(project.updated_at).toLocaleDateString('pt-BR')} · Revisão {project.version}</p></div>
             </Link>
+            <button type="button" onClick={() => setFavorites(toggleFavorite(project.id))} aria-pressed={favorites.includes(project.id)} aria-label={favorites.includes(project.id) ? `Remover ${project.name} dos favoritos` : `Adicionar ${project.name} aos favoritos`}
+              className={`absolute right-[8px] top-[8px] flex h-[30px] w-[30px] items-center justify-center rounded-full bg-black/40 text-[16px] ${favorites.includes(project.id) ? 'text-yellow-300' : 'text-white/80 opacity-0 group-hover:opacity-100 focus:opacity-100'}`}>★</button>
           </li>)}</ul>}
       </div>
     </section>
-  </main>;
+  </main></AppShell>;
 }

@@ -3,9 +3,8 @@ import AccountBar from '@/components/account/AccountBar';
 import {scopedProjectURL} from '@/lib/projects/scope-url';
 import ProviderSettingsForm from '@/components/ProviderSettingsForm';
 import IntegrationsForm from '@/components/IntegrationsForm';
-import ThemeToggle from '@/components/ThemeToggle';
+import AppShell from '@/components/shell/AppShell';
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { appConfig } from '@/config/app.config';
 import { useModelCatalog } from '@/hooks/useModelCatalog';
 
@@ -54,13 +53,10 @@ export default function AISettingsPage() {
     } finally {if(!controller.signal.aborted) setBusy(false);}
   }
   const canTest=consent && !busy && !loading && models.some(model=>model.id===selected && model.configured);
-  return <main className="min-h-screen bg-[#f7f7f5] text-[#232323]">
+  return <AppShell><main className="min-h-screen bg-[#fbf9f7] text-[#232323]">
     <AccountBar workspaceId={catalog?.workspaceId}/>
     <div className="mx-auto max-w-[1100px] px-[20px] py-[32px] md:px-[32px]">
-      <header className="mb-[32px] flex flex-wrap items-center justify-between gap-[16px] border-b border-[#deded9] pb-[20px]">
-        <Link href="/" className="text-[15px] font-semibold">Open Lovable <span className="ml-[12px] font-normal text-[#686862]">Voltar ao construtor</span></Link>
-        <div className="flex items-center gap-[8px]"><ThemeToggle/><button type="button" onClick={()=>void reload()} disabled={loading || busy} className="rounded-md border border-[#d2d2cc] bg-white px-[16px] py-[10px] text-[13px] disabled:opacity-50">{loading ? 'Consultando...' : 'Atualizar catálogo'}</button></div>
-      </header>
+      <div className="mb-[20px] flex flex-wrap items-center justify-end gap-[8px]"><button type="button" onClick={()=>void reload()} disabled={loading || busy} className="rounded-md border border-[#d2d2cc] bg-white px-[16px] py-[10px] text-[13px] disabled:opacity-50">{loading ? 'Consultando...' : 'Atualizar catálogo'}</button></div>
       <div className="mb-[28px] max-w-[740px]">
         <p className="mb-[8px] text-[12px] font-semibold uppercase tracking-[0.12em] text-[#7b4c28]">Configurações / Inteligência artificial</p>
         <h1 className="mb-[12px] text-[32px] font-semibold leading-tight">Conexões de IA</h1>
@@ -124,5 +120,5 @@ export default function AISettingsPage() {
         <div className="divide-y divide-[#ededE8]">{models.map(model=><div key={model.id} className="flex flex-wrap items-center justify-between gap-[12px] px-[24px] py-[16px]"><div className="min-w-0"><p className="text-[14px] font-medium">{model.label}</p><code className="break-all text-[12px] text-[#77776e]">{model.id}</code>{('inputTokenLimit' in model&&model.inputTokenLimit)?<p className="text-[12px] text-[#77776e]">Contexto: {tokens(model.inputTokenLimit as number)}{'outputTokenLimit' in model&&model.outputTokenLimit?` · resposta até ${tokens(model.outputTokenLimit as number)}`:''}</p>:null}</div><span className="text-[12px] text-[#686862]">{loading ? 'Consultando' : model.configured ? 'Configurado; teste necessário' : 'Credencial ausente'}</span></div>)}</div>
       </section>
     </div>
-  </main>;
+  </main></AppShell>;
 }

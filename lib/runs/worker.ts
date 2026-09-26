@@ -6,6 +6,7 @@ import {requestFrozenModel,validateRunResult} from '../projects/generation';
 import {redactSecretText,safeLogger} from '../security/secret-content';
 import {APICallError} from 'ai';
 import {modelTestFailure} from '../ai/provider-discovery';
+import {clearLiveText,writeLiveText} from './live-text';
 import type {ProviderScope} from '../settings/store';
 import {RunQueue} from './queue';
 import {ApprovalService} from '../approvals/service';
@@ -55,7 +56,7 @@ export async function runWorkerOnce(queue:RunQueue,worker:WorkerLease,stopSignal
       localGuard(queue,job);const summary={provider:'gateway',endpoint:process.env.OPEN_LOVABLE_GATEWAY_URL||'https://gateway.invalid',credentialConfigured:Boolean(process.env.OPEN_LOVABLE_GATEWAY_API_KEY)};approval.pause(job,'connection',summary);throw new ProjectError('Connection approval required',402);
      }
      if(modelCalls===1)queue.markModelStarted(job);else queue.event(job,'repair.requested',{attempt:modelCalls,reason:'deterministic validation failed'});
-    },status:payload=>queue.event(job,'run.progress',payload)});
+    },status:payload=>queue.event(job,'run.progress',payload),partial:partialText=>writeLiveText(job.run.id,partialText)});
     usage=result.usage;text=result.text;return result.text;
    };
    await request();
@@ -76,7 +77,7 @@ export async function runWorkerOnce(queue:RunQueue,worker:WorkerLease,stopSignal
   const message=APICallError.isInstance(error)?`${modelTestFailure(error)} Detalhe do provedor: ${redactSecretText(error.message).slice(0,400)}`
    :error instanceof Error?error.message:'Execution failed; saved files were preserved.';
   try{queue.fail(job,message,Boolean(stopSignal?.aborted));}catch(recordError){safeLogger.error('Worker could not record its interrupted state',recordError);}
- }finally{clearInterval(heartbeat);}
+ }finally{clearInterval(heartbeat);clearLiveText(job.run.id);}
  const final=queue.store.getRun(job.owner,job.run.project_id,job.run.id);
  return {worked:true,runId:job.run.id,state:final.state};
 }

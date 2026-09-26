@@ -16,7 +16,13 @@ export async function GET(request: Request) {
     return Response.json({integrations: integrationIDs.map(integration => {
       const credential = integrationCredential(integration, access.scope);
       return {integration, configured: Boolean(credential.token), source: credential.source, version: credential.version};
-    })}, {headers: noStore});
+    }),
+    // Server-level services: only whether they are configured, never their values.
+    services: access.mode === 'individual' ? {
+      firecrawl: Boolean(process.env.FIRECRAWL_API_KEY?.trim()),
+      sandbox: (process.env.SANDBOX_PROVIDER || 'e2b') === 'vercel' ? Boolean(process.env.VERCEL_TOKEN?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim()) : Boolean(process.env.E2B_API_KEY?.trim()),
+      sandboxProvider: (process.env.SANDBOX_PROVIDER || 'e2b') === 'vercel' ? 'Vercel Sandbox' : 'E2B',
+    } : null}, {headers: noStore});
   } catch (error) {
     if (error instanceof ProjectError) return Response.json({error: error.message}, {status: error.status, headers: noStore});
     return Response.json({error: 'Não foi possível ler as integrações. Verifique o diretório privado de dados.'}, {status: 503, headers: noStore});
