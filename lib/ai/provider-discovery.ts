@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { dataDirectory } from '@/lib/projects/store';
 import { APICallError } from 'ai';
 import { createProviderFetch } from './provider-transport';
 
@@ -162,4 +165,75 @@ export function modelTestFailure(error: unknown): string {
   if (status === 400) return 'O provedor rejeitou a requisição para este modelo. Ele pode não aceitar geração de texto.';
   if (status !== undefined && status >= 500) return `O provedor está com instabilidade (HTTP ${status}). Tente novamente em alguns minutos.`;
   return 'Falha no teste do modelo. Verifique a chave, a cota e o suporte do modelo. Nenhum outro provedor foi usado.';
+}
+
+/**
+ * Providers list models that a given key cannot actually call (Google marks
+ * some as "no longer available to new users" only at request time). Once a
+ * model fails that way it is remembered per credential and hidden from the
+ * catalog, so nobody keeps picking a dead option. Stored beside the private
+ * data, keyed by a one-way key fingerprint; no secret is written.
+ */
+const RETIRED_PATTERN = /(no longer available|not found|is not supported|has been deprecated|does not exist|decommissioned)/i;
+const unavailable = new Map<string, Set<string>>();
+let unavailableLoaded = false;
+let unavailableMtime = 0;
+
+function unavailableFile(): string | null {
+  try { return join(dataDirectory(), 'unavailable-models.json'); } catch { return null; }
+}
+
+function credentialKey(provider: string, apiKey: string): string {
+  return `${provider}:${createHash('sha256').update(apiKey).digest('hex').slice(0, 16)}`;
+}
+
+/** Re-read when another process (the worker, or another route bundle) updated the file. */
+function loadUnavailable(): void {
+  const file = unavailableFile();
+  if (!file) return;
+  let mtime = 0;
+  try { mtime = statSync(file).mtimeMs; } catch { /* not written yet */ }
+  if (unavailableLoaded && mtime === unavailableMtime) return;
+  unavailableLoaded = true;
+  unavailableMtime = mtime;
+  if (!mtime) return;
+  try {
+    const data = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+    for (const [key, ids] of Object.entries(data)) {
+      if (Array.isArray(ids)) unavailable.set(key, new Set(ids.filter(validID).slice(0, MAX_MODELS)));
+    }
+  } catch { /* first run or unreadable: start empty */ }
+}
+
+export function isRetiredModelError(error: unknown): boolean {
+  const status = APICallError.isInstance(error) ? error.statusCode : undefined;
+  const message = error instanceof Error ? error.message : '';
+  return status === 404 || ((status === 400 || status === 403 || status === undefined) && RETIRED_PATTERN.test(message));
+}
+
+export function rememberUnavailableModel(provider: string, apiKey: string, upstreamId: string): void {
+  if (!validID(upstreamId)) return;
+  loadUnavailable();
+  const key = credentialKey(provider, apiKey);
+  const set = unavailable.get(key) ?? new Set<string>();
+  if (set.has(upstreamId)) return;
+  set.add(upstreamId);
+  unavailable.set(key, set);
+  const file = unavailableFile();
+  if (!file) return;
+  try {
+    writeFileSync(file, JSON.stringify(Object.fromEntries([...unavailable].map(([entry, ids]) => [entry, [...ids]]))), {mode: 0o600});
+    unavailableMtime = statSync(file).mtimeMs;
+  } catch { /* the in-memory list still hides it for this process */ }
+}
+
+export function unavailableModels(provider: string, apiKey: string): ReadonlySet<string> {
+  loadUnavailable();
+  return unavailable.get(credentialKey(provider, apiKey)) ?? new Set();
+}
+
+export function resetUnavailableModels(): void {
+  unavailable.clear();
+  unavailableLoaded = false;
+  unavailableMtime = 0;
 }

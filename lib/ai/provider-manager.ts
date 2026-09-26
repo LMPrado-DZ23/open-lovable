@@ -5,6 +5,19 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { applicationModels, getGatewayConfig, loadModelCatalog, ProviderConfigError, validModelID, type ModelOption } from './provider-catalog';
 import { createProviderFetch } from './provider-transport';
+import { isRetiredModelError, rememberUnavailableModel } from './provider-discovery';
+
+/** Remember a model the provider refused as retired/unknown for this key, so the catalog hides it. */
+export function noteModelFailure(modelId: string, error: unknown, scope?: ProviderScope): void {
+  try {
+    if (!validModelID(modelId) || !isRetiredModelError(error)) return;
+    const slash = modelId.indexOf('/');
+    const provider = modelId.slice(0, slash);
+    if (!['openai','anthropic','google','groq','openrouter','deepseek','mistral','xai','cerebras','together','fireworks','huggingface'].includes(provider)) return;
+    const apiKey = effectiveProvider(provider as Parameters<typeof effectiveProvider>[0], scope).apiKey;
+    if (apiKey) rememberUnavailableModel(provider, apiKey, modelId.slice(slash + 1));
+  } catch { /* best effort: never mask the original failure */ }
+}
 
 /** One server-side resolver for generation, search planning and recovery. Never guesses a provider. */
 export async function getProviderForModel(modelId: string, signal?: AbortSignal,scope?:ProviderScope) {

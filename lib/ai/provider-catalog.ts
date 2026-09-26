@@ -1,7 +1,7 @@
 import { effectiveProvider, providerEnvironment, providerIDs, type ProviderScope, type SettingsProvider } from '@/lib/settings/store';
 import { appConfig } from '@/config/app.config';
 import { createProviderFetch, validateProviderURL } from './provider-transport';
-import { discoverProviderModels, type DiscoverableProvider, type RateLimits } from './provider-discovery';
+import { discoverProviderModels, unavailableModels, type DiscoverableProvider, type RateLimits } from './provider-discovery';
 
 export type ProviderID = SettingsProvider;
 export interface ModelOption {
@@ -126,7 +126,10 @@ async function applyProviderDiscovery(models: ModelOption[], scope?: ProviderSco
     const result = await discoverProviderModels(provider, baseURL, saved.apiKey, allowLoopback);
     providers[provider] = {status: result.status, checkedAt: result.checkedAt, modelCount: result.models.length, rateLimits: result.rateLimits, error: result.error};
     if (result.status !== 'discovered') return;
-    const available = new Map(result.models.map(model => [model.upstreamId, model]));
+    const blocked = unavailableModels(provider, saved.apiKey);
+    const liveModels = result.models.filter(model => !blocked.has(model.upstreamId));
+    providers[provider]!.modelCount = liveModels.length;
+    const available = new Map(liveModels.map(model => [model.upstreamId, model]));
     for (let index = models.length - 1; index >= 0; index--) {
       const option = models[index];
       if (option.provider !== provider) continue;
@@ -135,7 +138,7 @@ async function applyProviderDiscovery(models: ModelOption[], scope?: ProviderSco
       option.inputTokenLimit = live.inputTokenLimit;
       option.outputTokenLimit = live.outputTokenLimit;
     }
-    for (const live of result.models) {
+    for (const live of liveModels) {
       const id = `${provider}/${live.upstreamId}`;
       if (models.some(option => option.id === id)) continue;
       models.push({id, label: live.label, provider, upstreamId: live.upstreamId, configured: true, source: 'discovery',

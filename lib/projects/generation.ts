@@ -3,7 +3,7 @@ import type {ProviderScope} from '../settings/store';
 import { streamText, type ModelMessage } from 'ai';
 import {ReferenceImageStore} from './images';
 import {VISUAL_GUIDANCE,PLAN_GUIDANCE} from './visual-guidance';
-import { getProviderForModel } from '@/lib/ai/provider-manager';
+import { getProviderForModel, noteModelFailure } from '@/lib/ai/provider-manager';
 import { assertCompleteFileBlocks, normalizeProjectPath } from '@/lib/security/input-validation';
 import { redactSecretText, safeLogger } from '@/lib/security/secret-content';
 import { ProjectError, type ProjectSnapshot, type ProjectRun, type ProjectStore, validateSnapshot } from './store';
@@ -54,7 +54,7 @@ export async function requestFrozenModel(run:ProjectRun,input:FrozenRunInput,sig
  const result=streamText({model:model.model,system:(run.inputs.mode==='plan'?PLAN_GUIDANCE:system)+(images.length?'\n'+VISUAL_GUIDANCE:''),messages:[...input.history,{role:'user',content}],maxOutputTokens,maxRetries:0,abortSignal:signal,onError:({error})=>safeLogger.error('Project model stream failed',error)});
  let text='',lastProgress=0;
  for await(const event of result.fullStream){
-  if(event.type==='error')throw event.error;
+  if(event.type==='error'){noteModelFailure(run.model,event.error,hooks.scope);throw event.error;}
   if(event.type==='text-delta'){
    text+=event.text;if(Buffer.byteLength(text)>2*1024*1024)throw new ProjectError('Generated output exceeds the allowed size');
    if(Date.now()-lastProgress>1000){hooks.status({phase:'generating',characters:text.length});lastProgress=Date.now();}

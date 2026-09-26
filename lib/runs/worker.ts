@@ -3,7 +3,9 @@ import {authMode} from '../identity/config';
 import {accountService} from '../identity/factory';
 import {ProjectError,operatorID} from '../projects/store';
 import {requestFrozenModel,validateRunResult} from '../projects/generation';
-import {safeLogger} from '../security/secret-content';
+import {redactSecretText,safeLogger} from '../security/secret-content';
+import {APICallError} from 'ai';
+import {modelTestFailure} from '../ai/provider-discovery';
 import type {ProviderScope} from '../settings/store';
 import {RunQueue} from './queue';
 import {ApprovalService} from '../approvals/service';
@@ -70,7 +72,9 @@ export async function runWorkerOnce(queue:RunQueue,worker:WorkerLease,stopSignal
   if(result.kind==='plan')queue.completePlan(job,result.text);
   else queue.stage(job,result.snapshot,result.explanation,{entry:result.compiled.entry,sha256:result.compiled.sha256,warnings:result.compiled.warnings});
  }catch(error){
-  const message=error instanceof Error?error.message:'Execution failed; saved files were preserved.';
+  // Provider refusals get an actionable explanation; the provider's own words stay as detail.
+  const message=APICallError.isInstance(error)?`${modelTestFailure(error)} Detalhe do provedor: ${redactSecretText(error.message).slice(0,400)}`
+   :error instanceof Error?error.message:'Execution failed; saved files were preserved.';
   try{queue.fail(job,message,Boolean(stopSignal?.aborted));}catch(recordError){safeLogger.error('Worker could not record its interrupted state',recordError);}
  }finally{clearInterval(heartbeat);}
  const final=queue.store.getRun(job.owner,job.run.project_id,job.run.id);
