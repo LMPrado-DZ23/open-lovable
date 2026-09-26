@@ -31,3 +31,43 @@ export async function deployToVercel(options: {token: string; name: string; html
   if (!host || !/^[a-z0-9.-]+$/i.test(host) || typeof data.id !== 'string') throw new ProjectError('A Vercel respondeu sem um endereço de publicação válido.', 502);
   return {url: `https://${host}`, id: data.id};
 }
+
+export interface DomainSetup {domain: string; verified: boolean; records: Array<{type: 'A' | 'CNAME' | 'TXT'; name: string; value: string}>}
+
+export function normalizeDomain(value: string): string {
+  const domain = value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (domain.length > 253 || !/^(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/.test(domain) || /\.vercel\.app$/.test(domain)) {
+    throw new ProjectError('Informe um domínio válido, como meusite.com.br ou app.meusite.com.br.', 400);
+  }
+  return domain;
+}
+
+/**
+ * Attach a custom domain to the project's Vercel deployment and return the DNS
+ * records the owner must create. Apex domains use Vercel's A record; subdomains
+ * use its CNAME; ownership challenges come back as TXT records.
+ */
+export async function addVercelDomain(options: {token: string; project: string; domain: string; fetchImpl?: typeof fetch}): Promise<DomainSetup> {
+  const domain = normalizeDomain(options.domain);
+  const fetchImpl = options.fetchImpl ?? createProviderFetch(VERCEL_API, {timeoutMs: 30_000, maxDurationMs: 60_000, maxBytes: 256 * 1024});
+  const response = await fetchImpl(`${VERCEL_API}/v10/projects/${encodeURIComponent(options.project)}/domains`, {
+    method: 'POST', headers: {Authorization: `Bearer ${options.token}`, 'Content-Type': 'application/json'}, body: JSON.stringify({name: domain}),
+  });
+  const data = await response.json().catch(() => ({})) as {verified?: unknown; verification?: unknown; error?: {code?: unknown}};
+  if (!response.ok && data.error?.code !== 'domain_already_in_use_by_project') {
+    if (response.status === 404) throw new ProjectError('Publique o projeto na Vercel antes de conectar um domínio.', 409);
+    if (data.error?.code === 'domain_already_in_use') throw new ProjectError('Este domínio já está em uso em outro projeto da Vercel.', 409);
+    throw new ProjectError(failure(response.status), 502);
+  }
+  const labels = domain.split('.');
+  // Registrable part: example.com, or example.com.br for second-level country domains.
+  const registrable = labels.length >= 3 && /^(com|net|org|gov|edu|co)$/.test(labels[labels.length - 2]) && labels[labels.length - 1].length === 2 ? 3 : 2;
+  const host = labels.slice(0, Math.max(0, labels.length - registrable)).join('.');
+  const records: DomainSetup['records'] = [host ? {type: 'CNAME', name: host, value: 'cname.vercel-dns.com'} : {type: 'A', name: '@', value: '76.76.21.21'}];
+  if (Array.isArray(data.verification)) {
+    for (const item of data.verification as Array<Record<string, unknown>>) {
+      if (item.type === 'TXT' && typeof item.domain === 'string' && typeof item.value === 'string') records.push({type: 'TXT', name: item.domain, value: item.value});
+    }
+  }
+  return {domain, verified: data.verified === true, records};
+}
