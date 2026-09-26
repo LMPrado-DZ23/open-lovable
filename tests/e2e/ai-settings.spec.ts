@@ -33,7 +33,7 @@ test('browser probe reaches a real local HTTP/SSE contract fixture after explici
 });
 
 test('home and editor preserve the selected namespaced gateway model without provider fallback',async({page})=>{
-  await page.goto('/');
+  await page.goto('/clone');
   await page.getByPlaceholder('Enter URL or search term...').fill('example.com');
   const home=page.getByLabel('AI model',{exact:true});
   await expect(home.locator('option[value="gateway/fixture/coder"]')).toHaveCount(1);

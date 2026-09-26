@@ -5,7 +5,7 @@ for(const [name,width,height] of [['desktop',1440,900],['tablet',820,1180],['mob
     await page.setViewportSize({width,height});
     const crashes:string[]=[];
     page.on('pageerror',error=>crashes.push(error.message));
-    const response=await page.goto('/');
+    const response=await page.goto('/clone');
     expect(response?.status()).toBe(200);
     const input=page.getByPlaceholder('Enter URL or search term...');
     await expect(input).toBeVisible();

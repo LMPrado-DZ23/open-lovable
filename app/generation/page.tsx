@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { appConfig } from '@/config/app.config';
 import HeroInput from '@/components/HeroInput';
 import SidebarInput from '@/components/app/generation/SidebarInput';
-import HeaderBrandKit from '@/components/shared/header/BrandKit/BrandKit';
+import OpenLovableLogo from '@/components/brand/OpenLovableLogo';
 import { HeaderProvider } from '@/components/shared/header/HeaderContext';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -3294,7 +3294,7 @@ Focus on the key sections and content, making it clean and modern.`;
     <HeaderProvider>
       <div className="font-sans bg-background text-foreground h-screen flex flex-col">
       <div className="bg-white py-[15px] py-[8px] border-b border-border-faint flex items-center justify-between shadow-sm">
-        <HeaderBrandKit />
+        <Link href="/" aria-label="Open Lovable, início"><OpenLovableLogo size={24} /></Link>
         <div className="flex items-center gap-2">
           {/* Model Selector - Left side */}
           <AIModelSelect value={aiModel} onValueChange={(newModel) => {

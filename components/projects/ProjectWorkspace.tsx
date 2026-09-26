@@ -11,6 +11,7 @@ import ProjectImages from './ProjectImages';
 import RunJournal from './RunJournal';
 import {enqueueRun} from '@/lib/runs/client';
 import {useProjectImages} from '@/hooks/useProjectImages';
+import {takeProjectDraft} from '@/lib/projects/draft';
 
 const tabs=['Prévia','Código','Alterações','Histórico','Referências','Imagens','Plano','Execu\u00e7\u00f5es'] as const;
 type Tab=typeof tabs[number];
@@ -22,6 +23,8 @@ export default function ProjectWorkspace({id}:{id:string}){
  const {images,loading:imagesLoading,error:imagesError,reload:reloadImages}=useProjectImages(id);
  const [mode,setMode]=useState<'build'|'plan'>('build'),[selectedImages,setSelectedImages]=useState<string[]>([]),[visionConfirmed,setVisionConfirmed]=useState(false);
  const selectImages=(ids:string[])=>{setSelectedImages(ids);setVisionConfirmed(false);setConsent(false);};
+ // A request typed on the home screen arrives here pre-filled; cost consent is still asked explicitly.
+ useEffect(()=>{const draft=takeProjectDraft(id);if(!draft)return;setPrompt(draft.prompt);if(draft.imageIDs.length)setSelectedImages(draft.imageIDs);},[id]);
  const submitted=useRef<string|null>(null);const active=useRef<AbortController|null>(null);const sequence=useRef(0);
  const reload=useCallback(async(signal?:AbortSignal)=>{const request=++sequence.current;const state=await loadProject(id,signal);if(!signal?.aborted&&request===sequence.current){setData(state);setModel(current=>current||state.project.model);}return state;},[id]);
  useEffect(()=>{const controller=new AbortController();void reload(controller.signal).catch(caught=>{if(!controller.signal.aborted)setError(caught.message);});return()=>{controller.abort();active.current?.abort();};},[reload]);

@@ -24,7 +24,7 @@ import HeroInputSubmitButton from "@/components/app/(home)/sections/hero-input/B
 // import Globe from "@/components/app/(home)/sections/hero-input/_svg/Globe";
 
 // Import header components
-import HeaderBrandKit from "@/components/shared/header/BrandKit/BrandKit";
+import OpenLovableLogo from "@/components/brand/OpenLovableLogo";
 import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
 import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
@@ -230,7 +230,7 @@ export default function HomePage() {
           <HeaderWrapper>
             <div className="max-w-[900px] mx-auto w-full flex justify-between items-center">
               <div className="flex gap-24 items-center">
-                <HeaderBrandKit />
+                <Link href="/" aria-label="Open Lovable, início"><OpenLovableLogo size={24} /></Link>
               </div>
               <div className="flex gap-8">
                 <a
