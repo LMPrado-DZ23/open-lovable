@@ -7,7 +7,20 @@ import Link from 'next/link';
 import { appConfig } from '@/config/app.config';
 import { useModelCatalog } from '@/hooks/useModelCatalog';
 
-type Probe = {success:boolean; error?:string; model?:string; checkedAt?:string; durationMs?:number};
+type Limits = {requestsLimit?:number;requestsRemaining?:number;tokensLimit?:number;tokensRemaining?:number;resetRequests?:string;resetTokens?:string};
+type Probe = {success:boolean; error?:string; model?:string; checkedAt?:string; durationMs?:number; rateLimits?:Limits};
+const providerNames:Record<string,string>={openai:'OpenAI',anthropic:'Anthropic',google:'Google Gemini',groq:'Groq',openrouter:'OpenRouter',deepseek:'DeepSeek',mistral:'Mistral',xai:'xAI (Grok)',cerebras:'Cerebras',together:'Together AI',fireworks:'Fireworks AI',huggingface:'Hugging Face'};
+const numberFormat=new Intl.NumberFormat('pt-BR');
+function tokens(value?:number){return value===undefined?undefined:value>=1000?`${numberFormat.format(Math.round(value/1000))} mil tokens`:`${value} tokens`;}
+function LimitsList({limits}:{limits?:Limits}) {
+  if(!limits)return null;
+  const rows:[string,string|undefined][]=[
+    ['Requisições por minuto',limits.requestsLimit===undefined?undefined:`${numberFormat.format(limits.requestsRemaining??limits.requestsLimit)} de ${numberFormat.format(limits.requestsLimit)} restantes`],
+    ['Tokens por minuto',limits.tokensLimit===undefined?undefined:`${numberFormat.format(limits.tokensRemaining??limits.tokensLimit)} de ${numberFormat.format(limits.tokensLimit)} restantes`],
+    ['Renovação',limits.resetRequests||limits.resetTokens],
+  ];
+  return <ul className="mt-[8px] space-y-[2px] text-[12px]">{rows.filter(([,value])=>value).map(([label,value])=><li key={label}>{label}: <strong>{value}</strong></li>)}</ul>;
+}
 export default function AISettingsPage() {
   const {catalog,models,loading,error,reload}=useModelCatalog();
   const [selected,setSelected]=useState(appConfig.ai.defaultModel);
@@ -17,6 +30,15 @@ export default function AISettingsPage() {
   const active=useRef<AbortController|null>(null);
   useEffect(()=>()=>active.current?.abort(),[]);
   const gateway=catalog?.gateway;
+  // Never keep a retired or undiscovered model selected: fall back to the first usable one.
+  useEffect(()=>{
+    if(loading||!models.length)return;
+    if(!models.some(model=>model.id===selected&&model.configured)){
+      const usable=models.find(model=>model.configured);
+      if(usable)setSelected(usable.id);
+    }
+  },[loading,models,selected]);
+  const providerStatus=Object.entries(catalog?.providers??{});
   async function testModel() {
     if (!consent || busy) return;
     const controller=new AbortController();active.current=controller;
@@ -46,7 +68,9 @@ export default function AISettingsPage() {
       <ProviderSettingsForm onSaved={()=>void reload()}/>
       <div className="grid items-start gap-[24px] md:grid-cols-2">
         <section className="rounded-lg border border-[#deded9] bg-white p-[24px]" aria-labelledby="gateway-heading">
-          <h2 id="gateway-heading" className="mb-[14px] text-[19px] font-semibold">Ollama / Classe A+</h2>
+          <h2 id="gateway-heading" className="mb-[14px] text-[19px] font-semibold">IA local (Ollama / LM Studio)</h2>
+          {gateway?.detected&&<p role="status" className="mb-[16px] rounded-md border border-green-200 bg-green-50 p-[12px] text-[13px] text-green-900"><strong>{gateway.detected} detectado neste computador.</strong> Os modelos locais já aparecem na lista, sem custo e sem chave.</p>}
+          {!loading&&gateway?.status==='not-configured'&&<p className="mb-[16px] rounded-md bg-[#f5f5f2] p-[12px] text-[13px]">Nenhuma IA local encontrada. Abra o Ollama ou o LM Studio neste computador e clique em "Atualizar catálogo".</p>}
           <p className="mb-[16px] text-[14px] leading-relaxed text-[#65655e]">Conexão opcional pelo protocolo Chat Completions. Os modelos locais e remotos do gateway mantem seus identificadores completos.</p>
           <dl className="space-y-[12px] text-[14px]">
             <div><dt className="text-[#77776e]">Estado da configuração</dt><dd className="font-medium">{loading ? 'Consultando' : gateway?.status==='not-configured' ? 'Não configurada' : gateway?.status==='unavailable' ? 'Indisponível' : gateway?.status==='discovered' ? 'Catálogo consultado' : 'Modelos declarados no servidor'}</dd></div>
@@ -76,13 +100,25 @@ export default function AISettingsPage() {
           <button type="button" onClick={()=>void testModel()} disabled={!canTest} className="w-full rounded-md bg-[#252520] px-[18px] py-[13px] text-[14px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">{busy ? 'Testando modelo...' : 'Testar texto e streaming'}</button>
           {!loading && !models.some(model=>model.configured) && <p className="mt-[12px] text-[13px] text-[#77776e]">Configure ao menos uma conexão para executar o teste.</p>}
           {probe && <div role={probe.success ? 'status' : 'alert'} className={`mt-[20px] rounded-md border p-[16px] text-[13px] leading-relaxed ${probe.success ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-800'}`}>
-            {probe.success ? <><strong>Texto e streaming responderam ao teste.</strong><p className="break-all">Modelo: {probe.model}</p><p>Duração: {probe.durationMs} ms</p><p>Verificado em: {probe.checkedAt}</p></> : probe.error}
+            {probe.success ? <><strong>Texto e streaming responderam ao teste.</strong><p className="break-all">Modelo: {probe.model}</p><p>Duração: {probe.durationMs} ms</p><p>Verificado em: {probe.checkedAt}</p>{probe.rateLimits?<><p className="mt-[8px] font-medium">Limite de uso informado pelo provedor</p><LimitsList limits={probe.rateLimits}/></>:<p className="mt-[8px]">O provedor não informa o limite de uso restante pela API. Consulte o painel da sua conta no provedor.</p>}</> : probe.error}
           </div>}
         </section>
       </div>
+      {providerStatus.length>0&&<section className="mt-[24px] rounded-lg border border-[#deded9] bg-white p-[24px]" aria-labelledby="discovery-heading">
+        <h2 id="discovery-heading" className="mb-[6px] text-[19px] font-semibold">Modelos detectados pela sua chave</h2>
+        <p className="mb-[16px] text-[14px] leading-relaxed text-[#65655e]">Ao salvar uma chave, o app pergunta ao próprio provedor quais modelos ela pode usar. Modelos desativados somem da lista automaticamente.</p>
+        <div className="grid gap-[12px] md:grid-cols-2">{providerStatus.map(([provider,status])=><div key={provider} className={`rounded-md border p-[14px] text-[13px] ${status?.status==='unavailable'?'border-red-200 bg-red-50 text-red-900':'border-[#e4e4de] bg-[#fafaf8]'}`}>
+          <p className="font-semibold">{providerNames[provider]??provider}</p>
+          {status?.status==='discovered'&&<p>{status.modelCount} modelo(s) de texto disponíveis para a chave.</p>}
+          {status?.status==='pinned'&&<p>{status.modelCount} modelo(s) fixados manualmente no campo "IDs dos modelos".</p>}
+          {status?.status==='unavailable'&&<p>{status.error??'Não foi possível consultar os modelos.'}</p>}
+          <LimitsList limits={status?.rateLimits}/>
+          {status?.status==='discovered'&&!status.rateLimits&&<p className="mt-[6px] text-[12px] text-[#686862]">Limite de uso restante: o provedor só informa ao executar um teste abaixo{provider==='google'?'; o Google não informa a cota pela API (veja no Google AI Studio)':''}.</p>}
+        </div>)}</div>
+      </section>}
       <section className="mt-[24px] overflow-hidden rounded-lg border border-[#deded9] bg-white" aria-labelledby="catalog-heading">
         <h2 id="catalog-heading" className="border-b border-[#ededE8] px-[24px] py-[20px] text-[19px] font-semibold">Catálogo do servidor</h2>
-        <div className="divide-y divide-[#ededE8]">{models.map(model=><div key={model.id} className="flex flex-wrap items-center justify-between gap-[12px] px-[24px] py-[16px]"><div className="min-w-0"><p className="text-[14px] font-medium">{model.label}</p><code className="break-all text-[12px] text-[#77776e]">{model.id}</code></div><span className="text-[12px] text-[#686862]">{loading ? 'Consultando' : model.configured ? 'Configurado; teste necessário' : 'Credencial ausente'}</span></div>)}</div>
+        <div className="divide-y divide-[#ededE8]">{models.map(model=><div key={model.id} className="flex flex-wrap items-center justify-between gap-[12px] px-[24px] py-[16px]"><div className="min-w-0"><p className="text-[14px] font-medium">{model.label}</p><code className="break-all text-[12px] text-[#77776e]">{model.id}</code>{('inputTokenLimit' in model&&model.inputTokenLimit)?<p className="text-[12px] text-[#77776e]">Contexto: {tokens(model.inputTokenLimit as number)}{'outputTokenLimit' in model&&model.outputTokenLimit?` · resposta até ${tokens(model.outputTokenLimit as number)}`:''}</p>:null}</div><span className="text-[12px] text-[#686862]">{loading ? 'Consultando' : model.configured ? 'Configurado; teste necessário' : 'Credencial ausente'}</span></div>)}</div>
       </section>
     </div>
   </main>;

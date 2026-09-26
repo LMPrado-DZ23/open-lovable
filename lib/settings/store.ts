@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { ProjectStore, ProjectError, projectStore, dataDirectory, operatorID } from '@/lib/projects/store';
 import { validateProviderURL } from '@/lib/ai/provider-transport';
 
-export const providerIDs=['openai','anthropic','google','groq','gateway'] as const;
+export const providerIDs=['openai','anthropic','google','groq','openrouter','deepseek','mistral','xai','cerebras','together','fireworks','huggingface','gateway'] as const;
+/** Providers reached through the OpenAI-compatible Chat Completions protocol with their own key. */
+export const compatibleProviderIDs=['openrouter','deepseek','mistral','xai','cerebras','together','fireworks','huggingface'] as const;
 export type SettingsProvider=typeof providerIDs[number];
 export interface ProviderConfiguration {enabled:boolean;apiKey?:string;baseURL?:string;models?:string[];version?:number;}
 export const providerEnvironment:Record<SettingsProvider,{key:string;url:string;defaultURL?:string}>={
@@ -12,6 +14,14 @@ export const providerEnvironment:Record<SettingsProvider,{key:string;url:string;
  anthropic:{key:'ANTHROPIC_API_KEY',url:'ANTHROPIC_BASE_URL',defaultURL:'https://api.anthropic.com/v1'},
  google:{key:'GEMINI_API_KEY',url:'GEMINI_BASE_URL',defaultURL:'https://generativelanguage.googleapis.com/v1beta'},
  groq:{key:'GROQ_API_KEY',url:'GROQ_BASE_URL',defaultURL:'https://api.groq.com/openai/v1'},
+ openrouter:{key:'OPENROUTER_API_KEY',url:'OPENROUTER_BASE_URL',defaultURL:'https://openrouter.ai/api/v1'},
+ deepseek:{key:'DEEPSEEK_API_KEY',url:'DEEPSEEK_BASE_URL',defaultURL:'https://api.deepseek.com/v1'},
+ mistral:{key:'MISTRAL_API_KEY',url:'MISTRAL_BASE_URL',defaultURL:'https://api.mistral.ai/v1'},
+ xai:{key:'XAI_API_KEY',url:'XAI_BASE_URL',defaultURL:'https://api.x.ai/v1'},
+ cerebras:{key:'CEREBRAS_API_KEY',url:'CEREBRAS_BASE_URL',defaultURL:'https://api.cerebras.ai/v1'},
+ together:{key:'TOGETHER_API_KEY',url:'TOGETHER_BASE_URL',defaultURL:'https://api.together.xyz/v1'},
+ fireworks:{key:'FIREWORKS_API_KEY',url:'FIREWORKS_BASE_URL',defaultURL:'https://api.fireworks.ai/inference/v1'},
+ huggingface:{key:'HF_TOKEN',url:'HUGGINGFACE_BASE_URL',defaultURL:'https://router.huggingface.co/v1'},
  gateway:{key:'OPEN_LOVABLE_GATEWAY_API_KEY',url:'OPEN_LOVABLE_GATEWAY_URL'},
 };
 function checkProvider(provider:string):asserts provider is SettingsProvider {

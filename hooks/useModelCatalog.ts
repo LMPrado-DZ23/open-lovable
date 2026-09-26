@@ -22,6 +22,6 @@ export function useModelCatalog(projectId?:string) {
     } finally {if (!signal?.aborted) setLoading(false);}
   },[projectId]);
   useEffect(() => {const controller=new AbortController();void reload(controller.signal);return () => controller.abort();},[reload]);
-  const models: Array<Pick<ModelOption,'id'|'label'|'configured'>> = catalog?.models ?? initialOptions;
+  const models: Array<Pick<ModelOption,'id'|'label'|'configured'> & Partial<Pick<ModelOption,'inputTokenLimit'|'outputTokenLimit'|'source'>>> = catalog?.models ?? initialOptions;
   return {catalog,models,loading,error,reload};
 }

@@ -131,12 +131,27 @@ export class E2BProvider extends SandboxProvider {
     }
   }
 
+  /** Give /home/user/app to the unprivileged "user" that runs commands and file writes. */
+  private async repairOwnership(): Promise<void> {
+    if (!this.sandbox) throw new Error('No active sandbox');
+    await this.sandbox.runCode(`
+import subprocess
+subprocess.run(['chown', '-R', 'user:user', '/home/user/app'], capture_output=True)
+`);
+  }
+
   async installPackages(packages: string[]): Promise<CommandResult> {
     const validated = validatePackages(packages);
     if (!validated.length) return { stdout: '', stderr: '', exitCode: 0, success: true };
     const flags = appConfig.packages.useLegacyPeerDeps ? ['--legacy-peer-deps'] : [];
     const args = ['npm', 'install', ...flags, '--', ...validated];
-    const result = await this.runCommand(args.map(quoteShellArgument).join(' '));
+    const command = args.map(quoteShellArgument).join(' ');
+    let result = await this.runCommand(command);
+    // Sandboxes created before the ownership fix still have a root-owned node_modules.
+    if (!result.success && /EACCES/.test(result.stderr + result.stdout)) {
+      await this.repairOwnership();
+      result = await this.runCommand(command);
+    }
     if (result.success && appConfig.packages.autoRestartVite) await this.restartViteServer();
     return result;
   }
@@ -330,6 +345,9 @@ if result.returncode == 0:
 else:
     print(f'⚠ Warning: npm install had issues: {result.stderr}')
     `);
+    // runCode executes as root, but commands and file writes run as "user";
+    // hand the project back so later npm installs can write to node_modules.
+    await this.repairOwnership();
     
     // Start Vite dev server
     await this.sandbox.runCode(`
