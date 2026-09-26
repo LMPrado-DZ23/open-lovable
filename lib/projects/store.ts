@@ -288,7 +288,30 @@ export class ProjectStore {
    return this.documents(owner,id);
   });
  }
+ /**
+  * Project instructions ("knowledge") are a single living document: saving
+  * replaces the previous text instead of piling up conflicting versions, and
+  * an empty text removes it. They reach the model like any other reference.
+  */
+ setInstructions(owner:string,id:string,content:string) {
+  this.getProject(owner,id);
+  if(typeof content!=='string'||content.length>200000) throw new ProjectError('Project instructions must have up to 200,000 characters');
+  const text=content.trim();
+  if(text)assertNoSecrets(text);
+  return this.transaction(()=>{
+   this.db.prepare('DELETE FROM project_documents WHERE project_id=? AND name=?').run(id,PROJECT_INSTRUCTIONS_NAME);
+   if(text){
+    const hash=digest(text);
+    // A reference with identical text would violate UNIQUE(project_id,sha256); the instructions win.
+    this.db.prepare('DELETE FROM project_documents WHERE project_id=? AND sha256=?').run(id,hash);
+    if(this.documents(owner,id).length>=20) throw new ProjectError('Project reference limit reached');
+    this.db.prepare('INSERT INTO project_documents VALUES(?,?,?,?,?,?)').run(randomUUID(),id,PROJECT_INSTRUCTIONS_NAME,text,hash,now());
+   }
+   return this.documents(owner,id);
+  });
+ }
 }
+export const PROJECT_INSTRUCTIONS_NAME='Instruções do projeto.md';
 
 /** Preserve the domain error while admitting only verified native system aliases. */
 function assertPlainAncestors(path:string):void {

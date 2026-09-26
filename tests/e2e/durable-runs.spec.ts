@@ -2,6 +2,9 @@ import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {test,expect} from '@playwright/test';
 
+// These specs exercise the explicit review path; auto-apply is the product default.
+test.beforeEach(async({context})=>{await context.addInitScript(()=>{try{localStorage.setItem('open-lovable:auto-apply','off');}catch{}});});
+
 for(const [profile,width,height] of [['desktop',1440,1000],['mobile',390,844]] as const){
 test('closing the Studio tab preserves the run on '+profile,async({page,context,request},info)=>{
  await page.setViewportSize({width,height});
@@ -35,7 +38,7 @@ test('versioned execution endpoints reject anonymous and cross-origin requests a
 });
 
 test('account worker honors verified session scope and losing membership blocks a pending result',async({browser})=>{
- const base='http://127.0.0.1:3102',a=await browser.newContext(),b=await browser.newContext();
+ const base='http://127.0.0.1:3102',a=await browser.newContext(),b=await browser.newContext();for(const context of [a,b])await context.addInitScript(()=>{try{localStorage.setItem('open-lovable:auto-apply','off');}catch{}});
  try{
   const request=async(context:typeof a,path:string,data:unknown)=>context.request.post(base+path,{headers:{origin:base},data});
   for(const [context,email] of [[a,'alice@example.test'],[b,'bob@example.test']] as const){const result=await request(context,'/api/auth',{action:'login',email,password:'identity-contract-password'});expect(result.status()).toBe(200);}

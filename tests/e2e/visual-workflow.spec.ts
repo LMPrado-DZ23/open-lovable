@@ -1,4 +1,7 @@
 import {test,expect} from '@playwright/test';
+
+// These specs exercise the explicit review path; auto-apply is the product default.
+test.beforeEach(async({context})=>{await context.addInitScript(()=>{try{localStorage.setItem('open-lovable:auto-apply','off');}catch{}});});
 import sharp from 'sharp';
 
 async function create(request:any,name:string){const response=await request.post('/api/projects',{data:{action:'create',name,model:'gateway/fixture/coder'}});expect(response.status()).toBe(201);return (await response.json()).project;}

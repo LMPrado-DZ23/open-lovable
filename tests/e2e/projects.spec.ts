@@ -1,5 +1,8 @@
 import {randomBytes} from 'node:crypto';
 import {test,expect} from '@playwright/test';
+
+// These specs exercise the explicit review path; auto-apply is the product default.
+test.beforeEach(async({context})=>{await context.addInitScript(()=>{try{localStorage.setItem('open-lovable:auto-apply','off');}catch{}});});
 import {zipSync,strToU8} from 'fflate';
 
 const app=`import {useState} from 'react';export default function App(){const [n,setN]=useState(0);return <main className="p-8"><h1>Projeto persistente</h1><button onClick={()=>setN(n+1)}>Contagem {n}</button></main>}`;
