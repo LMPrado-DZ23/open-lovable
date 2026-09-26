@@ -12,7 +12,8 @@ import { buildPublishedSite, saveLocalPublication } from '@/lib/publish/site';
 import { addVercelDomain, deployToVercel, vercelProjectName } from '@/lib/publish/vercel';
 import { pushToGitHub } from '@/lib/publish/github';
 import { scanProject } from '@/lib/security/app-scan';
-import { starterTemplate } from '@/lib/templates/starters';
+import { STARTER_TEMPLATES, starterTemplate } from '@/lib/templates/starters';
+import { deletePrivateTemplate, importPrivateTemplateZip, listPrivateTemplates, PRIVATE_PREFIX, readPrivateTemplate, savePrivateTemplate } from '@/lib/templates/private';
 import { addComment, listComments, setCommentResolved } from '@/lib/collaboration/project-comments';
 import { readLiveText, summarizeLiveText } from '@/lib/runs/live-text';
 import { applySupabaseMigration, MIGRATIONS_DIRECTORY, readProjectBackend, saveProjectBackend, SUPABASE_CLIENT_PATH, supabaseClientSource } from '@/lib/backend/project-supabase';
@@ -31,7 +32,10 @@ export const runtime='nodejs';
 const id=z.string().uuid();const version=z.number().int().min(1);
 const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('create'),name:z.string().min(1).max(120),model:z.string().max(240)}).strict(),
- z.object({action:z.literal('template'),template:z.string().min(1).max(60),name:z.string().min(1).max(120).optional(),model:z.string().max(240)}).strict(),
+ z.object({action:z.literal('template'),template:z.string().min(1).max(80),name:z.string().min(1).max(120).optional(),model:z.string().max(240)}).strict(),
+ z.object({action:z.literal('templateImport'),name:z.string().min(2).max(80),description:z.string().max(240).optional(),category:z.string().max(40).optional(),archive:z.string().max(17*1024*1024)}).strict(),
+ z.object({action:z.literal('templateSave'),id,name:z.string().min(2).max(80),description:z.string().max(240).optional(),category:z.string().max(40).optional()}).strict(),
+ z.object({action:z.literal('templateDelete'),template:z.string().min(2).max(60)}).strict(),
  z.object({action:z.literal('save'),id,version,snapshot:z.unknown(),label:z.string().min(1).max(200)}).strict(),
  z.object({action:z.literal('patch'),id,version,baseRevision:z.string().min(1).max(128),operations:z.array(z.object({kind:z.enum(['create','update','delete']),path:z.string().min(1).max(500),content:z.string().optional()}).strict()).min(1).max(200),expectedHashes:z.record(z.string().regex(/^[a-f0-9]{64}$/))}).strict(),
  z.object({action:z.literal('visualEdit'),id,version,baseRevision:z.string().min(1).max(128),element:z.object({runtimeId:z.string().min(1).max(128),revisionDigest:z.string().regex(/^[a-f0-9]{64}$/),elementId:z.string().regex(/^[a-f0-9]{32}$/),file:z.string().min(1).max(500),start:z.number().int().min(0),end:z.number().int().gt(0),tag:z.string().min(1).max(80),sourceHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),value:z.string().max(2000)}).strict(),
@@ -68,6 +72,12 @@ export async function GET(request:Request){
   const params=new URL(request.url).searchParams,projectID=params.get('id');
   const access=await studioAccess(request,projectID||undefined);if(access instanceof Response)return access;
   const {store,owner,repository,workspace,guard}=access;guard(projectID||undefined);
+  if(!projectID&&params.get('action')==='templates'){
+   // Public starters ship with the app; private ones stay in this installation's data directory.
+   const publicTemplates=STARTER_TEMPLATES.map(template=>({id:template.id,name:template.name,description:template.description,category:template.category,private:false}));
+   const privateTemplates=access.mode==='individual'?listPrivateTemplates().map(template=>({id:PRIVATE_PREFIX+template.id,name:template.name,description:template.description,category:template.category,private:true,files:template.files})):[];
+   return json({templates:[...privateTemplates,...publicTemplates]});
+  }
   if(!projectID)return json({projects:await repository.list(workspace)});
   const context={...workspace,projectId:projectID};
   const project=await repository.read(context);
@@ -120,11 +130,17 @@ export async function POST(request:Request){
   switch(body.action){
    case 'create':return json({project:await repository.create(workspace,body.name,body.model)},201);
    case 'template':{
-    const template=starterTemplate(body.template);if(!template)throw new ProjectError('Modelo de projeto desconhecido.',404);
+    if(body.template.startsWith(PRIVATE_PREFIX)&&access.mode!=='individual')throw new ProjectError('Modelos privados estão disponíveis apenas no perfil individual.',403);
+    const privateTemplate=body.template.startsWith(PRIVATE_PREFIX)?readPrivateTemplate(body.template.slice(PRIVATE_PREFIX.length)):null;
+    const template=privateTemplate?{name:privateTemplate.info.name,snapshot:privateTemplate.snapshot}:(()=>{const found=starterTemplate(body.template);return found?{name:found.name,snapshot:{files:found.files,assets:{}}}:null;})();
+    if(!template)throw new ProjectError('Modelo de projeto desconhecido.',404);
     const created=await repository.create(workspace,body.name||template.name,body.model);
-    const project=await repository.save({...workspace,projectId:created.id},created.version,{files:template.files,assets:{}},'Modelo: '+template.name);
+    const project=await repository.save({...workspace,projectId:created.id},created.version,template.snapshot,'Modelo: '+template.name);
     return json({project},201);
    }
+   case 'templateImport':{access.requireAdmin();if(access.mode!=='individual')throw new ProjectError('Modelos privados estão disponíveis apenas no perfil individual.',403);const result=importPrivateTemplateZip({name:body.name,description:body.description,category:body.category,archive:body.archive});return json(result,201);}
+   case 'templateSave':{access.requireAdmin();if(access.mode!=='individual')throw new ProjectError('Modelos privados estão disponíveis apenas no perfil individual.',403);const project=store.getProject(owner,body.id);return json({template:savePrivateTemplate({name:body.name,description:body.description,category:body.category,snapshot:project.snapshot})},201);}
+   case 'templateDelete':{access.requireAdmin();if(access.mode!=='individual')throw new ProjectError('Modelos privados estão disponíveis apenas no perfil individual.',403);deletePrivateTemplate(body.template);return json({success:true});}
    case 'save':return json({project:await repository.save(context(body.id),body.version,body.snapshot,body.label)});
    case 'patch':{const project=store.getProject(owner,body.id);const result=applyPatchSet(project.snapshot,{baseRevision:body.baseRevision,operations:body.operations,expectedHashes:body.expectedHashes},String(project.version));const saved=await repository.save(context(body.id),body.version,result.snapshot,'Edição visual: '+result.changed.join(', '));return json({project:saved,changed:result.changed,diffDigest:result.diffDigest});}
    case 'visualEdit':{const project=store.getProject(owner,body.id);const patch=buildTextVisualEdit(project.snapshot,body.element,body.value,body.baseRevision);const result=applyPatchSet(project.snapshot,patch,String(project.version));const saved=await repository.save(context(body.id),body.version,result.snapshot,'Edição visual assistida: '+body.element.tag);return json({project:saved,changed:result.changed,diffDigest:result.diffDigest});}
