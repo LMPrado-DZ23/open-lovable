@@ -96,3 +96,30 @@ export async function compileProject(input:unknown,channel:string=randomUUID(),i
  const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${csp}"><style>${safeCSS}</style><script>${report}</script></head><body><div id="root"></div><script>${safeJS}</script></body></html>`;
  return {html,sha256:createHash('sha256').update(html).digest('hex'),entry:main||app!,warnings:result.warnings.map(warning=>warning.text).slice(0,10),...(sourceMap?{sourceMap}: {})};
 }
+
+/**
+ * Bundling a revision with esbuild takes seconds; the result only depends on
+ * the snapshot, not on the per-page channel. Compile once per revision with a
+ * placeholder channel and substitute the real one on every request.
+ */
+const PREVIEW_SLOT = 'olpreviewslot' + randomUUID().replace(/-/g, '');
+const previewCache = new Map<string, Promise<Awaited<ReturnType<typeof compileProject>>>>();
+const PREVIEW_CACHE_LIMIT = 16;
+
+export async function compileProjectCached(input: unknown, channel: string, instrument = false): Promise<Awaited<ReturnType<typeof compileProject>>> {
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(channel)) throw new ProjectError('Invalid preview channel');
+  const key = createHash('sha256').update(JSON.stringify(validateSnapshot(input))).digest('hex') + (instrument ? ':i' : ':p');
+  let pending = previewCache.get(key);
+  if (pending) {
+    previewCache.delete(key); // refresh LRU position
+  } else {
+    pending = compileProject(input, PREVIEW_SLOT, instrument);
+    pending.catch(() => previewCache.delete(key)); // never cache a failure
+  }
+  previewCache.set(key, pending);
+  while (previewCache.size > PREVIEW_CACHE_LIMIT) previewCache.delete(previewCache.keys().next().value!);
+  const compiled = await pending;
+  const html = compiled.html.split(PREVIEW_SLOT).join(channel);
+  const sourceMap = compiled.sourceMap ? JSON.parse(JSON.stringify(compiled.sourceMap).split(PREVIEW_SLOT).join(channel)) as SourceMap : undefined;
+  return {...compiled, html, sha256: createHash('sha256').update(html).digest('hex'), ...(sourceMap ? {sourceMap} : {})};
+}
