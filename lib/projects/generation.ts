@@ -5,6 +5,8 @@ import {ReferenceImageStore} from './images';
 import {VISUAL_GUIDANCE,PLAN_GUIDANCE} from './visual-guidance';
 import { getProviderForModel, noteModelFailure } from '@/lib/ai/provider-manager';
 import { readProjectBackend, supabaseGuidance } from '@/lib/backend/project-supabase';
+import { connectorsGuidance, readProjectConnectors } from '@/lib/connectors/project-connectors';
+import { workspaceKnowledgeGuidance } from '@/lib/settings/workspace-knowledge';
 import { assertCompleteFileBlocks, normalizeProjectPath } from '@/lib/security/input-validation';
 import { redactSecretText, safeLogger } from '@/lib/security/secret-content';
 import { ProjectError, PROJECT_INSTRUCTIONS_NAME, type ProjectSnapshot, type ProjectRun, type ProjectStore, validateSnapshot } from './store';
@@ -56,7 +58,7 @@ export async function requestFrozenModel(run:ProjectRun,input:FrozenRunInput,sig
  const maxOutputTokens=hooks.limits?.maxOutputTokens??(run.inputs.mode==='plan'?4000:12000);
  const instructions=input.references.find(reference=>reference.name===PROJECT_INSTRUCTIONS_NAME)?.content;
  const backend=readProjectBackend(run.project_id);
- const projectRules=(backend?supabaseGuidance(backend):'')+(instructions?'\n\nPROJECT INSTRUCTIONS FROM THE OWNER (follow them in every change unless the current request explicitly overrides them):\n'+instructions:'');
+ const projectRules=workspaceKnowledgeGuidance(input.workspaceId)+(backend?supabaseGuidance(backend):'')+connectorsGuidance(readProjectConnectors(run.project_id),backend?.url)+(instructions?'\n\nPROJECT INSTRUCTIONS FROM THE OWNER (follow them in every change unless the current request explicitly overrides them):\n'+instructions:'');
  const result=streamText({model:model.model,system:(run.inputs.mode==='plan'?PLAN_GUIDANCE:system)+projectRules+(images.length?'\n'+VISUAL_GUIDANCE:''),messages:[...input.history,{role:'user',content}],maxOutputTokens,maxRetries:0,abortSignal:signal,onError:({error})=>safeLogger.error('Project model stream failed',error)});
  let text='',lastProgress=0,lastPartial=0;
  for await(const event of result.fullStream){

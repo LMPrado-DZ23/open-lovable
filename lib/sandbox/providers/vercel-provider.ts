@@ -153,7 +153,15 @@ export class VercelProvider extends SandboxProvider {
       },
       dependencies: {
         react: "^18.2.0",
-        "react-dom": "^18.2.0"
+        "react-dom": "^18.2.0",
+        "lucide-react": "^0.532.0",
+        "react-icons": "^5.5.0",
+        "framer-motion": "^12.23.12",
+        motion: "^12.23.12",
+        clsx: "^2.1.1",
+        classnames: "^2.5.1",
+        "tailwind-merge": "^3.3.1",
+        "lodash-es": "^4.17.21"
       },
       devDependencies: {
         "@vitejs/plugin-react": "^4.0.0",

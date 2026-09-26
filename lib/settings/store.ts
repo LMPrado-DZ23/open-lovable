@@ -3,6 +3,7 @@ import { closeSync, openSync, readFileSync, writeFileSync, lstatSync } from 'nod
 import { join } from 'node:path';
 import { ProjectStore, ProjectError, projectStore, dataDirectory, operatorID } from '@/lib/projects/store';
 import { validateProviderURL } from '@/lib/ai/provider-transport';
+import { connector as connectorCatalogEntry } from '@/lib/connectors/catalog';
 
 export const providerIDs=['openai','anthropic','google','groq','openrouter','deepseek','mistral','xai','cerebras','together','fireworks','huggingface','gateway'] as const;
 /** Providers reached through the OpenAI-compatible Chat Completions protocol with their own key. */
@@ -33,8 +34,14 @@ export const integrationEnvironment:Record<IntegrationID,{key:string;url:string;
  github:{key:'OPEN_LOVABLE_GITHUB_TOKEN',url:'OPEN_LOVABLE_GITHUB_API_URL',defaultURL:'https://api.github.com'},
  supabase:{key:'OPEN_LOVABLE_SUPABASE_ACCESS_TOKEN',url:'OPEN_LOVABLE_SUPABASE_API_URL',defaultURL:'https://api.supabase.com'},
 };
-function environmentFor(provider:SettingsProvider|IntegrationID){return (providerEnvironment as Record<string,{key:string;url:string;defaultURL?:string}>)[provider]??integrationEnvironment[provider as IntegrationID];}
+/** App connectors ("connector:<id>") share the encrypted store; their endpoint comes from the connector catalog. */
+const CONNECTOR_CREDENTIAL=/^connector:[a-z0-9-]{2,40}$/;
+function environmentFor(provider:SettingsProvider|IntegrationID){
+ if(CONNECTOR_CREDENTIAL.test(provider)){const item=connectorCatalogEntry(provider.slice('connector:'.length));return {key:'',url:'',defaultURL:item?.baseURL};}
+ return (providerEnvironment as Record<string,{key:string;url:string;defaultURL?:string}>)[provider]??integrationEnvironment[provider as IntegrationID];
+}
 function checkProvider(provider:string):asserts provider is SettingsProvider|IntegrationID {
+ if(CONNECTOR_CREDENTIAL.test(provider)&&connectorCatalogEntry(provider.slice('connector:'.length)))return;
  if(!providerIDs.includes(provider as SettingsProvider)&&!integrationIDs.includes(provider as IntegrationID)) throw new ProjectError('Unknown provider');
 }
 

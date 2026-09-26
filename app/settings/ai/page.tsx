@@ -3,7 +3,7 @@ import AccountBar from '@/components/account/AccountBar';
 import {scopedProjectURL} from '@/lib/projects/scope-url';
 import ProviderSettingsForm from '@/components/ProviderSettingsForm';
 import IntegrationsForm from '@/components/IntegrationsForm';
-import AppShell from '@/components/shell/AppShell';
+import SettingsLayout from '@/components/settings/SettingsLayout';
 import { useEffect, useRef, useState } from 'react';
 import { appConfig } from '@/config/app.config';
 import { useModelCatalog } from '@/hooks/useModelCatalog';
@@ -53,15 +53,10 @@ export default function AISettingsPage() {
     } finally {if(!controller.signal.aborted) setBusy(false);}
   }
   const canTest=consent && !busy && !loading && models.some(model=>model.id===selected && model.configured);
-  return <AppShell><main className="min-h-screen bg-[#fbf9f7] text-[#232323]">
+  return <SettingsLayout title="Conexões de IA" description="Escolha o modelo que executa seu trabalho. Os modelos são detectados sozinhos quando você salva uma chave; confirme com um teste explícito.">
     <AccountBar workspaceId={catalog?.workspaceId}/>
-    <div className="mx-auto max-w-[1100px] px-[20px] py-[32px] md:px-[32px]">
+    <div className="text-[#232323]">
       <div className="mb-[20px] flex flex-wrap items-center justify-end gap-[8px]"><button type="button" onClick={()=>void reload()} disabled={loading || busy} className="rounded-md border border-[#d2d2cc] bg-white px-[16px] py-[10px] text-[13px] disabled:opacity-50">{loading ? 'Consultando...' : 'Atualizar catálogo'}</button></div>
-      <div className="mb-[28px] max-w-[740px]">
-        <p className="mb-[8px] text-[12px] font-semibold uppercase tracking-[0.12em] text-[#7b4c28]">Configurações / Inteligência artificial</p>
-        <h1 className="mb-[12px] text-[32px] font-semibold leading-tight">Conexões de IA</h1>
-        <p className="text-[15px] leading-relaxed text-[#65655e]">Escolha o modelo que executa seu trabalho. Credencial configurada e catálogo disponível não significam geração validada: confirme com um teste explícito.</p>
-      </div>
       {error && <p role="alert" className="mb-[20px] rounded-md border border-red-200 bg-red-50 p-[16px] text-[14px]">{error}</p>}
       <ProviderSettingsForm onSaved={()=>void reload()}/>
       {catalog?.profile!=='supabase'&&<IntegrationsForm/>}
@@ -120,5 +115,5 @@ export default function AISettingsPage() {
         <div className="divide-y divide-[#ededE8]">{models.map(model=><div key={model.id} className="flex flex-wrap items-center justify-between gap-[12px] px-[24px] py-[16px]"><div className="min-w-0"><p className="text-[14px] font-medium">{model.label}</p><code className="break-all text-[12px] text-[#77776e]">{model.id}</code>{('inputTokenLimit' in model&&model.inputTokenLimit)?<p className="text-[12px] text-[#77776e]">Contexto: {tokens(model.inputTokenLimit as number)}{'outputTokenLimit' in model&&model.outputTokenLimit?` · resposta até ${tokens(model.outputTokenLimit as number)}`:''}</p>:null}</div><span className="text-[12px] text-[#686862]">{loading ? 'Consultando' : model.configured ? 'Configurado; teste necessário' : 'Credencial ausente'}</span></div>)}</div>
       </section>
     </div>
-  </main></AppShell>;
+  </SettingsLayout>;
 }

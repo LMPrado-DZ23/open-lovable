@@ -16,6 +16,10 @@ import { STARTER_TEMPLATES, starterTemplate } from '@/lib/templates/starters';
 import { deletePrivateTemplate, importPrivateTemplateZip, listPrivateTemplates, PRIVATE_PREFIX, readPrivateTemplate, savePrivateTemplate } from '@/lib/templates/private';
 import { addComment, listComments, setCommentResolved } from '@/lib/collaboration/project-comments';
 import { readLiveText, summarizeLiveText } from '@/lib/runs/live-text';
+import { CONNECTORS } from '@/lib/connectors/catalog';
+import { usageSummary } from '@/lib/usage/summary';
+import { readWorkspaceKnowledge, saveWorkspaceKnowledge, WORKSPACE_KNOWLEDGE_LIMIT } from '@/lib/settings/workspace-knowledge';
+import { connectorsModuleSource, CONNECTORS_FILE_PATH, connectorSecretStatus, pushConnectorSecrets, readProjectConnectors, saveProjectConnectors } from '@/lib/connectors/project-connectors';
 import { applySupabaseMigration, MIGRATIONS_DIRECTORY, readProjectBackend, saveProjectBackend, SUPABASE_CLIENT_PATH, supabaseClientSource } from '@/lib/backend/project-supabase';
 import { integrationCredential } from '@/lib/settings/store';
 import { createRun } from '@/lib/runs/http';
@@ -57,6 +61,9 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('commentResolve'),id,commentId:z.string().uuid(),resolved:z.boolean()}).strict(),
  z.object({action:z.literal('backend'),id,version:z.number().int().min(1),url:z.string().min(1).max(200),anonKey:z.string().min(10).max(2048)}).strict(),
  z.object({action:z.literal('backendApply'),id,path:z.string().min(1).max(300)}).strict(),
+ z.object({action:z.literal('connectorsSave'),id,version:z.number().int().min(1),enabled:z.array(z.string().regex(/^[a-z0-9-]{2,40}$/)).max(100),publicValues:z.record(z.record(z.string().max(500))).optional()}).strict(),
+ z.object({action:z.literal('connectorSecretsPush'),id}).strict(),
+ z.object({action:z.literal('knowledgeSave'),content:z.string().max(WORKSPACE_KNOWLEDGE_LIMIT+1000)}).strict(),
  z.object({action:z.literal('github'),id,repository:z.string().min(1).max(100),private:z.boolean()}).strict(),
 ]);
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -78,6 +85,13 @@ export async function GET(request:Request){
    const privateTemplates=access.mode==='individual'?listPrivateTemplates().map(template=>({id:PRIVATE_PREFIX+template.id,name:template.name,description:template.description,category:template.category,private:true,files:template.files})):[];
    return json({templates:[...privateTemplates,...publicTemplates]});
   }
+  if(!projectID&&params.get('action')==='connectors'){
+   // Catalog plus which secret connectors already have a saved key; values never leave the server.
+   let manage=true;try{access.requireAdmin();}catch(error){if(error instanceof ProjectError&&error.status===403)manage=false;else throw error;}
+   return json({catalog:CONNECTORS,secrets:connectorSecretStatus(access.settingsOwner),manage});
+  }
+  if(!projectID&&params.get('action')==='usage')return json({usage:usageSummary(store.db,workspace.principal.workspaceId,Math.min(90,Math.max(7,Number(params.get('days'))||14)))});
+  if(!projectID&&params.get('action')==='knowledge')return json({content:readWorkspaceKnowledge(workspace.principal.workspaceId),limit:WORKSPACE_KNOWLEDGE_LIMIT});
   if(!projectID)return json({projects:await repository.list(workspace)});
   const context={...workspace,projectId:projectID};
   const project=await repository.read(context);
@@ -102,6 +116,10 @@ export async function GET(request:Request){
    const backend=readProjectBackend(projectID);
    const migrations=Object.keys(project.snapshot.files).filter(path=>path.startsWith(MIGRATIONS_DIRECTORY)&&path.endsWith('.sql')).sort().map(path=>({path,sql:project.snapshot.files[path],applied:Boolean(backend?.appliedMigrations.includes(path))}));
    return json({backend:backend?{url:backend.url,projectRef:backend.projectRef,updatedAt:backend.updatedAt}:null,migrations,tokenConfigured:Boolean(integrationCredential('supabase',access.scope).token)});
+  }
+  if(params.get('action')==='connectors'){
+   const backend=readProjectBackend(projectID);
+   return json({catalog:CONNECTORS,state:readProjectConnectors(projectID),secrets:connectorSecretStatus(access.settingsOwner),backend:Boolean(backend),tokenConfigured:Boolean(integrationCredential('supabase',access.scope).token)});
   }
   if(params.get('action')==='export'){
    const runID=params.get('runID');
@@ -180,9 +198,25 @@ export async function POST(request:Request){
    case 'backend':{
     // Connecting writes the dependency-free client into the app as a normal, undoable revision.
     const backend=saveProjectBackend(body.id,body.url,body.anonKey);const project=store.getProject(owner,body.id);
-    const snapshot={...project.snapshot,files:{...project.snapshot.files,[SUPABASE_CLIENT_PATH]:supabaseClientSource(backend)}};
+    const connectors=readProjectConnectors(body.id);
+    const snapshot={...project.snapshot,files:{...project.snapshot.files,[SUPABASE_CLIENT_PATH]:supabaseClientSource(backend),...(connectors.enabled.length?{[CONNECTORS_FILE_PATH]:connectorsModuleSource(connectors,backend.url)}:{})}};
     const saved=await repository.save(context(body.id),body.version,snapshot,'Supabase conectado');
     return json({project:saved,backend:{url:backend.url,projectRef:backend.projectRef}});
+   }
+   case 'connectorsSave':{
+    // Public values become src/lib/connectors.js as a normal, undoable revision.
+    const state=saveProjectConnectors(body.id,{enabled:body.enabled,publicValues:body.publicValues??{}});
+    const project=store.getProject(owner,body.id),backend=readProjectBackend(body.id);
+    const snapshot={...project.snapshot,files:{...project.snapshot.files,[CONNECTORS_FILE_PATH]:connectorsModuleSource(state,backend?.url)}};
+    const saved=await repository.save(context(body.id),body.version,snapshot,'Conectores atualizados');
+    return json({project:saved,state});
+   }
+   case 'knowledgeSave':{access.requireAdmin();return json({content:saveWorkspaceKnowledge(workspace.principal.workspaceId,body.content)});}
+   case 'connectorSecretsPush':{
+    const backend=readProjectBackend(body.id);if(!backend)throw new ProjectError('Conecte o Supabase a este projeto antes de enviar as chaves.',409);
+    const credential=integrationCredential('supabase',access.scope);if(!credential.token)throw new ProjectError('Salve o token de acesso do Supabase em Integrações para enviar as chaves.',409);
+    const names=await pushConnectorSecrets({owner:access.settingsOwner,state:readProjectConnectors(body.id),projectRef:backend.projectRef,token:credential.token});
+    guard(body.id);return json({pushed:names});
    }
    case 'backendApply':{
     const project=store.getProject(owner,body.id),backend=readProjectBackend(body.id);
