@@ -6,7 +6,7 @@ const app=`export default function App(){return <main className="p-8"><h1>Loja d
 test('home prompt, instructions, security scan, publish, undo, duplicate and theme work like Lovable',async({page,request})=>{
  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('/');
- await expect(page.getByRole('heading',{name:'O que vamos construir hoje?'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Vamos criar algo'})).toBeVisible();
  const name='Loja '+Date.now();
  await page.getByLabel('Descreva o que você quer construir').fill(name);
  await page.getByRole('button',{name:'Começar a construir'}).click();
@@ -50,5 +50,27 @@ test('home prompt, instructions, security scan, publish, undo, duplicate and the
  await page.getByRole('button',{name:'Duplicar',exact:true}).click();
  await expect(page).not.toHaveURL(projectURL);
  await expect(page.getByRole('heading',{name:'Cópia de '+name})).toBeVisible();
+ expect(errors).toEqual([]);
+});
+
+test('a starter template opens as a working project and the team can comment on it',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/');
+ await page.getByRole('tab',{name:'Modelos',exact:true}).click();
+ await page.getByRole('button',{name:/^Landing page SaaS/}).click();
+ await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+$/);
+ await expect(page.getByTestId('project-version')).toHaveText('Revisão 2');
+ await expect(page.frameLocator('iframe[title="Prévia isolada"]').getByRole('heading',{name:'Organize sua empresa em um só lugar'})).toBeVisible();
+ await page.getByRole('tab',{name:'Comentários',exact:true}).click();
+ await page.getByLabel('Novo comentário').fill('Trocar o nome da marca');
+ await page.getByLabel('Sobre o arquivo').selectOption('src/App.jsx');
+ await page.getByRole('button',{name:'Comentar'}).click();
+ await expect(page.getByText('Trocar o nome da marca')).toBeVisible();
+ await page.getByRole('button',{name:'Marcar como resolvido'}).click();
+ await expect(page.getByText('Nenhum comentário em aberto.')).toBeVisible();
+ await page.reload();
+ await page.getByRole('tab',{name:'Comentários',exact:true}).click();
+ await page.getByLabel('Mostrar resolvidos').check();
+ await expect(page.getByText('Trocar o nome da marca')).toBeVisible();
  expect(errors).toEqual([]);
 });
