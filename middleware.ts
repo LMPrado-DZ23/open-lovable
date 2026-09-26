@@ -1,4 +1,5 @@
 import {NextResponse,type NextRequest} from 'next/server';
+import {PUBLISHED_PAGE_CSP,PUBLISHED_PAGE_PREFIX} from './lib/publish/csp';
 import {authorizeOperatorRequest,getTrustedAppOrigin} from './lib/security/operator-access';
 import {authMode,accountApiAllowed,accountPageAllowed,readSessionCookie} from './lib/identity/config';
 /** This edge gate controls routing only; each account API validates the actual server session. */
@@ -21,7 +22,8 @@ export async function middleware(request:NextRequest) {
  const response=NextResponse.next();
  response.headers.set('X-Content-Type-Options','nosniff');
  response.headers.set('Referrer-Policy','no-referrer');
- response.headers.set('Content-Security-Policy',"frame-ancestors 'none'");
+ // Published sites keep their sandbox; replacing it here would hand their scripts the Studio origin.
+ response.headers.set('Content-Security-Policy',request.nextUrl.pathname.startsWith(PUBLISHED_PAGE_PREFIX)?PUBLISHED_PAGE_CSP:"frame-ancestors 'none'");
  response.headers.set('Cache-Control','no-store');
  return response;
 }

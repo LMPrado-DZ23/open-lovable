@@ -6,6 +6,7 @@ import {appConfig} from '@/config/app.config';
 import AccountBar from '@/components/account/AccountBar';
 import {useAccount} from '@/components/account/client';
 import AIModelSelect from '@/components/AIModelSelect';
+import ThemeToggle from '@/components/ThemeToggle';
 import CapabilityDisclosure from '@/components/onboarding/CapabilityDisclosure';
 import {projectRequest} from '@/lib/projects/client';
 import type {Project} from '@/lib/projects/store';
@@ -21,7 +22,7 @@ export default function ProjectsPage(){
  return <main className="min-h-screen bg-[#f7f7f5] text-[#252520]">
   <AccountBar/>
   <div className="mx-auto max-w-[1200px] px-[20px] py-[28px] md:px-[36px]">
-   <header className="mb-[48px] flex flex-wrap items-center justify-between gap-[16px] border-b border-[#dddcd5] pb-[22px]"><Link href="/" className="text-[16px] font-semibold tracking-tight">Open Lovable</Link><nav className="flex flex-wrap gap-[24px] text-[13px]">{account?.mode!=='supabase'&&<Link href="/" className="text-[#68685f] hover:underline">Construtor por URL</Link>}{(account?.mode!=='supabase'||selectedRole==='owner'||selectedRole==='admin')&&<Link href="/settings/ai" className="font-medium hover:underline">Conexões de IA</Link>}</nav></header>
+   <header className="mb-[48px] flex flex-wrap items-center justify-between gap-[16px] border-b border-[#dddcd5] pb-[22px]"><Link href="/" className="text-[16px] font-semibold tracking-tight">Open Lovable</Link><nav className="flex flex-wrap gap-[24px] text-[13px]">{account?.mode!=='supabase'&&<Link href="/" className="text-[#68685f] hover:underline">Construtor por URL</Link>}{(account?.mode!=='supabase'||selectedRole==='owner'||selectedRole==='admin')&&<Link href="/settings/ai" className="font-medium hover:underline">Conexões de IA</Link>}<ThemeToggle/></nav></header>
    <div className="mb-[32px] max-w-[700px]"><p className="mb-[10px] text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8b4826]">Espaço de criação</p><h1 className="text-[36px] font-semibold leading-tight tracking-tight md:text-[44px]">Seus projetos</h1><p className="mt-[16px] text-[16px] leading-relaxed text-[#696960]">Crie, revise e continue de onde parou. Cada proposta tem seu próprio histórico; você decide quando ela vira uma revisão.</p></div>
    {error&&<p role="alert" className="mb-[24px] break-words rounded-md border border-red-200 bg-red-50 p-[16px] text-[14px] text-red-800">{error}</p>}
    <form onSubmit={create} className="mb-[40px] grid items-end gap-[16px] rounded-lg border border-[#deded6] bg-white p-[24px] md:grid-cols-[1.1fr_1fr_auto]">

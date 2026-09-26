@@ -24,8 +24,18 @@ export const providerEnvironment:Record<SettingsProvider,{key:string;url:string;
  huggingface:{key:'HF_TOKEN',url:'HUGGINGFACE_BASE_URL',defaultURL:'https://router.huggingface.co/v1'},
  gateway:{key:'OPEN_LOVABLE_GATEWAY_API_KEY',url:'OPEN_LOVABLE_GATEWAY_URL'},
 };
-function checkProvider(provider:string):asserts provider is SettingsProvider {
- if(!providerIDs.includes(provider as SettingsProvider)) throw new ProjectError('Unknown provider');
+/** Publishing/export integrations share the encrypted credential store but never appear as AI providers. */
+export const integrationIDs=['vercel','github','supabase'] as const;
+export type IntegrationID=typeof integrationIDs[number];
+export const integrationEnvironment:Record<IntegrationID,{key:string;url:string;defaultURL:string}>={
+ // Namespaced on purpose: a developer's generic GITHUB_TOKEN must not be picked up silently.
+ vercel:{key:'OPEN_LOVABLE_VERCEL_TOKEN',url:'OPEN_LOVABLE_VERCEL_API_URL',defaultURL:'https://api.vercel.com'},
+ github:{key:'OPEN_LOVABLE_GITHUB_TOKEN',url:'OPEN_LOVABLE_GITHUB_API_URL',defaultURL:'https://api.github.com'},
+ supabase:{key:'OPEN_LOVABLE_SUPABASE_ACCESS_TOKEN',url:'OPEN_LOVABLE_SUPABASE_API_URL',defaultURL:'https://api.supabase.com'},
+};
+function environmentFor(provider:SettingsProvider|IntegrationID){return (providerEnvironment as Record<string,{key:string;url:string;defaultURL?:string}>)[provider]??integrationEnvironment[provider as IntegrationID];}
+function checkProvider(provider:string):asserts provider is SettingsProvider|IntegrationID {
+ if(!providerIDs.includes(provider as SettingsProvider)&&!integrationIDs.includes(provider as IntegrationID)) throw new ProjectError('Unknown provider');
 }
 
 /** Read and authenticate a stored row without migrations, writes, or logging secret values. */
@@ -61,8 +71,8 @@ export class CredentialStore {
   this.store.transaction(()=>{
    const previous=this.read(owner,provider);
    if((previous?.version||0)!==expectedVersion)throw new ProjectError('Configuration version conflict. Reload before saving.',409);
-   const destination=baseURL||previous?.baseURL||providerEnvironment[provider].defaultURL;
-   const priorDestination=previous?.baseURL||providerEnvironment[provider].defaultURL;
+   const destination=baseURL||previous?.baseURL||environmentFor(provider).defaultURL;
+   const priorDestination=previous?.baseURL||environmentFor(provider).defaultURL;
    const enteredKey=input.apiKey?.trim();
    // A blank field preserves a secret only for the same canonical origin and base path.
    const audience=(value:string|undefined)=>value?validateProviderURL(value,true).href.replace(/\/+$/,''):'';
@@ -135,4 +145,13 @@ export function effectiveProvider(provider:SettingsProvider,scope?:ProviderScope
  if(process.env.OPEN_LOVABLE_DISABLE_SAVED_SETTINGS==='1')return {enabled:false,baseURL:mapping.defaultURL,source:'unconfigured'};
  const value=credentialStore().read(operatorID(),provider);
  return value?{...value,source:'saved'}:{enabled:false,baseURL:mapping.defaultURL,source:'unconfigured'};
+}
+
+/** Token for a publishing integration: an explicit deployment variable wins over the saved encrypted value. */
+export function integrationCredential(integration:IntegrationID,scope?:ProviderScope):{token?:string;source:'environment'|'saved'|'unconfigured';version:number} {
+ const mapping=integrationEnvironment[integration];
+ if(!scope&&process.env[mapping.key]?.trim())return {token:process.env[mapping.key]!.trim(),source:'environment',version:0};
+ if(!scope&&process.env.OPEN_LOVABLE_DISABLE_SAVED_SETTINGS==='1')return {source:'unconfigured',version:0};
+ const value=credentialStore().read(scope?scope.owner:operatorID(),integration);
+ return value?.apiKey&&value.enabled?{token:value.apiKey,source:'saved',version:value.version||0}:{source:value?'saved':'unconfigured',version:value?.version||0};
 }

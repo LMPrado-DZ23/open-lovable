@@ -4,9 +4,10 @@ import { streamText, type ModelMessage } from 'ai';
 import {ReferenceImageStore} from './images';
 import {VISUAL_GUIDANCE,PLAN_GUIDANCE} from './visual-guidance';
 import { getProviderForModel, noteModelFailure } from '@/lib/ai/provider-manager';
+import { readProjectBackend, supabaseGuidance } from '@/lib/backend/project-supabase';
 import { assertCompleteFileBlocks, normalizeProjectPath } from '@/lib/security/input-validation';
 import { redactSecretText, safeLogger } from '@/lib/security/secret-content';
-import { ProjectError, type ProjectSnapshot, type ProjectRun, type ProjectStore, validateSnapshot } from './store';
+import { ProjectError, PROJECT_INSTRUCTIONS_NAME, type ProjectSnapshot, type ProjectRun, type ProjectStore, validateSnapshot } from './store';
 import { compileProject, previewPackages } from './preview';
 import type {RunLimits} from '../budgets/run-limits';
 import {ToolRegistry} from '../agent/tools/registry';
@@ -51,7 +52,10 @@ export async function requestFrozenModel(run:ProjectRun,input:FrozenRunInput,sig
  const content:Extract<ModelMessage,{role:'user'}>['content']=images.length?[{type:'text',text:textInput},...images.map(image=>({type:'image' as const,image:new Uint8Array(Buffer.from(image.data,'base64')),mediaType:image.mime}))]:textInput;
  signal.throwIfAborted();hooks.assertLive();hooks.beforeModel();
  const maxOutputTokens=hooks.limits?.maxOutputTokens??(run.inputs.mode==='plan'?4000:12000);
- const result=streamText({model:model.model,system:(run.inputs.mode==='plan'?PLAN_GUIDANCE:system)+(images.length?'\n'+VISUAL_GUIDANCE:''),messages:[...input.history,{role:'user',content}],maxOutputTokens,maxRetries:0,abortSignal:signal,onError:({error})=>safeLogger.error('Project model stream failed',error)});
+ const instructions=input.references.find(reference=>reference.name===PROJECT_INSTRUCTIONS_NAME)?.content;
+ const backend=readProjectBackend(run.project_id);
+ const projectRules=(backend?supabaseGuidance(backend):'')+(instructions?'\n\nPROJECT INSTRUCTIONS FROM THE OWNER (follow them in every change unless the current request explicitly overrides them):\n'+instructions:'');
+ const result=streamText({model:model.model,system:(run.inputs.mode==='plan'?PLAN_GUIDANCE:system)+projectRules+(images.length?'\n'+VISUAL_GUIDANCE:''),messages:[...input.history,{role:'user',content}],maxOutputTokens,maxRetries:0,abortSignal:signal,onError:({error})=>safeLogger.error('Project model stream failed',error)});
  let text='',lastProgress=0;
  for await(const event of result.fullStream){
   if(event.type==='error'){noteModelFailure(run.model,event.error,hooks.scope);throw event.error;}
