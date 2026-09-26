@@ -5,6 +5,7 @@ import {useRouter} from 'next/navigation';
 import {appConfig} from '@/config/app.config';
 import AIModelSelect from '@/components/AIModelSelect';
 import OpenLovableLogo from '@/components/brand/OpenLovableLogo';
+import ThemeToggle from '@/components/ThemeToggle';
 import {useAccount} from '@/components/account/client';
 import {projectRequest} from '@/lib/projects/client';
 import {saveProjectDraft} from '@/lib/projects/draft';
@@ -120,6 +121,7 @@ export default function Home() {
         <Link href="/projects" className="rounded-md px-[12px] py-[8px] hover:bg-white/70">Projetos</Link>
         <Link href="/settings/ai" className="rounded-md px-[12px] py-[8px] hover:bg-white/70">Conexões de IA</Link>
         <Link href="/clone" className="rounded-md px-[12px] py-[8px] hover:bg-white/70">Importar um site</Link>
+        <ThemeToggle/>
       </nav>
     </header>
 

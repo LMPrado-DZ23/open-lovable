@@ -1,1 +1,11 @@
 @import "../styles/main.css";
+/* Dark theme for the builder. The palette is hand-tuned light, so the page is
+   inverted as a whole and real media (previews, images, video) is inverted
+   back to its true colors. */
+html.dark { filter: invert(0.92) hue-rotate(180deg); background: #fff; }
+html.dark iframe,
+html.dark img,
+html.dark video,
+html.dark picture,
+html.dark canvas,
+html.dark [data-keep-colors] { filter: invert(1) hue-rotate(180deg); }

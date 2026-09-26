@@ -2,6 +2,8 @@
 import AccountBar from '@/components/account/AccountBar';
 import {scopedProjectURL} from '@/lib/projects/scope-url';
 import ProviderSettingsForm from '@/components/ProviderSettingsForm';
+import IntegrationsForm from '@/components/IntegrationsForm';
+import ThemeToggle from '@/components/ThemeToggle';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { appConfig } from '@/config/app.config';
@@ -57,7 +59,7 @@ export default function AISettingsPage() {
     <div className="mx-auto max-w-[1100px] px-[20px] py-[32px] md:px-[32px]">
       <header className="mb-[32px] flex flex-wrap items-center justify-between gap-[16px] border-b border-[#deded9] pb-[20px]">
         <Link href="/" className="text-[15px] font-semibold">Open Lovable <span className="ml-[12px] font-normal text-[#686862]">Voltar ao construtor</span></Link>
-        <button type="button" onClick={()=>void reload()} disabled={loading || busy} className="rounded-md border border-[#d2d2cc] bg-white px-[16px] py-[10px] text-[13px] disabled:opacity-50">{loading ? 'Consultando...' : 'Atualizar catálogo'}</button>
+        <div className="flex items-center gap-[8px]"><ThemeToggle/><button type="button" onClick={()=>void reload()} disabled={loading || busy} className="rounded-md border border-[#d2d2cc] bg-white px-[16px] py-[10px] text-[13px] disabled:opacity-50">{loading ? 'Consultando...' : 'Atualizar catálogo'}</button></div>
       </header>
       <div className="mb-[28px] max-w-[740px]">
         <p className="mb-[8px] text-[12px] font-semibold uppercase tracking-[0.12em] text-[#7b4c28]">Configurações / Inteligência artificial</p>
@@ -66,6 +68,7 @@ export default function AISettingsPage() {
       </div>
       {error && <p role="alert" className="mb-[20px] rounded-md border border-red-200 bg-red-50 p-[16px] text-[14px]">{error}</p>}
       <ProviderSettingsForm onSaved={()=>void reload()}/>
+      {catalog?.profile!=='supabase'&&<IntegrationsForm/>}
       <div className="grid items-start gap-[24px] md:grid-cols-2">
         <section className="rounded-lg border border-[#deded9] bg-white p-[24px]" aria-labelledby="gateway-heading">
           <h2 id="gateway-heading" className="mb-[14px] text-[19px] font-semibold">IA local (Ollama / LM Studio)</h2>
