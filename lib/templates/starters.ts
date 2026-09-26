@@ -2,7 +2,7 @@
  * Ready-to-edit starter projects for the home gallery ("Comece com um modelo").
  * Each one compiles in the isolated preview: React + Tailwind + lucide-react only.
  */
-export interface StarterTemplate {id: string; name: string; description: string; files: Record<string, string>}
+export interface StarterTemplate {id: string; name: string; description: string; category: string; files: Record<string, string>}
 
 const landing = `import { Check, Sparkles, Zap, Shield } from 'lucide-react';
 
@@ -242,11 +242,11 @@ const main = "import React from 'react';\nimport { createRoot } from 'react-dom/
 const project = (app: string) => ({'src/App.jsx': app, 'src/main.jsx': main, 'src/index.css': css});
 
 export const STARTER_TEMPLATES: StarterTemplate[] = [
-  {id: 'landing-saas', name: 'Landing page SaaS', description: 'Página de produto com recursos, planos e chamada para ação.', files: project(landing)},
-  {id: 'loja', name: 'Loja virtual', description: 'Vitrine de produtos com carrinho funcionando.', files: project(store)},
-  {id: 'dashboard', name: 'Painel administrativo', description: 'Indicadores, gráfico de vendas e tabela de pedidos.', files: project(dashboard)},
-  {id: 'portfolio', name: 'Portfólio', description: 'Apresentação pessoal com trabalhos em destaque.', files: project(portfolio)},
-  {id: 'kanban', name: 'Quadro de tarefas', description: 'Kanban da equipe: criar, mover e excluir tarefas.', files: project(kanban)},
+  {id: 'landing-saas', name: 'Landing page SaaS', description: 'Página de produto com recursos, planos e chamada para ação.', category: 'Landing pages', files: project(landing)},
+  {id: 'loja', name: 'Loja virtual', description: 'Vitrine de produtos com carrinho funcionando.', category: 'Lojas', files: project(store)},
+  {id: 'dashboard', name: 'Painel administrativo', description: 'Indicadores, gráfico de vendas e tabela de pedidos.', category: 'Painéis e SaaS', files: project(dashboard)},
+  {id: 'portfolio', name: 'Portfólio', description: 'Apresentação pessoal com trabalhos em destaque.', category: 'Portfólios', files: project(portfolio)},
+  {id: 'kanban', name: 'Quadro de tarefas', description: 'Kanban da equipe: criar, mover e excluir tarefas.', category: 'Painéis e SaaS', files: project(kanban)},
 ];
 
 export function starterTemplate(id: string): StarterTemplate | undefined {

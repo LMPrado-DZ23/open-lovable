@@ -51,6 +51,12 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
   useEffect(() => { setFavorites(favoriteProjects()); }, []);
+  const [templates, setTemplates] = useState<Array<{id: string; name: string; description: string; private: boolean}>>(STARTER_TEMPLATES.map(template => ({...template, private: false})));
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch('/api/projects?action=templates', {cache: 'no-store', signal: controller.signal}).then(async response => { const data = await response.json(); if (response.ok && Array.isArray(data.templates) && !controller.signal.aborted) setTemplates(data.templates); }).catch(() => {});
+    return () => controller.abort();
+  }, []);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -226,10 +232,10 @@ export default function Home() {
           <Link href={tab === 'templates' ? '/templates' : '/projects'} className="text-[14px] text-white/85 hover:text-white">Ver tudo →</Link>
         </div>
         {tab === 'templates'
-          ? <ul className="mt-[16px] grid gap-[12px] sm:grid-cols-2 lg:grid-cols-5">{STARTER_TEMPLATES.map(template => <li key={template.id}>
+          ? <ul className="mt-[16px] grid gap-[12px] sm:grid-cols-2 lg:grid-cols-5">{templates.slice(0, 10).map(template => <li key={template.id}>
             <button type="button" disabled={busy || !canCreate} onClick={() => void startFromTemplate(template.id)} className="block h-full w-full rounded-[14px] border border-white/10 bg-white/5 p-[14px] text-left text-white hover:bg-white/10 disabled:opacity-50">
               <span className="block text-[15px] font-medium">{template.name}</span>
-              <span className="mt-[6px] block text-[12px] leading-relaxed text-white/60">{template.description}</span>
+              <span className="mt-[6px] block text-[12px] leading-relaxed text-white/60">{template.private ? 'Privado · ' : ''}{template.description}</span>
             </button></li>)}</ul>
           : !projectsLoaded ? <p role="status" className="mt-[16px] text-[14px] text-white/60">Carregando…</p>
           : listed.length === 0 ? <p className="mt-[16px] text-[14px] text-white/60">{tab === 'favorites' ? 'Nenhum favorito ainda. Use a estrela nos projetos.' : search ? 'Nenhum projeto com esse nome.' : 'Nenhum projeto ainda. Descreva uma ideia acima para começar.'}</p>
