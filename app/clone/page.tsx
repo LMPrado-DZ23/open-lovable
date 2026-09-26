@@ -27,7 +27,6 @@ import HeroInputSubmitButton from "@/components/app/(home)/sections/hero-input/B
 import OpenLovableLogo from "@/components/brand/OpenLovableLogo";
 import HeaderWrapper from "@/components/shared/header/Wrapper/Wrapper";
 import HeaderDropdownWrapper from "@/components/shared/header/Dropdown/Wrapper/Wrapper";
-import GithubIcon from "@/components/shared/header/Github/_svg/GithubIcon";
 import ButtonUI from "@/components/ui/shadcn/button"
 
 interface SearchResult {
@@ -233,16 +232,11 @@ export default function HomePage() {
                 <Link href="/" aria-label="Open Lovable, início"><OpenLovableLogo size={24} /></Link>
               </div>
               <div className="flex gap-8">
-                <a
-                  className="contents"
-                  href="https://github.com/mendableai/open-lovable"
-                  target="_blank"
-                >
+                <Link className="contents" href="/">
                   <ButtonUI variant="tertiary">
-                    <GithubIcon />
-                    Use this Template
+                    Voltar ao início
                   </ButtonUI>
-                </a>
+                </Link>
               </div>
             </div>
           </HeaderWrapper>

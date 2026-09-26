@@ -102,3 +102,41 @@ test('runs accept models discovered live from a provider, not only the static li
   assert.match(modelBindingDigest('openrouter/anthropic/claude-sonnet-4.5'), /^[0-9a-f]{64}$/);
   assert.throws(() => modelBindingDigest('unknownvendor/model'), /Unknown configured model/);
 });
+
+test('a model the provider refuses as retired is remembered for that key and hidden from the catalog', async () => {
+  const { createServer } = await import('node:http');
+  const { clearDiscoveryCache, isRetiredModelError, rememberUnavailableModel, resetUnavailableModels, unavailableModels } = await import('../lib/ai/provider-discovery');
+  const { loadModelCatalog } = await import('../lib/ai/provider-catalog');
+  const server = createServer((_request, response) => {
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify({models: [
+      {name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent']},
+      {name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent']},
+    ]}));
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = (server.address() as { port: number }).port;
+  const saved = { ...process.env };
+  try {
+    clearDiscoveryCache();
+    resetUnavailableModels();
+    Object.assign(process.env, { GEMINI_API_KEY: 'test-only-retired-key', GEMINI_BASE_URL: `http://127.0.0.1:${port}/v1beta` });
+    delete process.env.AI_GATEWAY_API_KEY;
+    const retired = new APICallError({message: 'This model models/gemini-2.5-flash is no longer available to new users.', url: 'https://example.test', requestBodyValues: {}, statusCode: 404});
+    assert.equal(isRetiredModelError(retired), true);
+    assert.equal(isRetiredModelError(new APICallError({message: 'quota', url: 'https://example.test', requestBodyValues: {}, statusCode: 429})), false);
+    rememberUnavailableModel('google', 'test-only-retired-key', 'gemini-2.5-flash');
+    assert.ok(unavailableModels('google', 'test-only-retired-key').has('gemini-2.5-flash'));
+    assert.equal(unavailableModels('google', 'another-key').size, 0, 'memory is per credential');
+    const google = (await loadModelCatalog()).models.filter(model => model.provider === 'google').map(model => model.id);
+    assert.deepEqual(google, ['google/gemini-3.8-flash']);
+    resetUnavailableModels();
+    assert.ok(unavailableModels('google', 'test-only-retired-key').has('gemini-2.5-flash'), 'survives a restart via the private data file');
+  } finally {
+    for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key];
+    Object.assign(process.env, saved);
+    clearDiscoveryCache();
+    resetUnavailableModels();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
