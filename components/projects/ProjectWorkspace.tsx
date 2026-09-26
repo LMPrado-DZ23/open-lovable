@@ -16,13 +16,14 @@ import ThemeToggle from '@/components/ThemeToggle';
 import OpenLovableLogo from '@/components/brand/OpenLovableLogo';
 import SecurityScan from './SecurityScan';
 import SupabasePanel from './SupabasePanel';
+import ConnectorsPanel from './ConnectorsPanel';
 import ProjectComments from './ProjectComments';
 import {enqueueRun,loadRuns} from '@/lib/runs/client';
 import {useProjectImages} from '@/hooks/useProjectImages';
 import {takeProjectDraft} from '@/lib/projects/draft';
 import {autoApplyEnabled,consentRemembered,rememberConsent,setAutoApply} from '@/lib/projects/preferences';
 
-const tabs=['Prévia','Código','Alterações','Histórico','Referências','Imagens','Plano','Execu\u00e7\u00f5es','Segurança','Supabase','Comentários'] as const;
+const tabs=['Prévia','Código','Alterações','Histórico','Referências','Imagens','Plano','Execu\u00e7\u00f5es','Segurança','Supabase','Conectores','Comentários'] as const;
 type Tab=typeof tabs[number];
 const control='rounded-md border border-[#e3ded8] bg-white px-[10px] py-[7px] text-[12px] font-medium hover:bg-[#f7f4f1] disabled:opacity-40';
 const phases:Record<string,string>={queued:'Na fila…',planning:'Lendo o projeto e planejando…',generating:'Escrevendo o código…',compiling:'Compilando e verificando…',repairing:'Corrigindo um problema encontrado…',approval:'Pronto para aplicar'};
@@ -203,6 +204,7 @@ export default function ProjectWorkspace({id}:{id:string}){
       {tab==='Histórico'&&<div className="min-h-[430px] p-[22px]"><h2 className="mb-[8px] text-[17px] font-semibold">Histórico de revisões</h2><p className="mb-[24px] text-[13px] text-[#727266]">Restaurar cria uma nova revisão; as versões anteriores não são apagadas.</p><ol className="divide-y divide-[#e3e3d9]">{data.revisions.map(revision=><li key={revision.id} className="flex flex-wrap items-center justify-between gap-[14px] py-[16px]"><div className="min-w-0"><h3 className="text-[13px] font-medium">Revisão {revision.version} · {revision.label}</h3><p className="mt-[6px] text-[11px] text-[#77776b]">{new Date(revision.created_at).toLocaleString('pt-BR')}</p></div>{revision.version!==project.version&&<button type="button" disabled={locked} onClick={()=>{if(window.confirm('Restaurar esta versão como uma nova revisão?'))void mutate({action:'restore',id,version:project.version,revisionID:revision.id},'Versão restaurada sem apagar o histórico.');}} className={control}>Restaurar revisão {revision.version}</button>}</li>)}</ol></div>}
       {tab==='Segurança'&&<SecurityScan projectId={id} version={project.version} onFix={readOnly?undefined:text=>{setTab('Prévia');sendOrPrepare(text,'Pedido de correção de segurança preparado no chat. Autorize e envie.');}}/>}
       {tab==='Supabase'&&<SupabasePanel projectId={id} version={project.version} locked={locked} onSaved={()=>reload()} onAsk={readOnly?undefined:text=>{setTab('Prévia');sendOrPrepare(text,'Pedido preparado no chat. Autorize e envie.');}}/>}
+      {tab==='Conectores'&&<ConnectorsPanel projectId={id} version={project.version} locked={locked} onSaved={()=>reload()} onAsk={readOnly?undefined:text=>{setTab('Prévia');sendOrPrepare(text,'Pedido preparado no chat. Autorize e envie.');}}/>}
       {tab==='Comentários'&&<ProjectComments projectId={id} files={Object.keys(project.snapshot.files).sort()} readOnly={readOnly}/>}
       {tab==='Imagens'&&<ProjectImages id={id} images={images} selected={selectedImages} onSelection={selectImages} reload={reloadImages} locked={locked} loading={imagesLoading} loadError={imagesError}/>}
       {tab==='Execu\u00e7\u00f5es'&&<RunJournal projectId={id} refreshKey={data.runs[0]?.id+':'+data.runs[0]?.updated_at}/>}

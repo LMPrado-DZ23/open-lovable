@@ -15,8 +15,14 @@ const main: Item[] = [
 const library: Item[] = [
   {href: '/projects', label: 'Projetos', icon: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'},
   {href: '/templates', label: 'Modelos', icon: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z'},
-  {href: '/settings/ai', label: 'Conexões de IA', icon: 'M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'},
   {href: '/clone', label: 'Importar um site', icon: 'M12 3v12M7 10l5 5 5-5M4 19h16'},
+];
+const workspaceItems: Item[] = [
+  {href: '/settings/ai', label: 'Conexões de IA', icon: 'M12 3v3M12 18v3M3 12h3M18 12h3M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z'},
+  {href: '/settings/connectors', label: 'Chaves de conectores', icon: 'M15 7a4 4 0 1 1-3.9 5H8v3H5v-3H3v-2h8.1A4 4 0 0 1 15 7z'},
+  {href: '/settings/knowledge', label: 'Conhecimento', icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5'},
+  {href: '/settings/usage', label: 'Uso', icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2'},
+  {href: '/settings/general', label: 'Configurações', icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'},
 ];
 
 function Icon({d}: {d: string}) {
@@ -48,7 +54,7 @@ export default function AppShell({children}: {children: React.ReactNode}) {
   const link = (item: Item) => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} aria-current={active(item.href) && !item.href.includes('?') ? 'page' : undefined}
     className={`flex items-center gap-[10px] rounded-[10px] px-[10px] py-[8px] text-[14px] ${active(item.href) && !item.href.includes('?') ? 'bg-white/10 font-medium text-white' : 'text-[#c9c7d1] hover:bg-white/5 hover:text-white'}`}><Icon d={item.icon}/>{item.label}</Link>;
 
-  const nav = <nav aria-label="Menu principal" className="flex h-full flex-col gap-[2px] p-[12px]">
+  const nav = <nav aria-label="Menu principal" className="flex h-full flex-col gap-[2px] overflow-y-auto p-[12px]">
     <Link href="/" className="mb-[10px] px-[6px] py-[6px]" aria-label="Open Lovable, início"><OpenLovableLogo size={26} withWordmark={false}/></Link>
     <Link href={account?.mode === 'supabase' ? '/workspaces' : '/projects'} className="mb-[10px] flex items-center gap-[10px] rounded-[10px] border border-white/10 bg-white/5 px-[10px] py-[8px] text-[14px] text-white hover:bg-white/10">
       <span aria-hidden="true" className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-gradient-to-br from-[#ff9a3c] to-[#7a3cf0] text-[11px] font-bold">{workspaceName.slice(0, 1).toUpperCase()}</span>
@@ -57,11 +63,17 @@ export default function AppShell({children}: {children: React.ReactNode}) {
     {main.map(link)}
     <p className="mb-[4px] mt-[16px] px-[10px] text-[11px] font-semibold uppercase tracking-[0.12em] text-[#77757f]">Biblioteca</p>
     {library.map(link)}
+    <p className="mb-[4px] mt-[16px] px-[10px] text-[11px] font-semibold uppercase tracking-[0.12em] text-[#77757f]">Workspace</p>
+    {workspaceItems.map(link)}
     <div ref={menuRef} className="relative mt-auto">
       {menu && <div role="menu" aria-label="Menu da conta" className="absolute bottom-[52px] left-0 z-50 w-[248px] overflow-hidden rounded-[14px] border border-white/10 bg-[#1d1d22] py-[6px] text-[14px] text-[#e7e5ee] shadow-[0_16px_40px_rgba(0,0,0,0.45)]">
         <p className="border-b border-white/10 px-[14px] pb-[10px] pt-[6px] font-semibold">{userName}</p>
-        <Link role="menuitem" href="/settings/ai" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Configurações e conexões</Link>
-        <Link role="menuitem" href="/integrations" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Conectores</Link>
+        <Link role="menuitem" href="/settings/general" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Configurações</Link>
+        <Link role="menuitem" href="/settings/ai" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Conexões de IA</Link>
+        <Link role="menuitem" href="/settings/connectors" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Chaves de conectores</Link>
+        <Link role="menuitem" href="/settings/integrations" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Integrações</Link>
+        <Link role="menuitem" href="/settings/usage" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Uso</Link>
+        <Link role="menuitem" href="/settings/data" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Dados e backup</Link>
         <div className="flex items-center justify-between px-[14px] py-[6px]"><span>Aparência</span><ThemeToggle/></div>
         <a role="menuitem" href="https://github.com/LMPrado-DZ23/open-lovable#readme" target="_blank" rel="noreferrer" className="block border-t border-white/10 px-[14px] py-[8px] hover:bg-white/5">Documentação</a>
         <Link role="menuitem" href="/" onClick={() => setMenu(false)} className="block px-[14px] py-[8px] hover:bg-white/5">Início</Link>
