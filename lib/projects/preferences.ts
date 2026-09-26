@@ -28,3 +28,15 @@ export function consentRemembered(projectID: string): boolean {
 export function rememberConsent(projectID: string, remember: boolean): void {
   write(consentKey(projectID), remember ? 'yes' : null);
 }
+
+const FAVORITES = 'open-lovable:favorites';
+/** Starred projects (Lovable's "Adicionar aos favoritos"), kept per browser. */
+export function favoriteProjects(): string[] {
+  try { const value = JSON.parse(read(FAVORITES) || '[]'); return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 500) : []; } catch { return []; }
+}
+export function toggleFavorite(projectID: string): string[] {
+  const current = favoriteProjects();
+  const next = current.includes(projectID) ? current.filter(id => id !== projectID) : [projectID, ...current];
+  write(FAVORITES, JSON.stringify(next));
+  return next;
+}
